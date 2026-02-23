@@ -1,4 +1,4 @@
-# ProjetoIntegradorIII_Time3
+# ES-PI3-2026-T2-G03
 Repositório dedicado ao Projeto Integrador III do grupo 3
 
 Integrantes do grupo:
