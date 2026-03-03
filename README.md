@@ -10,11 +10,11 @@ A plataforma permite aos usuários visualizar startups, consultar documentos ins
 
 ## Integrantes do Grupo
 
-- Leonardo Miranda Nunciaroni (RA: [Inserir RA])
-- Mariana Silva Ferrarez (RA: [Inserir RA])
-- Matheus Azevedo Teixeira (RA: [Inserir RA])
-- Miguel Fernandes Costacurta (RA: [Inserir RA])
-- Pedro Henrique Contardi Soler (RA: [Inserir RA])
+- Leonardo Miranda Nunciaroni 
+- Mariana Silva Ferrarez 
+- Matheus Azevedo Teixeira 
+- Miguel Fernandes Costacurta 
+- Pedro Henrique Contardi Soler 
 
 ## Tecnologias Utilizadas
 
