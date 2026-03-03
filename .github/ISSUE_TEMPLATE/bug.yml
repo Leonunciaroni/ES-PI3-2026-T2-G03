@@ -1,7 +1,7 @@
 name: Reportar Bug
 description: Registrar um erro encontrado no sistema
 title: "[BUG] - "
-labels: ["bug"]
+labels: []
 assignees: []
 
 body:
