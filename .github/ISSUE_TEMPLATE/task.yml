@@ -1,7 +1,7 @@
 name: Nova Issue
 description: Criar uma nova tarefa
 title: "[TASK] - "
-labels: []
+labels: ["task"]
 assignees: []
 
 body:
@@ -17,6 +17,14 @@ body:
         - improvement
     validations:
       required: true
+
+  - type: assignees
+  id: responsavel
+  attributes:
+    label: "Responsável"
+    description: "Selecione quem será responsável pela issue"
+  validations:
+    required: true
 
   - type: markdown
     attributes:
