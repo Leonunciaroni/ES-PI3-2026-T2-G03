@@ -1,7 +1,7 @@
 name: Sugestão de Melhoria
 description: Propor melhoria ou evolução no sistema
 title: "[IMPROVEMENT] - "
-labels: []
+labels: ["improvement"]
 assignees: []
 
 body:

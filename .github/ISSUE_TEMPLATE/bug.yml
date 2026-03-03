@@ -1,82 +1,50 @@
 name: Reportar Bug
 description: Registrar um erro encontrado no sistema
 title: "[BUG] - "
-labels: []
+labels: ["bug"]
 assignees: []
 
 body:
 
-  - type: dropdown
-    id: categoria
-    attributes:
-      label: Categoria da Issue
-      description: Selecione obrigatoriamente uma categoria
-      options:
-        - task
-        - bug
-        - improvement
-    validations:
-      required: true
-
-  - type: markdown
-    attributes:
-      value: "## 📉 Descrição do Problema"
-
   - type: textarea
     id: descricao_problema
     attributes:
-      label: Descrição do Problema
+      label: 📉 Descrição do Problema
       placeholder: Explique claramente o erro encontrado
     validations:
       required: true
 
-  - type: markdown
-    attributes:
-      value: "## 🔁 Passos para Reproduzir"
-
   - type: textarea
     id: passos
     attributes:
-      label: Passos para Reproduzir
+      label: 🔁 Passos para Reproduzir
       placeholder: |
-        1. 
-        2. 
+        1.
+        2.
         3.
     validations:
       required: true
 
-  - type: markdown
-    attributes:
-      value: "## ✅ Comportamento Esperado"
-
   - type: textarea
     id: comportamento_esperado
     attributes:
-      label: Comportamento Esperado
+      label: ✅ Comportamento Esperado
       placeholder: Descreva o que deveria acontecer
     validations:
       required: true
 
-  - type: markdown
-    attributes:
-      value: "## ❌ Comportamento Atual"
-
   - type: textarea
     id: comportamento_atual
     attributes:
-      label: Comportamento Atual
+      label: ❌ Comportamento Atual
       placeholder: Descreva o que está acontecendo
     validations:
       required: true
 
-  - type: markdown
-    attributes:
-      value: "## 💻 Ambiente"
-
   - type: input
     id: sistema_operacional
     attributes:
-      label: Sistema Operacional
+      label: 💻 Sistema Operacional
       placeholder: Ex: Windows 11
 
   - type: input
@@ -85,14 +53,8 @@ body:
       label: Navegador
       placeholder: Ex: Chrome 121
 
-  - type: markdown
-    attributes:
-      value: "## 📎 Evidências"
-
   - type: textarea
     id: evidencias
     attributes:
-      label: Evidências (prints, logs, vídeos)
+      label: 📎 Evidências
       placeholder: Cole links ou descreva anexos
-    validations:
-      required: false

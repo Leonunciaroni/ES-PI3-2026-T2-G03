@@ -1,7 +1,7 @@
 name: Nova Issue
 description: Criar uma nova tarefa
 title: "[TASK] - "
-labels: []
+labels: ["task"]
 assignees: []
 
 body:
