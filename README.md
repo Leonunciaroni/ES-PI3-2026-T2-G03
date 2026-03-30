@@ -25,3 +25,24 @@ Este projeto atende aos requisitos arquiteturais obrigatórios da disciplina:
 * **Banco de Dados:** Firebase Firestore (NoSQL)
 * **Controle de Versão:** Git e GitHub
 
+## Fase atual do projeto
+
+**Última atualização:** 30/03/2026
+
+- **Wireframe:** desenvolvido com base nos conceitos aprendidos nas aulas de PIEU, com foco em melhorar a usabilidade e a experiência do usuário.  
+- **Design:** primeira versão criada no Figma, utilizando uma paleta de cores em tons de roxo alinhada com a ideia inicial do projeto.  
+- **Arquivos:** o wireframe e outros materiais de apoio estão disponíveis na branch **`Arquivos-Geral`**.
+
+### Conteúdo da branch `Arquivos-Geral`
+
+- **MapaMental-MesclaInvest.jpg** — mapa mental do projeto MesclaInvest.  
+- **five-startups.xlsx** — planilha com cinco startups utilizadas como referência para o aplicativo.  
+- **wireframeV1.png** — primeira versão do wireframe do aplicativo.
+
+### Links para melhor entendimento do projeto
+
+- **Mapa mental do projeto:**  
+  https://miro.com/app/board/uXjVGxJPQ9s=/?share_link_id=395927260522  
+
+- **Design no Figma:**  
+  https://www.figma.com/design/87md8sUiyxiDjXTXjzfBCK/Untitled?node-id=0-1&t=XTSFoILIAGyVh2PE-1
