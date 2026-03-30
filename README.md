@@ -17,3 +17,6 @@ Aqui é possível encontrar **todos os arquivos compartilhados pelo Grupo 3** re
 
 # Link do mapa mental:
 https://miro.com/app/board/uXjVGxJPQ9s=/?share_link_id=395927260522
+
+# Link do Figma:
+https://www.figma.com/design/87md8sUiyxiDjXTXjzfBCK/Untitled?node-id=0-1&t=XTSFoILIAGyVh2PE-1
