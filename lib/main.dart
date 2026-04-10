@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'screens/create_account_screen.dart';
 import 'theme/app_colors.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const CreateAccountScreen(),
+      home: const LoginScreen(),
     );
   }
 }
