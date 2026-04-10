@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../screens/create_account_screen.dart';
 
 import '../theme/app_colors.dart';
 
@@ -273,8 +274,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                           alignment: PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
-                                            onTap: () => _showSnack(
-                                              'Protótipo: tela de cadastro (nome, CPF, telefone…) será integrada depois.',
+                                            onTap: () => Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const CreateAccountScreen(),
+                                              ),
                                             ),
                                             child: Text(
                                               'Criar Conta',
