@@ -1,6 +1,8 @@
 //Miguel Fernandes Costacurta - 25003110
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import 'login_screen.dart';
 
 import '../theme/app_colors.dart';
 
@@ -172,7 +174,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel(context, 'CPF / TAX ID'),
+                  _buildLabel(context, 'CPF'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _cpfController,
@@ -271,7 +273,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       backgroundColor: colorScheme.primary,
                     ),
                     child: const Text(
-                      'Criar Conta  ->',
+                      'Criar Conta',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -293,6 +295,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               color: colorScheme.primary,
                               fontWeight: FontWeight.bold,
                             ),
+                            recognizer: TapGestureRecognizer()
+                              ..onTap = () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LoginScreen(),
+                                  ),
+                                );
+                              },
                           ),
                         ],
                       ),
