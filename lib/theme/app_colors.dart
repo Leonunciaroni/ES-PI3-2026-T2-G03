@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 ///
 /// Mantemos constantes nomeadas para a equipe alterar a identidade visual
 abstract final class AppColors {
-  /// Semente para [ColorScheme.fromSeed] — roxo vibrante alinhado ao mockup.
-  static const Color seedPurple = Color(0xFF7C3AED);
+  /// Cor principal da marca (Figma) e semente do tema.
+  static const Color seedPurple = Color(0xFF6234EA);
 
   /// Tom muito claro no topo do gradiente (mistura de lilás com neutro).
   static const Color gradientTop = Color(0xFFF3F0FA);

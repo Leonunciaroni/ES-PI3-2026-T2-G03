@@ -12,9 +12,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.seedPurple,
       brightness: Brightness.light,
+    ).copyWith(
+      primary: AppColors.seedPurple,
+      onPrimary: const Color(0xFFFFFFFF),
     );
 
     return MaterialApp(
