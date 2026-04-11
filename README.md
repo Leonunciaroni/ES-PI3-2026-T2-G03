@@ -10,7 +10,7 @@ A plataforma permite aos usuários visualizar startups, consultar documentos ins
 
 ## Integrantes do Grupo
 
-- Leonardo Miranda Nunciaroni - 2500726
+- Leonardo Miranda Nunciaroni - 25002726
 - Mariana Silva Ferrarez 
 - Matheus Azevedo Teixeira 
 - Miguel Fernandes Costacurta - 25003110
