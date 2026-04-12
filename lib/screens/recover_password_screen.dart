@@ -3,38 +3,35 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../screens/create_account_screen.dart';
-import '../screens/recover_password_screen.dart';
 
 import '../theme/app_colors.dart';
 
-/// Tela de login apenas visual (sem backend).
+/// Tela de recuperação de senha (protótipo visual).
 ///
-/// Usamos [StatefulWidget] porque a visibilidade da senha muda ao tocar no ícone
-/// do olho — isso exige [setState] para reconstruir o [TextField] com
-/// [obscureText] diferente.
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+/// No documento do PI, o fluxo real envia instruções por e-mail; aqui só validamos
+/// o texto e mostramos [SnackBar], como nas outras telas até existir API no backend.
+///
+/// Usamos [StatefulWidget] porque o [TextEditingController] do e-mail precisa de
+/// [dispose] para não ficar preso na memória após sair da tela.
+class RecoverPasswordScreen extends StatefulWidget {
+  const RecoverPasswordScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RecoverPasswordScreen> createState() => _RecoverPasswordScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
-  /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
-  bool _obscurePassword = true;
+  /// Caminho registado no [pubspec.yaml] em `flutter: assets:`.
+  static const _logoAsset = 'assets/images/mescla_logo.png';
 
-  static const _footerTrust =
-      'PROJETO INTEGRADOR III - GRUPO 3';
+  static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
   @override
   void dispose() {
-    // Libertação de recursos: os controllers mantêm listeners; sem dispose há fugas de memória.
+    // Liberta o controller; sem isto o Flutter mantém listeners desnecessários.
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -44,26 +41,22 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  /// Validação leve só para a demo: evita “Entrar” vazio sem carregar servidor.
+  /// Verificação simples só para o protótipo (o servidor validaria de forma completa).
   bool _isEmailPlausible(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return false;
-    // Padrão simples: tem @ e domínio mínimo; o backend real validaria com mais rigor.
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
-  void _onLogin() {
+  void _onSendInstructions() {
     final email = _emailController.text;
-    final password = _passwordController.text;
     if (!_isEmailPlausible(email)) {
       _showSnack('Informe um e-mail válido.');
       return;
     }
-    if (password.isEmpty) {
-      _showSnack('Informe a senha.');
-      return;
-    }
-    _showSnack('Protótipo: login aceito (sem API). Próximo passo: backend.');
+    _showSnack(
+      'Protótipo: instruções seriam enviadas para $email quando o backend estiver pronto.',
+    );
   }
 
   OutlineInputBorder _stadiumBorder(Color color) {
@@ -84,7 +77,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      // Barras de estado claras combinam com o fundo em gradiente claro.
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
       ),
@@ -103,35 +95,63 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           child: SafeArea(
-            // SafeArea evita que o conteúdo fique sob o entalhe ou barra de estado.
             child: LayoutBuilder(
               builder: (context, constraints) {
+                // Evita BoxConstraints com altura mínima negativa quando maxHeight ainda é 0.
+                final minScrollContentHeight = constraints.maxHeight.isFinite
+                    ? (constraints.maxHeight - 24).clamp(0.0, double.infinity)
+                    : 0.0;
                 return SingleChildScrollView(
-                  // Em ecrãs pequenos o teclado empurra o conteúdo; scroll evita overflow.
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
+                    constraints: BoxConstraints(minHeight: minScrollContentHeight),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 12),
+                        // Volta para a tela anterior (normalmente o login).
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                            color: AppColors.textSecondary,
+                            tooltip: 'Voltar',
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Logo da marca, centrado no topo conforme identidade visual.
+                        Center(
+                          child: Image.asset(
+                            _logoAsset,
+                            height: 88,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(
+                                Icons.show_chart_rounded,
+                                size: 72,
+                                color: colorScheme.primary,
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         Text(
-                          'Mescla Invest',
+                          'Recuperar senha',
                           textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineMedium?.copyWith(
+                          style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: theme.colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Invista nas melhores startups da PUC-Campinas.',
+                          'Enviaremos instruções para o e-mail cadastrado na sua conta.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 28),
                         Material(
                           elevation: 6,
                           shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -143,14 +163,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  'Bem-vindo de volta',
+                                  'Informe seu e-mail',
                                   style: theme.textTheme.titleLarge?.copyWith(
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Acesse sua conta para gerenciar seus investimentos.',
+                                  'Use o mesmo endereço que você cadastrou no Mescla Invest.',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
@@ -161,7 +181,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 TextField(
                                   controller: _emailController,
                                   keyboardType: TextInputType.emailAddress,
-                                  textInputAction: TextInputAction.next,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) => _onSendInstructions(),
                                   decoration: InputDecoration(
                                     hintText: 'exemplo@email.com',
                                     prefixIcon: Icon(
@@ -179,78 +200,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     border: _stadiumBorder(AppColors.fieldBorder),
                                   ),
                                 ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: Text('SENHA', style: labelStyle),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const RecoverPasswordScreen(),
-                                        ),
-                                      ),
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: Text(
-                                        'Esqueci minha senha',
-                                        style: theme.textTheme.labelLarge?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                TextField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) => _onLogin(),
-                                  decoration: InputDecoration(
-                                    hintText: '••••••••',
-                                    prefixIcon: Icon(
-                                      Icons.lock_outline,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                    suffixIcon: IconButton(
-                                      tooltip: _obscurePassword
-                                          ? 'Mostrar senha'
-                                          : 'Ocultar senha',
-                                      onPressed: () {
-                                        setState(() {
-                                          _obscurePassword = !_obscurePassword;
-                                        });
-                                      },
-                                      icon: Icon(
-                                        _obscurePassword
-                                            ? Icons.visibility_outlined
-                                            : Icons.visibility_off_outlined,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 16,
-                                    ),
-                                    enabledBorder: _stadiumBorder(AppColors.fieldBorder),
-                                    focusedBorder: _stadiumBorder(colorScheme.primary),
-                                    border: _stadiumBorder(AppColors.fieldBorder),
-                                  ),
-                                ),
                                 const SizedBox(height: 28),
                                 FilledButton(
-                                  onPressed: _onLogin,
+                                  onPressed: _onSendInstructions,
                                   style: FilledButton.styleFrom(
                                     elevation: 4,
                                     shadowColor: AppColors.primaryShadow(colorScheme),
@@ -259,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     backgroundColor: colorScheme.primary,
                                   ),
                                   child: const Text(
-                                    'Entrar',
+                                    'Enviar instruções',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
@@ -274,19 +226,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                         color: AppColors.textSecondary,
                                       ),
                                       children: [
-                                        const TextSpan(text: 'Não possui uma conta? '),
+                                        const TextSpan(text: 'Lembrou da senha? '),
                                         WidgetSpan(
                                           alignment: PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
-                                            onTap: () => Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const CreateAccountScreen(),
-                                              ),
-                                            ),
+                                            onTap: () => Navigator.of(context).pop(),
                                             child: Text(
-                                              'Criar Conta',
+                                              'Entrar',
                                               style: theme.textTheme.bodyMedium?.copyWith(
                                                 color: colorScheme.primary,
                                                 fontWeight: FontWeight.bold,
