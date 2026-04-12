@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart'; // Importante adicionar
+import 'firebase_options.dart'; // Arquivo que o FlutterFire CLI gerou
 
 import 'theme/app_colors.dart';
 import 'screens/login_screen.dart';
 
-void main() {
+void main() async {
+  // 1. Garante que os bindings do Flutter estejam inicializados antes de chamar código nativo
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 2. Inicializa o Firebase com as configurações geradas para a plataforma atual
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 
