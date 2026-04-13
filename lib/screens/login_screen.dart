@@ -71,6 +71,79 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _buildMesclaLogo(ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 46,
+          height: 46,
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Container(
+                  width: 29,
+                  height: 29,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF8A1BDF),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(4),
+                      topRight: Radius.circular(4),
+                      bottomLeft: Radius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 29,
+                  height: 29,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF8A1BDF),
+                    borderRadius: BorderRadius.only(
+                      topRight: Radius.circular(4),
+                      bottomLeft: Radius.circular(4),
+                      bottomRight: Radius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'mescla',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: Colors.black,
+                height: 1,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'invest',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                height: 1,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -112,16 +185,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 12),
-                        Text(
-                          'Mescla Invest',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
                         const SizedBox(height: 8),
+                        _buildMesclaLogo(theme),
+                        const SizedBox(height: 24),
                         Text(
                           'Invista nas melhores startups da PUC-Campinas.',
                           textAlign: TextAlign.center,
