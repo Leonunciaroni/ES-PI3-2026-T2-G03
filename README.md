@@ -12,7 +12,7 @@ A plataforma permite aos usuários visualizar startups, consultar documentos ins
 
 - Leonardo Miranda Nunciaroni - 25002726
 - Mariana Silva Ferrarez - 25002010
-- Matheus Azevedo Teixeira 
+- Matheus Azevedo Teixeira - 25014927
 - Miguel Fernandes Costacurta - 25003110
 - Pedro Henrique Contardi Soler - 25005592
 
