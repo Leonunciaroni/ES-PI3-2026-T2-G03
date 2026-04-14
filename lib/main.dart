@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart'; // Importante adicionar
-import 'firebase_options.dart'; // Arquivo que o FlutterFire CLI gerou
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 import 'theme/app_colors.dart';
+import 'theme/app_scroll_behavior.dart';
 import 'screens/login_screen.dart';
 
 void main() async {
-  // 1. Garante que os bindings do Flutter estejam inicializados antes de chamar código nativo
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // 2. Inicializa o Firebase com as configurações geradas para a plataforma atual
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -22,7 +21,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.seedPurple,
       brightness: Brightness.light,
@@ -34,6 +32,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mescla Invest',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const AppScrollBehavior(),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,

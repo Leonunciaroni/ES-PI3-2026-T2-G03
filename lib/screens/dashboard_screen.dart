@@ -1,0 +1,734 @@
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
+//
+// Dashboard (protótipo visual) — layout conforme Figma, sem backend.
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../theme/app_colors.dart';
+
+/// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
+///
+/// O ícone de olho apenas oculta valores sensíveis localmente ([setState]).
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  /// Quando true, valores monetários e percentuais aparecem mascarados.
+  bool _hideValues = false;
+
+  static const _horizontalPadding = 20.0;
+  static const _sectionGap = 24.0;
+
+  /// Roxo → azul do card principal (Figma).
+  static const _heroGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF6234EA),
+      Color(0xFF4F46E5),
+    ],
+  );
+
+  static const _summaryCardColor = Color(0xFFF3F4F6);
+  static const _walletIconColor = Color(0xFF92400E);
+
+  void _toggleVisibility() {
+    setState(() => _hideValues = !_hideValues);
+  }
+
+  String _money(double value) {
+    if (_hideValues) return 'R\$ ••••••';
+    // Formato BR: ponto como milhar e vírgula nos centavos (ex.: 12.450,00).
+    final fixed = value.toStringAsFixed(2);
+    final parts = fixed.split('.');
+    var intPart = parts[0];
+    final dec = parts[1];
+    final reversed = intPart.split('').reversed.join();
+    final withDots = StringBuffer();
+    for (var i = 0; i < reversed.length; i++) {
+      if (i > 0 && i % 3 == 0) withDots.write('.');
+      withDots.write(reversed[i]);
+    }
+    intPart = withDots.toString().split('').reversed.join();
+    return 'R\$ $intPart,$dec';
+  }
+
+  String _percent(String value) {
+    if (_hideValues) return '•••';
+    return value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final onSurface = theme.colorScheme.onSurface;
+
+    final labelCaps = theme.textTheme.labelSmall?.copyWith(
+      color: AppColors.textSecondary,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 1.2,
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                AppColors.gradientTop,
+                AppColors.gradientBottom,
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      _horizontalPadding,
+                      8,
+                      _horizontalPadding,
+                      16,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _HeaderRow(colorScheme: colorScheme),
+                        const SizedBox(height: 20),
+                        Text(
+                          'BOM DIA, RICARDO',
+                          style: labelCaps,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Seu Patrimônio',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: onSurface,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _toggleVisibility,
+                              icon: Icon(
+                                _hideValues
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: AppColors.textSecondary,
+                              ),
+                              tooltip: _hideValues
+                                  ? 'Mostrar valores'
+                                  : 'Ocultar valores',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _HeroCard(
+                          gradient: _heroGradient,
+                          totalLabel: 'SALDO TOTAL INVESTIDO',
+                          totalValue: _money(12450),
+                          trendText: '+ 14.2% este mês',
+                          hideChartValues: _hideValues,
+                        ),
+                        const SizedBox(height: _sectionGap),
+                        _SummaryCard(
+                          background: _summaryCardColor,
+                          icon: Icon(
+                            Icons.rocket_launch_outlined,
+                            color: colorScheme.primary,
+                            size: 28,
+                          ),
+                          title: '4 Startups',
+                          subtitle: 'No portfólio ativo',
+                        ),
+                        const SizedBox(height: 12),
+                        _SummaryCard(
+                          background: _summaryCardColor,
+                          icon: Icon(
+                            Icons.payments_outlined,
+                            color: _walletIconColor,
+                            size: 28,
+                          ),
+                          title: _money(1240),
+                          subtitle: 'Dividendos previstos',
+                        ),
+                        const SizedBox(height: _sectionGap),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Minhas Startups',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: onSurface,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {},
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              child: Text(
+                                'Ver todas',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _StartupCard(
+                          name: 'GreenFlow',
+                          category: 'AGROTECH',
+                          yieldPercent: _percent('+18.5%'),
+                          invested: _money(4200),
+                          logoColor: const Color(0xFF22C55E),
+                          logoIcon: Icons.eco_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _StartupCard(
+                          name: 'CyberMesh',
+                          category: 'CYBERSECURITY',
+                          yieldPercent: _percent('+12.3%'),
+                          invested: _money(3150),
+                          logoColor: const Color(0xFF18181B),
+                          logoIcon: Icons.security_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _StartupCard(
+                          name: 'Healthly',
+                          category: 'HEALTHTECH',
+                          yieldPercent: _percent('+9.8%'),
+                          invested: _money(2800),
+                          logoColor: const Color(0xFF14B8A6),
+                          logoIcon: Icons.favorite_outline,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+                const _BottomNavBar(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderRow extends StatelessWidget {
+  const _HeaderRow({required this.colorScheme});
+
+  final ColorScheme colorScheme;
+
+  static const _logoAsset = 'assets/images/mescla_logo.png';
+
+  /// Altura do wordmark no topo (próxima à área do sino ~48dp).
+  static const _logoHeight = 52.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Logo conforme o Figma (asset), alinhado à esquerda.
+        Image.asset(
+          _logoAsset,
+          height: _logoHeight,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return Text(
+              'mescla',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+                letterSpacing: -0.5,
+              ),
+            );
+          },
+        ),
+        const Spacer(),
+        IconButton(
+          onPressed: () {},
+          icon: const Icon(Icons.notifications_none_outlined),
+          color: theme.colorScheme.onSurface,
+          tooltip: 'Notificações',
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroCard extends StatelessWidget {
+  const _HeroCard({
+    required this.gradient,
+    required this.totalLabel,
+    required this.totalValue,
+    required this.trendText,
+    required this.hideChartValues,
+  });
+
+  final Gradient gradient;
+  final String totalLabel;
+  final String totalValue;
+  final String trendText;
+  final bool hideChartValues;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.seedPurple.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                totalLabel,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                totalValue,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.show_chart_rounded,
+                      size: 18,
+                      color: Colors.white.withValues(alpha: 0.95),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      trendText,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 56),
+            ],
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: _HeroMiniBars(hideValues: hideChartValues),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Barras decorativas no canto do card roxo (Figma).
+class _HeroMiniBars extends StatelessWidget {
+  const _HeroMiniBars({required this.hideValues});
+
+  final bool hideValues;
+
+  static const _heights = <double>[12, 18, 14, 22, 28, 34, 40];
+
+  @override
+  Widget build(BuildContext context) {
+    if (hideValues) return const SizedBox.shrink();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 0; i < _heights.length; i++) ...[
+          Container(
+            width: 7,
+            height: _heights[i],
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.35 + i * 0.04),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          if (i < _heights.length - 1) const SizedBox(width: 5),
+        ],
+      ],
+    );
+  }
+}
+
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.background,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final Color background;
+  final Widget icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(18),
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            icon,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StartupCard extends StatelessWidget {
+  const _StartupCard({
+    required this.name,
+    required this.category,
+    required this.yieldPercent,
+    required this.invested,
+    required this.logoColor,
+    required this.logoIcon,
+  });
+
+  final String name;
+  final String category;
+  final String yieldPercent;
+  final String invested;
+  final Color logoColor;
+  final IconData logoIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: logoColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(logoIcon, color: Colors.white, size: 26),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        category,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      yieldPercent,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'RENDIMENTO',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Total Investido',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        invested,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _SparklineBars(),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Mini gráfico em barras roxas (sparkline) à direita do card.
+class _SparklineBars extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final heights = <double>[14, 22, 18, 28, 20, 32, 26];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 0; i < heights.length; i++) ...[
+          Container(
+            width: 5,
+            height: heights[i],
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.35 + (i % 3) * 0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          if (i < heights.length - 1) const SizedBox(width: 3),
+        ],
+      ],
+    );
+  }
+}
+
+/// Barra inferior flutuante (Figma): apenas visual.
+class _BottomNavBar extends StatelessWidget {
+  const _BottomNavBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final muted = AppColors.textSecondary;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Material(
+        elevation: 8,
+        shadowColor: Colors.black.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(28),
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.home_rounded,
+                label: 'INÍCIO',
+                isActive: true,
+                activeColor: primary,
+                inactiveColor: muted,
+              ),
+              _NavItem(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'CARTEIRA',
+                isActive: false,
+                activeColor: primary,
+                inactiveColor: muted,
+              ),
+              _NavItem(
+                icon: Icons.article_outlined,
+                label: 'CATÁLOGO',
+                isActive: false,
+                activeColor: primary,
+                inactiveColor: muted,
+              ),
+              _NavItem(
+                icon: Icons.person_outline_rounded,
+                label: 'PERFIL',
+                isActive: false,
+                activeColor: primary,
+                inactiveColor: muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.activeColor,
+    required this.inactiveColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final Color activeColor;
+  final Color inactiveColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? activeColor : inactiveColor;
+    return Expanded(
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isActive ? activeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  icon,
+                  color: isActive ? Colors.white : inactiveColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                      fontSize: 10,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
