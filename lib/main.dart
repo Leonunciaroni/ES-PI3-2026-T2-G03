@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'theme/app_colors.dart';
-import 'screens/login_screen.dart';
+import 'theme/app_scroll_behavior.dart';
+import 'screens/dashboard_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,6 +25,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mescla Invest',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const AppScrollBehavior(),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
@@ -34,7 +36,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const DashboardScreen(),
     );
   }
 }
