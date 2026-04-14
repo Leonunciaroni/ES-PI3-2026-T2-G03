@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../screens/create_account_screen.dart';
+import '../screens/dashboard_screen.dart';
 import '../screens/recover_password_screen.dart';
 
 import '../theme/app_colors.dart';
@@ -63,7 +64,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnack('Informe a senha.');
       return;
     }
-    _showSnack('Protótipo: login aceito (sem API). Próximo passo: backend.');
+    // Protótipo: sem API — após validação local, entra na dashboard.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => const DashboardScreen(),
+      ),
+    );
   }
 
   OutlineInputBorder _stadiumBorder(Color color) {
