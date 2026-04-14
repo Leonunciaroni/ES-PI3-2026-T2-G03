@@ -42,6 +42,11 @@ jobs:
             -
             
             ---
+
+            ### 💻 **Quem irá revisar essa task?** (Mandar mensagem no grupo para verificar quem está disponível para a revisão e marcar a pessoa abaixo com @)
+            -
+
+            ---
             
             _Este comentário foi gerado automaticamente pelo workflow._`
             })
