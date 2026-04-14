@@ -648,7 +648,7 @@ class _BottomNavBar extends StatelessWidget {
               ),
               _NavItem(
                 icon: Icons.account_balance_wallet_outlined,
-                label: 'CARTEIRA',
+                label: 'BALCÃO',
                 isActive: false,
                 activeColor: primary,
                 inactiveColor: muted,
