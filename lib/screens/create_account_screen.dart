@@ -1,9 +1,8 @@
 //Miguel Fernandes Costacurta - 25003110
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/gestures.dart';
-import 'login_screen.dart';
 
+import 'login_screen.dart';
 import '../theme/app_colors.dart';
 
 /// Tela de cadastro apenas visual, desenhada com componentes do Material 3.
@@ -21,8 +20,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _emailController = TextEditingController();
   final _cpfController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
 
   @override
@@ -32,6 +33,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     _emailController.dispose();
     _cpfController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -106,33 +108,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.trending_up_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Mescla Invest',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
+                  Center(
+                    child: Image.asset(
+                      'assets/images/mescla_logo.png',
+                      width: 170,
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                  const SizedBox(height: 34),
+                  const SizedBox(height: 20),
                   Text(
                     'Criar Conta',
                     style: theme.textTheme.headlineMedium?.copyWith(
@@ -149,7 +132,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 28),
-                  _buildLabel(context, 'NOME COMPLETO'),
+                  _buildLabel(context, 'NOME COMPLETO *'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _nameController,
@@ -161,7 +144,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel(context, 'E-MAIL CORPORATIVO OU PESSOAL'),
+                  _buildLabel(context, 'E-MAIL PESSOAL *'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _emailController,
@@ -174,7 +157,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel(context, 'CPF'),
+                  _buildLabel(context, 'CPF *'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _cpfController,
@@ -187,7 +170,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  _buildLabel(context, 'SENHA SEGURA'),
+                  _buildLabel(context, 'SENHA SEGURA *'),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _passwordController,
@@ -195,7 +178,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     textInputAction: TextInputAction.done,
                     decoration: _fieldDecoration(
                       context: context,
-                      hintText: 'Minimo 8 caracteres',
+                      hintText: '********',
                       icon: Icons.lock_outline_rounded,
                       suffixIcon: IconButton(
                         tooltip: _obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
@@ -211,7 +194,50 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 18),
+                  _buildLabel(context, 'INSERIR NOVAMENTE*'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _confirmPasswordController,
+                    obscureText: _obscureConfirmPassword,
+                    textInputAction: TextInputAction.done,
+                    decoration: _fieldDecoration(
+                      context: context,
+                      hintText: '********',
+                      icon: Icons.lock_outline_rounded,
+                      suffixIcon: IconButton(
+                        tooltip: _obscureConfirmPassword
+                            ? 'Mostrar senha'
+                            : 'Ocultar senha',
+                        onPressed: () {
+                          setState(
+                            () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                          );
+                        },
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Text(
+                      '· DEVE CONTER 8 CARACTERES\n'
+                      '· PELO MENOS UMA LETRA MAIÚSCULA\n'
+                      '· PELO MENOS UM CARACTER ESPECIAL',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: AppColors.textSecondary.withValues(alpha: 0.85),
+                        letterSpacing: 0.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -250,7 +276,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const TextSpan(text: ' da Mescla Invest.'),
                               ],
                             ),
                           ),
@@ -258,7 +283,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   FilledButton(
                     onPressed: () {
                       _showFeatureMessage(
@@ -273,7 +298,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       backgroundColor: colorScheme.primary,
                     ),
                     child: const Text(
-                      'Criar Conta',
+                      'Criar Conta →',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -288,22 +313,26 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           color: AppColors.textSecondary,
                         ),
                         children: [
-                          const TextSpan(text: 'Ja possui uma conta? '),
-                          TextSpan(
-                            text: 'Fazer Login',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            recognizer: TapGestureRecognizer()
-                              ..onTap = () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const LoginScreen(),
+                          const TextSpan(text: 'Já possui uma conta? '),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.baseline,
+                            baseline: TextBaseline.alphabetic,
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const LoginScreen(),
                                   ),
                                 );
                               },
+                              child: Text(
+                                'Fazer Login',
+                                style: TextStyle(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),

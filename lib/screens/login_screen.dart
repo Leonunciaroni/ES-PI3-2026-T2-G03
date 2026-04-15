@@ -3,10 +3,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../screens/create_account_screen.dart';
-import '../screens/dashboard_screen.dart';
-import '../screens/recover_password_screen.dart';
 
+import 'create_account_screen.dart';
+import 'dashboard_screen.dart';
+import 'recover_password_screen.dart';
 import '../theme/app_colors.dart';
 
 /// Tela de login apenas visual (sem backend).
@@ -120,16 +120,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 12),
-                        Text(
-                          'Mescla Invest',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Image.asset(
+                            'assets/images/mescla_logo.png',
+                            width: 190,
+                            fit: BoxFit.contain,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 24),
                         Text(
                           'Invista nas melhores startups da PUC-Campinas.',
                           textAlign: TextAlign.center,
@@ -285,12 +284,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                           alignment: PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
-                                            onTap: () => Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const CreateAccountScreen(),
-                                              ),
-                                            ),
+                                            onTap: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute<void>(
+                                                  builder: (_) =>
+                                                      const CreateAccountScreen(),
+                                                ),
+                                              );
+                                            },
                                             child: Text(
                                               'Criar Conta',
                                               style: theme.textTheme.bodyMedium?.copyWith(
