@@ -112,16 +112,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 12),
-                        Text(
-                          'Mescla Invest',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSurface,
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Image.asset(
+                            'assets/images/mescla_logo.png',
+                            width: 190,
+                            fit: BoxFit.contain,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 24),
                         Text(
                           'Invista nas melhores startups da PUC-Campinas.',
                           textAlign: TextAlign.center,
