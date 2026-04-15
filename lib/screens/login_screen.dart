@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'create_account_screen.dart';
 import '../theme/app_colors.dart';
 
 /// Tela de login apenas visual (sem backend).
@@ -272,8 +273,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                           alignment: PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
-                                            onTap: () => _showSnack(
-                                              'Protótipo: tela de cadastro (nome, CPF, telefone…) será integrada depois.',
+                                            onTap: () => Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const CreateAccountScreen(),
+                                              ),
                                             ),
                                             child: Text(
                                               'Criar Conta',
