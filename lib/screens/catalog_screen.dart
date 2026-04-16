@@ -67,12 +67,15 @@ enum _ChipFilter {
 /// - o texto da busca muda e precisamos de [setState] para refiltrar a lista;
 /// - o chip selecionado também muda o estado visual e os itens visíveis.
 ///
-/// A barra inferior de navegação fica noutra parte do app (outra task).
+/// Com [wrapWithSafeArea]: false, o antecessor aplica insets (ex.: [DashboardScreen] com bottom nav).
 class CatalogScreen extends StatefulWidget {
-  const CatalogScreen({super.key});
+  const CatalogScreen({super.key, this.wrapWithSafeArea = true});
 
   /// Caminho do PNG registado em `pubspec.yaml` → `flutter: assets:`.
   static const String logoAsset = 'assets/images/mescla_logo.png';
+
+  /// Evita SafeArea duplicado quando a tela é filha de um [SafeArea] maior (dashboard shell).
+  final bool wrapWithSafeArea;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -199,8 +202,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
               ],
             ),
           ),
-          child: SafeArea(
-            // SafeArea evita desenhar por baixo do entalhe ou da barra de navegação do SO.
+          child: _maybeSafeArea(
+            wrap: widget.wrapWithSafeArea,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -321,6 +324,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
         ),
       ),
     );
+  }
+
+  /// SafeArea opcional para reutilizar a mesma árvore dentro ou fora de um shell com insets.
+  static Widget _maybeSafeArea({required bool wrap, required Widget child}) {
+    if (wrap) {
+      return SafeArea(child: child);
+    }
+    return child;
   }
 }
 

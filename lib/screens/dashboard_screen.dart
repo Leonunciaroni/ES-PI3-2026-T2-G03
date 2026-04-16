@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
+import 'catalog_screen.dart';
 
 /// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
 ///
@@ -21,6 +22,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   /// Quando true, valores monetários e percentuais aparecem mascarados.
   bool _hideValues = false;
+
+  /// Índice da barra inferior: 0 Início, 1 Balcão, 2 Catálogo, 3 Perfil.
+  int _mainNavIndex = 0;
 
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
@@ -64,6 +68,164 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return value;
   }
 
+  Widget _buildComingSoonTab(String message) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeTab(
+    ThemeData theme,
+    TextStyle? labelCaps,
+    ColorScheme colorScheme,
+    Color onSurface,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        _horizontalPadding,
+        8,
+        _horizontalPadding,
+        16,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _HeaderRow(colorScheme: colorScheme),
+          const SizedBox(height: 20),
+          Text(
+            'BOM DIA, RICARDO',
+            style: labelCaps,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Seu Patrimônio',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: _toggleVisibility,
+                icon: Icon(
+                  _hideValues
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                tooltip: _hideValues
+                    ? 'Mostrar valores'
+                    : 'Ocultar valores',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _HeroCard(
+            gradient: _heroGradient,
+            totalLabel: 'SALDO TOTAL INVESTIDO',
+            totalValue: _money(12450),
+            trendText: '+ 14.2% este mês',
+            hideChartValues: _hideValues,
+          ),
+          const SizedBox(height: _sectionGap),
+          _SummaryCard(
+            background: _summaryCardColor,
+            icon: Icon(
+              Icons.rocket_launch_outlined,
+              color: colorScheme.primary,
+              size: 28,
+            ),
+            title: '4 Startups',
+            subtitle: 'No portfólio ativo',
+          ),
+          const SizedBox(height: 12),
+          _SummaryCard(
+            background: _summaryCardColor,
+            icon: Icon(
+              Icons.payments_outlined,
+              color: _walletIconColor,
+              size: 28,
+            ),
+            title: _money(1240),
+            subtitle: 'Dividendos previstos',
+          ),
+          const SizedBox(height: _sectionGap),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Minhas Startups',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _mainNavIndex = 2),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  'Ver todas',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _StartupCard(
+            name: 'GreenFlow',
+            category: 'AGROTECH',
+            yieldPercent: _percent('+18.5%'),
+            invested: _money(4200),
+            logoColor: const Color(0xFF22C55E),
+            logoIcon: Icons.eco_outlined,
+          ),
+          const SizedBox(height: 12),
+          _StartupCard(
+            name: 'CyberMesh',
+            category: 'CYBERSECURITY',
+            yieldPercent: _percent('+12.3%'),
+            invested: _money(3150),
+            logoColor: const Color(0xFF18181B),
+            logoIcon: Icons.security_outlined,
+          ),
+          const SizedBox(height: 12),
+          _StartupCard(
+            name: 'Healthly',
+            category: 'HEALTHTECH',
+            yieldPercent: _percent('+9.8%'),
+            invested: _money(2800),
+            logoColor: const Color(0xFF14B8A6),
+            logoIcon: Icons.favorite_outline,
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -98,142 +260,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      _horizontalPadding,
-                      8,
-                      _horizontalPadding,
-                      16,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _HeaderRow(colorScheme: colorScheme),
-                        const SizedBox(height: 20),
-                        Text(
-                          'BOM DIA, RICARDO',
-                          style: labelCaps,
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Seu Patrimônio',
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: onSurface,
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: _toggleVisibility,
-                              icon: Icon(
-                                _hideValues
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                color: AppColors.textSecondary,
-                              ),
-                              tooltip: _hideValues
-                                  ? 'Mostrar valores'
-                                  : 'Ocultar valores',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _HeroCard(
-                          gradient: _heroGradient,
-                          totalLabel: 'SALDO TOTAL INVESTIDO',
-                          totalValue: _money(12450),
-                          trendText: '+ 14.2% este mês',
-                          hideChartValues: _hideValues,
-                        ),
-                        const SizedBox(height: _sectionGap),
-                        _SummaryCard(
-                          background: _summaryCardColor,
-                          icon: Icon(
-                            Icons.rocket_launch_outlined,
-                            color: colorScheme.primary,
-                            size: 28,
-                          ),
-                          title: '4 Startups',
-                          subtitle: 'No portfólio ativo',
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          background: _summaryCardColor,
-                          icon: Icon(
-                            Icons.payments_outlined,
-                            color: _walletIconColor,
-                            size: 28,
-                          ),
-                          title: _money(1240),
-                          subtitle: 'Dividendos previstos',
-                        ),
-                        const SizedBox(height: _sectionGap),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Minhas Startups',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: onSurface,
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () {},
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                'Ver todas',
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _StartupCard(
-                          name: 'GreenFlow',
-                          category: 'AGROTECH',
-                          yieldPercent: _percent('+18.5%'),
-                          invested: _money(4200),
-                          logoColor: const Color(0xFF22C55E),
-                          logoIcon: Icons.eco_outlined,
-                        ),
-                        const SizedBox(height: 12),
-                        _StartupCard(
-                          name: 'CyberMesh',
-                          category: 'CYBERSECURITY',
-                          yieldPercent: _percent('+12.3%'),
-                          invested: _money(3150),
-                          logoColor: const Color(0xFF18181B),
-                          logoIcon: Icons.security_outlined,
-                        ),
-                        const SizedBox(height: 12),
-                        _StartupCard(
-                          name: 'Healthly',
-                          category: 'HEALTHTECH',
-                          yieldPercent: _percent('+9.8%'),
-                          invested: _money(2800),
-                          logoColor: const Color(0xFF14B8A6),
-                          logoIcon: Icons.favorite_outline,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
+                  child: IndexedStack(
+                    index: _mainNavIndex,
+                    sizing: StackFit.expand,
+                    children: [
+                      _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
+                      _buildComingSoonTab('Balcão em breve.'),
+                      const CatalogScreen(wrapWithSafeArea: false),
+                      _buildComingSoonTab('Perfil em breve.'),
+                    ],
                   ),
                 ),
-                const _BottomNavBar(),
+                _BottomNavBar(
+                  selectedIndex: _mainNavIndex,
+                  onItemSelected: (i) => setState(() => _mainNavIndex = i),
+                ),
               ],
             ),
           ),
@@ -617,9 +658,15 @@ class _SparklineBars extends StatelessWidget {
   }
 }
 
-/// Barra inferior flutuante (Figma): apenas visual.
+/// Barra inferior flutuante (Figma): troca o painel principal via [onItemSelected].
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar();
+  const _BottomNavBar({
+    required this.selectedIndex,
+    required this.onItemSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onItemSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -642,30 +689,34 @@ class _BottomNavBar extends StatelessWidget {
               _NavItem(
                 icon: Icons.home_rounded,
                 label: 'INÍCIO',
-                isActive: true,
+                isActive: selectedIndex == 0,
                 activeColor: primary,
                 inactiveColor: muted,
+                onTap: () => onItemSelected(0),
               ),
               _NavItem(
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'BALCÃO',
-                isActive: false,
+                isActive: selectedIndex == 1,
                 activeColor: primary,
                 inactiveColor: muted,
+                onTap: () => onItemSelected(1),
               ),
               _NavItem(
                 icon: Icons.article_outlined,
                 label: 'CATÁLOGO',
-                isActive: false,
+                isActive: selectedIndex == 2,
                 activeColor: primary,
                 inactiveColor: muted,
+                onTap: () => onItemSelected(2),
               ),
               _NavItem(
                 icon: Icons.person_outline_rounded,
                 label: 'PERFIL',
-                isActive: false,
+                isActive: selectedIndex == 3,
                 activeColor: primary,
                 inactiveColor: muted,
+                onTap: () => onItemSelected(3),
               ),
             ],
           ),
@@ -682,6 +733,7 @@ class _NavItem extends StatelessWidget {
     required this.isActive,
     required this.activeColor,
     required this.inactiveColor,
+    required this.onTap,
   });
 
   final IconData icon;
@@ -689,13 +741,14 @@ class _NavItem extends StatelessWidget {
   final bool isActive;
   final Color activeColor;
   final Color inactiveColor;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final color = isActive ? activeColor : inactiveColor;
     return Expanded(
       child: InkWell(
-        onTap: () {},
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
