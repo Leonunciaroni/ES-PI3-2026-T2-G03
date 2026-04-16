@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'theme/app_colors.dart';
-import 'screens/login_screen.dart';
+import 'screens/catalog_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,7 +34,8 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      // Na integração com a branch principal, voltar para LoginScreen / shell com bottom nav.
+      home: const CatalogScreen(),
     );
   }
 }
