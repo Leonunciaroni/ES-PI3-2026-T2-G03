@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
 import 'theme/app_colors.dart';
-import 'screens/catalog_screen.dart';
+import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,8 +42,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      // Na integração com a branch principal, voltar para LoginScreen / shell com bottom nav.
-      home: const CatalogScreen(),
+      home: const LoginScreen(),
     );
   }
 }
