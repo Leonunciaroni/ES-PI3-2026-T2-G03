@@ -10,10 +10,11 @@ import 'package:pi_iii/main.dart';
 import 'package:pi_iii/screens/dashboard_screen.dart';
 
 void main() {
-  testWidgets('Login screen monta e mostra marca Mescla Invest', (WidgetTester tester) async {
+  testWidgets('Login screen monta título do cartão e ação Entrar', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
-    expect(find.text('Mescla Invest'), findsOneWidget);
+    expect(find.text('Bem-vindo de volta'), findsOneWidget);
     expect(find.text('Entrar'), findsOneWidget);
   });
 

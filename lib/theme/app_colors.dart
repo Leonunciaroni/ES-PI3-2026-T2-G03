@@ -22,6 +22,9 @@ abstract final class AppColors {
   /// Borda suave dos campos no cartão branco.
   static const Color fieldBorder = Color(0xFFE5E7EB);
 
+  /// Fundo do campo de busca na tela Explorar / catálogo (Figma).
+  static const Color searchFieldFill = Color(0xFFE2E2E2);
+
   /// Sombra do botão principal (roxo semitransparente).
   static Color primaryShadow(ColorScheme scheme) =>
       scheme.primary.withValues(alpha: 0.35);
