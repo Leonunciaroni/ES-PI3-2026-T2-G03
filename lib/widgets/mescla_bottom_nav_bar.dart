@@ -1,8 +1,9 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Barra de navegação inferior conforme Figma: fundo branco em cápsula, item ativo
-// com pílula roxa envolvendo ícone + rótulo (ambos brancos), inativos em cinza.
+// Barra de navegação inferior alinhada ao dashboard / Figma: fundo branco em
+// cápsula; item ativo com retângulo arredondado só atrás do ícone (ícone branco)
+// e rótulo em roxo; inativos em cinza.
 
 import 'package:flutter/material.dart';
 
@@ -11,10 +12,9 @@ import '../theme/app_colors.dart';
 /// Barra inferior “flutuante” (Material branco elevado + margens).
 ///
 /// **Como usar:** o ecrã pai guarda um `int` (0..3) e passa em [selectedIndex].
-/// No [onItemTap] chamas `setState(() => índice = i)` para redesenhar a UI e
-/// trocar o conteúdo (ex.: [IndexedStack] por cima desta barra).
+/// No [onItemTap] chamas `setState(() => índice = i)` para redesenhar a UI.
 ///
-/// **Índices:** 0 = INÍCIO, 1 = CARTEIRA, 2 = CATÁLOGO, 3 = PERFIL.
+/// **Índices:** 0 = INÍCIO, 1 = BALCÃO, 2 = CATÁLOGO, 3 = PERFIL.
 class MesclaBottomNavBar extends StatelessWidget {
   const MesclaBottomNavBar({
     super.key,
@@ -22,24 +22,20 @@ class MesclaBottomNavBar extends StatelessWidget {
     required this.onItemTap,
   });
 
-  /// Qual separador está selecionado (o pai é a fonte da verdade).
   final int selectedIndex;
-
-  /// Chamado quando o utilizador toca num item; recebe o novo índice.
   final ValueChanged<int> onItemTap;
 
-  /// Ícones em estilo *outline*, alinhados ao Figma (casa, carteira, lista, pessoa).
+  /// Mesmos ícones que o dashboard original do projeto.
   static const List<IconData> _icons = [
-    Icons.home_outlined,
+    Icons.home_rounded,
     Icons.account_balance_wallet_outlined,
     Icons.article_outlined,
     Icons.person_outline_rounded,
   ];
 
-  /// Rótulos em maiúsculas, como no Figma (segundo item é CARTEIRA, não BALCÃO).
   static const List<String> _labels = [
     'INÍCIO',
-    'CARTEIRA',
+    'BALCÃO',
     'CATÁLOGO',
     'PERFIL',
   ];
@@ -47,10 +43,8 @@ class MesclaBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Roxo da marca vem do tema (sincronizado com AppColors.seedPurple no MaterialApp).
     final primary = theme.colorScheme.primary;
 
-    // Margens laterais e em baixo criam o efeito “flutuante” sobre o fundo do ecrã.
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Material(
@@ -59,20 +53,18 @@ class MesclaBottomNavBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         color: Colors.white,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          // Row com 4 filhos Expanded: cada item ocupa a mesma largura disponível.
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               for (var i = 0; i < 4; i++)
-                Expanded(
-                  child: _NavItem(
-                    icon: _icons[i],
-                    label: _labels[i],
-                    isActive: selectedIndex == i,
-                    activeColor: primary,
-                    inactiveColor: AppColors.navBarInactive,
-                    onTap: () => onItemTap(i),
-                  ),
+                _NavItem(
+                  icon: _icons[i],
+                  label: _labels[i],
+                  isActive: selectedIndex == i,
+                  activeColor: primary,
+                  inactiveColor: AppColors.navBarInactive,
+                  onTap: () => onItemTap(i),
                 ),
             ],
           ),
@@ -82,10 +74,6 @@ class MesclaBottomNavBar extends StatelessWidget {
   }
 }
 
-/// Um único separador: ícone + texto; estado visual ativo vs inativo.
-///
-/// Mantemos esta classe **privada** (prefixo `_`) porque só é usada aqui dentro
-/// do mesmo ficheiro — não precisa de aparecer na API pública do pacote.
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,
@@ -105,60 +93,48 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Estilo base do rótulo (tamanho pequeno, negrito, espaçamento entre letras).
-    final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.35,
-          fontSize: 10,
-        );
+    // Igual ao dashboard: ativo → texto roxo; inativo → texto cinza.
+    final labelColor = isActive ? activeColor : inactiveColor;
 
-    // Conteúdo: ícone em cima, texto em baixo (coluna vertical do Figma).
-    final content = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 24,
-          color: isActive ? Colors.white : inactiveColor,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: labelStyle?.copyWith(
-            color: isActive ? Colors.white : inactiveColor,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Só o ícone fica sobre o fundo roxo (não o rótulo).
+              Container(
+                width: 48,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: isActive ? activeColor : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  icon,
+                  color: isActive ? Colors.white : inactiveColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: labelColor,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                      fontSize: 10,
+                    ),
+              ),
+            ],
           ),
         ),
-      ],
-    );
-
-    // Ativo: [DecoratedBox] com cantos 999 = cápsula; inativo: só padding vertical
-    // para alinhar visualmente a altura com o vizinho selecionado.
-    final padded = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: isActive
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                color: activeColor,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                child: content,
-              ),
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: content,
-            ),
-    );
-
-    // [InkWell] dá feedback de toque (ripple) dentro da área do item.
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: padded,
+      ),
     );
   }
 }

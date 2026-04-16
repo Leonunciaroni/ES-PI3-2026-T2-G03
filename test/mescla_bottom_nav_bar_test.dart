@@ -54,15 +54,15 @@ class _NavBarHarnessState extends State<_NavBarHarness> {
 
 void main() {
   testWidgets(
-    'MesclaBottomNavBar: rótulos Figma, CARTEIRA e troca para índice 2 (CATÁLOGO)',
+    'MesclaBottomNavBar: rótulos dashboard, BALCÃO e troca para índice 2 (CATÁLOGO)',
     (tester) async {
       // 1) Monta o widget na “superfície” de teste e espera animações terminarem.
       await tester.pumpWidget(const _NavBarHarness());
       await tester.pumpAndSettle();
 
-      // 2) Confirma que os quatro rótulos existem (inclui CARTEIRA, não BALCÃO).
+      // 2) Confirma que os quatro rótulos existem (BALCÃO, como no dashboard).
       expect(find.text('INÍCIO'), findsOneWidget);
-      expect(find.text('CARTEIRA'), findsOneWidget);
+      expect(find.text('BALCÃO'), findsOneWidget);
       expect(find.text('CATÁLOGO'), findsOneWidget);
       expect(find.text('PERFIL'), findsOneWidget);
 
