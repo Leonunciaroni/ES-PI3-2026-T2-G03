@@ -7,47 +7,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/startup_detail_mock.dart';
+import '../models/catalog_startup.dart';
 import '../theme/app_colors.dart';
-
-// --- Modelos de dados (simples, para o PI) ---------------------------------
-
-/// Estágios possíveis de uma startup no ecossistema (documento MesclaInvest §5.2).
-///
-/// Usamos um [enum] para o compilador obrigar a tratar todos os casos no [switch].
-enum StartupStage {
-  nova,
-  emOperacao,
-  emExpansao,
-}
-
-/// Representa uma linha do catálogo: o que aparece no card na lista.
-///
-/// [captureProgress] vai de 0.0 a 1.0 e alimenta a [LinearProgressIndicator].
-class CatalogStartup {
-  const CatalogStartup({
-    required this.name,
-    required this.category,
-    required this.stage,
-    required this.yieldPercentLabel,
-    required this.tokenPrice,
-    required this.description,
-    required this.captureProgress,
-    required this.logoColor,
-    required this.logoIcon,
-  });
-
-  final String name;
-  final String category;
-  final StartupStage stage;
-  final String yieldPercentLabel;
-  final double tokenPrice;
-  final String description;
-
-  /// Fração preenchida da barra (ex.: 0.8 = 80%).
-  final double captureProgress;
-  final Color logoColor;
-  final IconData logoIcon;
-}
+import 'startup_detail_screen.dart';
 
 /// Qual chip está ativo na barra horizontal (filtro por estágio).
 ///
@@ -443,7 +406,18 @@ class _CatalogStartupCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       elevation: 3,
       shadowColor: Colors.black.withValues(alpha: 0.08),
-      child: Padding(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (context) => StartupDetailScreen(
+                data: startupDetailFor(startup),
+              ),
+            ),
+          );
+        },
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -595,6 +569,7 @@ class _CatalogStartupCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
