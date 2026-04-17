@@ -1,37 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 
-import 'screens/login_screen.dart';
+import 'data/startup_detail_mock.dart';
+import 'screens/startup_detail_screen.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_scroll_behavior.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
   runApp(const MyApp());
 }
 
+/// Nesta branch só existe o fluxo de **detalhes da startup** (dados mock).
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.seedPurple,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.seedPurple,
-      onPrimary: const Color(0xFFFFFFFF),
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.seedPurple,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.seedPurple,
+          onPrimary: const Color(0xFFFFFFFF),
+        );
 
     return MaterialApp(
-      title: 'Mescla Invest',
+      title: 'Mescla Invest — Detalhes',
       debugShowCheckedModeBanner: false,
       scrollBehavior: const AppScrollBehavior(),
       theme: ThemeData(
@@ -44,7 +39,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: StartupDetailScreen(data: startupDetailFor(kPreviewCatalogStartup)),
     );
   }
 }
