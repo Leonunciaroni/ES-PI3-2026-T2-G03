@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/app_colors.dart';
 import 'login_screen.dart';
-import '../theme/app_colors.dart';
 
 /// Tela de cadastro apenas visual, desenhada com componentes do Material 3.
 ///

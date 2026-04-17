@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pi_iii/screens/create_account_screen.dart';
+import 'package:pi_iii/auth/screens/create_account_screen.dart';
 
 Future<void> _mockAssets() async {
   TestWidgetsFlutterBinding.ensureInitialized();
