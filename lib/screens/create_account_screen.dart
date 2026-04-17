@@ -18,6 +18,7 @@ class CreateAccountScreen extends StatefulWidget {
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _cpfController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -55,6 +56,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     // Boas praticas: libera listeners internos dos controllers.
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _cpfController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -225,6 +227,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       context: context,
                       hintText: 'seu@email.com.br',
                       icon: Icons.mail_outline_rounded,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel(context, 'TELEFONE CELULAR *'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[0-9()\-\s]'),
+                      ),
+                      LengthLimitingTextInputFormatter(15),
+                    ],
+                    decoration: _fieldDecoration(
+                      context: context,
+                      hintText: 'Ex: (19) 99999-9999',
+                      icon: Icons.phone_outlined,
                     ),
                   ),
                   const SizedBox(height: 18),
