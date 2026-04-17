@@ -327,7 +327,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _PasswordChecklistRow(
-                          text: 'DEVE CONTER 8 CARACTERE',
+                          text: 'DEVE CONTER 8 CARACTERES',
                           satisfied: _passwordHasMin8,
                           colorScheme: colorScheme,
                           baseStyle: criteriaTextStyle,
