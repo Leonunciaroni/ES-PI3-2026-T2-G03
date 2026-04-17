@@ -30,7 +30,7 @@ enum _ChipFilter {
 /// - o texto da busca muda e precisamos de [setState] para refiltrar a lista;
 /// - o chip selecionado também muda o estado visual e os itens visíveis.
 ///
-/// Com [wrapWithSafeArea]: false, o antecessor aplica insets (ex.: [DashboardScreen] com bottom nav).
+/// Com [wrapWithSafeArea]: false, o antecessor aplica insets (ex.: shell do dashboard com bottom nav).
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key, this.wrapWithSafeArea = true});
 

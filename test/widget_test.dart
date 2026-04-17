@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pi_iii/main.dart';
-import 'package:pi_iii/screens/dashboard_screen.dart';
+import 'package:pi_iii/dashboard/screens/dashboard_screen.dart';
 
 void main() {
   testWidgets('Login screen monta título do cartão e ação Entrar', (WidgetTester tester) async {

@@ -19,8 +19,8 @@ const int kMesclaMainTabCount = 4;
 /// **Índices:** alinhados com [MesclaBottomNavBar] — 0 Início, 1 Balcão,
 /// 2 Catálogo, 3 Perfil.
 ///
-/// Telas de autenticação em [lib/auth/screens] (login, criar conta, recuperar senha) e rotas
-/// empurradas (ex.: detalhe da startup) ficam **fora** deste shell.
+/// Telas de autenticação em `lib/auth/screens` e dashboard em `lib/dashboard/screens`;
+/// rotas empurradas (ex.: detalhe da startup) ficam **fora** deste shell.
 class MesclaMainShell extends StatelessWidget {
   const MesclaMainShell({
     super.key,

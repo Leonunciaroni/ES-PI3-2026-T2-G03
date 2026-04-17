@@ -5,9 +5,9 @@
 
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
-import '../widgets/mescla_main_shell.dart';
-import 'catalog_screen.dart';
+import '../../screens/catalog_screen.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/mescla_main_shell.dart';
 
 /// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
 ///

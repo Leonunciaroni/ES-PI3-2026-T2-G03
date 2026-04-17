@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../screens/dashboard_screen.dart';
+import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import 'create_account_screen.dart';
 import 'recover_password_screen.dart';
