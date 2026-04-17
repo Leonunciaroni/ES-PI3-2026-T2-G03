@@ -1,30 +1,32 @@
-// This is a basic Flutter widget test.
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Testes de widget: fluxo principal (login) e tela de dashboard isolada.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pi_iii/main.dart';
+import 'package:pi_iii/screens/dashboard_screen.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('Login screen monta título do cartão e ação Entrar', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(find.text('Bem-vindo de volta'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('Dashboard monta conteúdo principal', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DashboardScreen(),
+      ),
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('BOM DIA, RICARDO'), findsOneWidget);
+    expect(find.text('Seu Patrimônio'), findsOneWidget);
+    expect(find.text('Minhas Startups'), findsOneWidget);
   });
 }
