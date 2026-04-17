@@ -4,9 +4,9 @@
 // Dashboard (protótipo visual) — layout conforme Figma, sem backend.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
+import '../widgets/mescla_main_shell.dart';
 import 'catalog_screen.dart';
 
 /// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
@@ -238,48 +238,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       letterSpacing: 1.2,
     );
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
-      child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: IndexedStack(
-                    index: _mainNavIndex,
-                    sizing: StackFit.expand,
-                    children: [
-                      _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
-                      _buildComingSoonTab('Balcão em breve.'),
-                      const CatalogScreen(wrapWithSafeArea: false),
-                      _buildComingSoonTab('Perfil em breve.'),
-                    ],
-                  ),
-                ),
-                _BottomNavBar(
-                  selectedIndex: _mainNavIndex,
-                  onItemSelected: (i) => setState(() => _mainNavIndex = i),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return MesclaMainShell(
+      selectedIndex: _mainNavIndex,
+      onNavIndexChanged: (i) => setState(() => _mainNavIndex = i),
+      tabBodies: [
+        _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
+        _buildComingSoonTab('Balcão em breve.'),
+        const CatalogScreen(wrapWithSafeArea: false),
+        _buildComingSoonTab('Perfil em breve.'),
+      ],
     );
   }
 }
@@ -654,134 +621,6 @@ class _SparklineBars extends StatelessWidget {
           if (i < heights.length - 1) const SizedBox(width: 3),
         ],
       ],
-    );
-  }
-}
-
-/// Barra inferior flutuante (Figma): troca o painel principal via [onItemSelected].
-class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({
-    required this.selectedIndex,
-    required this.onItemSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onItemSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-    final muted = AppColors.textSecondary;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Material(
-        elevation: 8,
-        shadowColor: Colors.black.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(28),
-        color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: Icons.home_rounded,
-                label: 'INÍCIO',
-                isActive: selectedIndex == 0,
-                activeColor: primary,
-                inactiveColor: muted,
-                onTap: () => onItemSelected(0),
-              ),
-              _NavItem(
-                icon: Icons.account_balance_wallet_outlined,
-                label: 'BALCÃO',
-                isActive: selectedIndex == 1,
-                activeColor: primary,
-                inactiveColor: muted,
-                onTap: () => onItemSelected(1),
-              ),
-              _NavItem(
-                icon: Icons.article_outlined,
-                label: 'CATÁLOGO',
-                isActive: selectedIndex == 2,
-                activeColor: primary,
-                inactiveColor: muted,
-                onTap: () => onItemSelected(2),
-              ),
-              _NavItem(
-                icon: Icons.person_outline_rounded,
-                label: 'PERFIL',
-                isActive: selectedIndex == 3,
-                activeColor: primary,
-                inactiveColor: muted,
-                onTap: () => onItemSelected(3),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.activeColor,
-    required this.inactiveColor,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool isActive;
-  final Color activeColor;
-  final Color inactiveColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isActive ? activeColor : inactiveColor;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: isActive ? activeColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  icon,
-                  color: isActive ? Colors.white : inactiveColor,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                      fontSize: 10,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -15,6 +15,9 @@ import '../theme/app_colors.dart';
 /// No [onItemTap] chamas `setState(() => índice = i)` para redesenhar a UI.
 ///
 /// **Índices:** 0 = INÍCIO, 1 = BALCÃO, 2 = CATÁLOGO, 3 = PERFIL.
+///
+/// Para o layout completo (gradiente + [IndexedStack] + esta barra), usa
+/// [MesclaMainShell] em `mescla_main_shell.dart`.
 class MesclaBottomNavBar extends StatelessWidget {
   const MesclaBottomNavBar({
     super.key,
