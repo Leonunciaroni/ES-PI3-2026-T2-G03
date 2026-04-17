@@ -4,7 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
 import 'theme/app_colors.dart';
-import 'screens/login_screen.dart';
+import 'theme/app_scroll_behavior.dart';
+import 'carteira/carteira_demo_host.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Mescla Invest',
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const AppScrollBehavior(),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
@@ -42,7 +44,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const CarteiraDemoHost(),
     );
   }
 }
