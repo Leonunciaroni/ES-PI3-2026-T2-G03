@@ -5,7 +5,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../screens/catalog_screen.dart';
+import '../../catalog/screens/catalog_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_main_shell.dart';
 

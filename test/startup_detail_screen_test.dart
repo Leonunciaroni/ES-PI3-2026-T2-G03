@@ -8,8 +8,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/data/startup_detail_mock.dart';
-import 'package:pi_iii/screens/startup_detail_screen.dart';
+import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
+import 'package:pi_iii/catalog/screens/startup_detail_screen.dart';
 import 'package:pi_iii/theme/app_colors.dart';
 
 /// [MaterialApp] mínimo com o mesmo tema roxo do app, para a tela usar cores corretas.

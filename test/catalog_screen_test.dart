@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/screens/catalog_screen.dart';
+import 'package:pi_iii/catalog/screens/catalog_screen.dart';
 import 'package:pi_iii/theme/app_colors.dart';
 
 /// MaterialApp mínimo com o mesmo tema roxo do [MyApp], para a tela usar cores corretas.

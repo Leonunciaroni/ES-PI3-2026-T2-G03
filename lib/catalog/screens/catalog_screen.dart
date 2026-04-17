@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../data/startup_detail_mock.dart';
 import '../models/catalog_startup.dart';
-import '../theme/app_colors.dart';
+import '../../theme/app_colors.dart';
 import 'startup_detail_screen.dart';
 
 /// Qual chip está ativo na barra horizontal (filtro por estágio).

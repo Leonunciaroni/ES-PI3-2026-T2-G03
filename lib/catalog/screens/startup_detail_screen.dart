@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/startup_detail_mock.dart';
-import '../theme/app_colors.dart';
+import '../../theme/app_colors.dart';
 
 /// Asset do wordmark no cabeçalho (registado em `pubspec.yaml` → `flutter: assets:`).
 const String _kMesclaLogoAsset = 'assets/images/mescla_logo.png';
