@@ -19,6 +19,9 @@ abstract final class AppColors {
   /// Texto secundário (subtítulos e rótulos).
   static const Color textSecondary = Color(0xFF6B7280);
 
+  /// Ícone e rótulo inativos na [MesclaBottomNavBar] (Figma ~ #9E9E9E).
+  static const Color navBarInactive = Color(0xFF9E9E9E);
+
   /// Borda suave dos campos no cartão branco.
   static const Color fieldBorder = Color(0xFFE5E7EB);
 
