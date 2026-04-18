@@ -570,7 +570,7 @@ class _SaldoHeroCard extends StatelessWidget {
                 child: _PillActionButton(
                   // Quebra explícita: em colunas estreitas “Vender Tokens” ficava
                   // numa linha só; o \n iguala a leitura aos outros botões multilinha.
-                  label: 'Vender\nTokens',
+                  label: 'Compra / Venda\nde Tokens',
                   onPressed: onVenderTokens,
                   expandWidth: true,
                 ),
