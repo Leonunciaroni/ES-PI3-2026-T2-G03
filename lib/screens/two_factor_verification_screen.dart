@@ -1,3 +1,6 @@
+import 'dart:math' show min;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,7 +9,12 @@ import '../theme/app_colors.dart';
 /// Verificação em duas etapas: entrada do código, sucesso e falha (mesmo layout base).
 ///
 /// Protótipo sem API — código **123456** resulta em sucesso; qualquer outro código de 6
-/// dígitos mostra falha.
+/// dígitos mostra falha. A validação real deve ser feita no backend (sem segredos no app).
+///
+/// **Navegação após sucesso:** após ~2,4s, chama [Navigator.pop] apenas se
+/// [Navigator.canPop] for verdadeiro. Se esta tela for o `home` do [MaterialApp],
+/// não há rota para remover — o texto “Redirecionando…” é só informativo. O preview
+/// em `main_two_factor_preview.dart` empilha esta rota para permitir o `pop`.
 class TwoFactorVerificationScreen extends StatefulWidget {
   const TwoFactorVerificationScreen({super.key});
 
@@ -17,19 +25,51 @@ class TwoFactorVerificationScreen extends StatefulWidget {
 
 enum _TwoFactorStep { input, success, failure }
 
+/// Detecta colagem de vários dígitos antes do limite de 1 caractere por campo.
+class _OtpPasteFormatter extends TextInputFormatter {
+  _OtpPasteFormatter(this.onMultiDigit);
+  final void Function(String digits) onMultiDigit;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onMultiDigit(digits);
+      });
+      return oldValue;
+    }
+    return TextEditingValue(
+      text: digits,
+      selection: TextSelection.collapsed(offset: digits.length),
+    );
+  }
+}
+
 class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScreen> {
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
-  static const _linkAccent = Color(0xFF5E4CF0);
   static const _errorCircle = Color(0xFFD32F2F);
 
   final List<TextEditingController> _digitControllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _digitFocusNodes = List.generate(6, (_) => FocusNode());
 
+  late final TapGestureRecognizer _resendRecognizer;
+
   _TwoFactorStep _step = _TwoFactorStep.input;
 
   @override
+  void initState() {
+    super.initState();
+    _resendRecognizer = TapGestureRecognizer()..onTap = _onResendTap;
+  }
+
+  @override
   void dispose() {
+    _resendRecognizer.dispose();
     for (final c in _digitControllers) {
       c.dispose();
     }
@@ -41,7 +81,23 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
 
   String get _code => _digitControllers.map((c) => c.text).join();
 
+  void _applyDigitsFromPaste(String raw) {
+    if (!mounted) return;
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return;
+    final take = digits.length > 6 ? digits.substring(0, 6) : digits;
+    for (var i = 0; i < 6; i++) {
+      _digitControllers[i].text = i < take.length ? take[i] : '';
+    }
+    setState(() {});
+    final focusIndex = min(take.length, 5);
+    _digitFocusNodes[focusIndex].requestFocus();
+  }
+
   void _onDigitChanged(int index, String value) {
+    if (value.length > 1) {
+      return;
+    }
     if (value.isNotEmpty && index < 5) {
       _digitFocusNodes[index + 1].requestFocus();
     }
@@ -108,33 +164,59 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
       children: List.generate(6, (index) {
         return SizedBox(
           width: 46,
-          child: TextField(
-            controller: _digitControllers[index],
-            focusNode: _digitFocusNodes[index],
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            maxLength: 1,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              counterText: '',
-              filled: true,
-              fillColor: AppColors.searchFieldFill,
-              contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              enabledBorder: _digitBorder(AppColors.fieldBorder),
-              focusedBorder: _digitBorder(colorScheme.primary),
-              border: _digitBorder(AppColors.fieldBorder),
-            ),
-            onChanged: (v) => _onDigitChanged(index, v),
-            onSubmitted: (_) {
-              if (index < 5) {
-                _digitFocusNodes[index + 1].requestFocus();
-              } else {
-                _onValidate();
+          child: Focus(
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) {
+                return KeyEventResult.ignored;
               }
+              if (event.logicalKey != LogicalKeyboardKey.backspace) {
+                return KeyEventResult.ignored;
+              }
+              if (_digitControllers[index].text.isNotEmpty) {
+                return KeyEventResult.ignored;
+              }
+              if (index == 0) {
+                return KeyEventResult.ignored;
+              }
+              _digitFocusNodes[index - 1].requestFocus();
+              final prev = _digitControllers[index - 1].text;
+              if (prev.isNotEmpty) {
+                _digitControllers[index - 1].text =
+                    prev.substring(0, prev.length - 1);
+              }
+              return KeyEventResult.handled;
             },
+            child: TextField(
+              controller: _digitControllers[index],
+              focusNode: _digitFocusNodes[index],
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                _OtpPasteFormatter(_applyDigitsFromPaste),
+                LengthLimitingTextInputFormatter(1),
+              ],
+              decoration: InputDecoration(
+                counterText: '',
+                filled: true,
+                fillColor: AppColors.searchFieldFill,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                enabledBorder: _digitBorder(AppColors.fieldBorder),
+                focusedBorder: _digitBorder(colorScheme.primary),
+                border: _digitBorder(AppColors.fieldBorder),
+              ),
+              onChanged: (v) => _onDigitChanged(index, v),
+              onSubmitted: (_) {
+                if (index < 5) {
+                  _digitFocusNodes[index + 1].requestFocus();
+                } else {
+                  _onValidate();
+                }
+              },
+            ),
           ),
         );
       }),
@@ -196,19 +278,14 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                 ),
                 children: [
                   const TextSpan(text: 'Não recebeu seu código? '),
-                  WidgetSpan(
-                    alignment: PlaceholderAlignment.baseline,
-                    baseline: TextBaseline.alphabetic,
-                    child: GestureDetector(
-                      onTap: _onResendTap,
-                      child: Text(
-                        'Clique aqui para enviar novamente',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: _linkAccent,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                  TextSpan(
+                    text: 'Clique aqui para enviar novamente',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.linkAccent,
+                      fontWeight: FontWeight.w700,
                     ),
+                    recognizer: _resendRecognizer,
+                    semanticsLabel: 'Reenviar código de verificação',
                   ),
                 ],
               ),
@@ -256,7 +333,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               'Redirecionando para Dashboard...',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: _linkAccent,
+                color: AppColors.linkAccent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -298,14 +375,18 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               ),
             ),
             const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _backToInput,
-              child: Text(
-                'Solicitar código novamente',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: _linkAccent,
-                  fontWeight: FontWeight.w700,
+            Semantics(
+              button: true,
+              label: 'Solicitar código novamente',
+              child: GestureDetector(
+                onTap: _backToInput,
+                child: Text(
+                  'Solicitar código novamente',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: AppColors.linkAccent,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
