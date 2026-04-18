@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pi_iii/screens/two_factor_verification_screen.dart';
+import 'package:pi_iii/auth/screens/two_factor_verification_screen.dart';
 
 /// Empilha a tela 2FA como no preview, para [Navigator.canPop] ser true após sucesso.
 class _StubWithPushedTwoFactor extends StatefulWidget {

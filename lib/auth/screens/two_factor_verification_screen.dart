@@ -4,19 +4,29 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_colors.dart';
+import '../../dashboard/screens/dashboard_screen.dart';
+import '../../theme/app_colors.dart';
 
 /// Verificação em duas etapas: entrada do código, sucesso e falha (mesmo layout base).
 ///
 /// Protótipo sem API — código **123456** resulta em sucesso; qualquer outro código de 6
 /// dígitos mostra falha. A validação real deve ser feita no backend (sem segredos no app).
 ///
-/// **Navegação após sucesso:** após ~2,4s, chama [Navigator.pop] apenas se
-/// [Navigator.canPop] for verdadeiro. Se esta tela for o `home` do [MaterialApp],
-/// não há rota para remover — o texto “Redirecionando…” é só informativo. O preview
-/// em `main_two_factor_preview.dart` empilha esta rota para permitir o `pop`.
+/// **Navegação após sucesso:** após ~2,4s, se [replaceStackWithDashboard] for true, limpa a
+/// pilha e abre [DashboardScreen]; senão, chama [onVerificationSuccess] se definido; senão,
+/// [Navigator.pop] quando [Navigator.canPop] for verdadeiro (preview/testes).
 class TwoFactorVerificationScreen extends StatefulWidget {
-  const TwoFactorVerificationScreen({super.key});
+  const TwoFactorVerificationScreen({
+    super.key,
+    this.replaceStackWithDashboard = false,
+    this.onVerificationSuccess,
+  });
+
+  /// Fluxo login → 2FA → dashboard (protótipo).
+  final bool replaceStackWithDashboard;
+
+  /// Opcional: ação extra após sucesso (não usada quando [replaceStackWithDashboard] é true).
+  final VoidCallback? onVerificationSuccess;
 
   @override
   State<TwoFactorVerificationScreen> createState() =>
@@ -118,7 +128,19 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
     if (_step == _TwoFactorStep.success) {
       Future<void>.delayed(const Duration(milliseconds: 2400), () {
         if (!mounted) return;
-        if (Navigator.of(context).canPop()) {
+        if (widget.replaceStackWithDashboard) {
+          Navigator.of(context).pushAndRemoveUntil<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => const DashboardScreen(),
+            ),
+            (route) => false,
+          );
+          return;
+        }
+        final onSuccess = widget.onVerificationSuccess;
+        if (onSuccess != null) {
+          onSuccess();
+        } else if (Navigator.of(context).canPop()) {
           Navigator.of(context).pop();
         }
       });
