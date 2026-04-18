@@ -1,20 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_iii/auth/screens/create_account_screen.dart';
 
-Future<void> _mockAssets() async {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = 'flutter/assets';
-  ServicesBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
-    channel,
-    (message) async => ByteData(0),
-  );
-}
-
 void main() {
-  setUpAll(_mockAssets);
-
   Widget buildScreen() {
     return const MaterialApp(home: CreateAccountScreen());
   }
@@ -40,6 +28,7 @@ void main() {
     Checkbox checkbox = tester.widget<Checkbox>(checkboxFinder);
     expect(checkbox.value, isFalse);
 
+    await tester.ensureVisible(checkboxFinder);
     await tester.tap(checkboxFinder);
     await tester.pumpAndSettle();
 
@@ -53,8 +42,10 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Criar Conta →'));
-    await tester.pump();
+    final criarConta = find.text('Criar Conta →');
+    await tester.ensureVisible(criarConta);
+    await tester.tap(criarConta);
+    await tester.pumpAndSettle();
 
     expect(
       find.text(
