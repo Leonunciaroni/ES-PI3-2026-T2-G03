@@ -38,7 +38,7 @@ class MesclaBottomNavBar extends StatelessWidget {
 
   static const List<String> _labels = [
     'INÍCIO',
-    'BALCÃO',
+    'CARTEIRA',
     'CATÁLOGO',
     'PERFIL',
   ];
