@@ -2,6 +2,7 @@
 // RA: 25005592
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Cores e gradientes centralizados para o Mescla Invest.
 ///
@@ -9,6 +10,9 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   /// Cor principal da marca (Figma) e semente do tema.
   static const Color seedPurple = Color(0xFF6234EA);
+
+  /// Logo da marca (`flutter: assets:` → `assets/images/`).
+  static const String mesclaLogoAsset = 'assets/images/mescla_logo.png';
 
   /// Tom muito claro no topo do gradiente (mistura de lilás com neutro).
   static const Color gradientTop = Color(0xFFF3F0FA);
@@ -27,6 +31,16 @@ abstract final class AppColors {
 
   /// Fundo do campo de busca na tela Explorar / catálogo (Figma).
   static const Color searchFieldFill = Color(0xFFE2E2E2);
+
+  /// AppBar / status bar em tom claro (evita fundo preto por transparência no Android).
+  static const SystemUiOverlayStyle systemUiLightAppBar =
+      SystemUiOverlayStyle(
+    statusBarColor: Colors.white,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  );
 
   /// Sombra do botão principal (roxo semitransparente).
   static Color primaryShadow(ColorScheme scheme) =>
