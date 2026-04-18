@@ -285,7 +285,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'ADICIONAR FUNDOS',
+                    'ADICIONAR SALDO',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w700,
