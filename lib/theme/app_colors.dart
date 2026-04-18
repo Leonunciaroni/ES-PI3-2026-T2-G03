@@ -23,6 +23,9 @@ abstract final class AppColors {
   /// Texto secundário (subtítulos e rótulos).
   static const Color textSecondary = Color(0xFF6B7280);
 
+  /// Links e destaques de ação (2FA, CTAs secundários).
+  static const Color linkAccent = Color(0xFF5E4CF0);
+
   /// Ícone e rótulo inativos na [MesclaBottomNavBar] (Figma ~ #9E9E9E).
   static const Color navBarInactive = Color(0xFF9E9E9E);
 

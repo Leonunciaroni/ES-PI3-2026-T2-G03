@@ -4,10 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import 'create_account_screen.dart';
 import 'recover_password_screen.dart';
+import 'two_factor_verification_screen.dart';
 
 /// Tela de login apenas visual (sem backend).
 ///
@@ -64,10 +64,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnack('Informe a senha.');
       return;
     }
-    // Protótipo: sem API — após validação local, entra na dashboard.
-    Navigator.of(context).pushReplacement(
+    // Protótipo: sem API — credenciais ok → 2FA → dashboard (código demo: 123456).
+    Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (context) => const DashboardScreen(),
+        builder: (_) => const TwoFactorVerificationScreen(
+          replaceStackWithDashboard: true,
+        ),
       ),
     );
   }
