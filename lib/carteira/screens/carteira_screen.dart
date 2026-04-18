@@ -10,28 +10,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
-
-// --- Formatação BR (reais) ----------------------------------------------------
-
-/// Formata um valor em reais no estilo brasileiro: `R$ 12.450,00`.
-///
-/// Não usamos [NumberFormat] aqui para evitar dependência extra e manter o
-/// código explícito para estudo: inteiro com milhares por ponto e centavos
-/// com vírgula.
-String _formatBrl(double value) {
-  final fixed = value.toStringAsFixed(2);
-  final parts = fixed.split('.');
-  var intPart = parts[0];
-  final dec = parts[1];
-  final reversed = intPart.split('').reversed.join();
-  final withDots = StringBuffer();
-  for (var i = 0; i < reversed.length; i++) {
-    if (i > 0 && i % 3 == 0) withDots.write('.');
-    withDots.write(reversed[i]);
-  }
-  intPart = withDots.toString().split('').reversed.join();
-  return 'R\$ $intPart,$dec';
-}
+import '../format/carteira_brl.dart';
+import 'adicionar_fundos_screen.dart';
 
 /// Altura normalizada (0..1) na posição horizontal **t** (0 = esquerda, 1 = direita),
 /// interpolando linearmente entre os pontos mock (o mesmo critério do desenho da linha).
@@ -183,9 +163,6 @@ class CarteiraScreen extends StatefulWidget {
   /// aplicou [SafeArea] — evita recortar duas vezes a mesma margem.
   final bool wrapWithSafeArea;
 
-  /// Caminho do logo (registado em `pubspec.yaml` → `flutter: assets:`).
-  static const String logoAsset = 'assets/images/mescla_logo.png';
-
   @override
   State<CarteiraScreen> createState() => _CarteiraScreenState();
 }
@@ -275,6 +252,15 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
+  /// Abre o fluxo **Adicionar fundos** (valor → confirmação → PIX).
+  void _abrirAdicionarFundos() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => const AdicionarFundosScreen(),
+      ),
+    );
+  }
+
   /// Desce o scroll até à lista de startups (botão “Ver Startups Investidas”).
   ///
   /// [WidgetsBinding.addPostFrameCallback] garante que o [BuildContext] da
@@ -297,10 +283,10 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     setState(() => _hideValues = !_hideValues);
   }
 
-  /// Valor em reais para a UI: mascarado ou formatado com [_formatBrl].
+  /// Valor em reais para a UI: mascarado ou formatado com [formatBrl].
   String _brlParaExibicao(double value) {
     if (_hideValues) return 'R\$ ••••••';
-    return _formatBrl(value);
+    return formatBrl(value);
   }
 
   /// Percentagem ou texto de tendência: mascarado ou o texto original.
@@ -362,7 +348,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             totalLabel: 'SALDO TOTAL INVESTIDO',
             totalValue: _brlParaExibicao(_saldoTotal),
             trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
-            onAdicionar: () => _emBreve('Adicionar fundos'),
+            onAdicionar: _abrirAdicionarFundos,
             onVerStartups: _scrollParaStartupsInvestidas,
             onVenderTokens: () => _emBreve('Vender tokens'),
           ),
@@ -448,7 +434,7 @@ class _CarteiraLogoHeader extends StatelessWidget {
     return Row(
       children: [
         Image.asset(
-          CarteiraScreen.logoAsset,
+          AppColors.mesclaLogoAsset,
           height: _logoHeight,
           fit: BoxFit.contain,
           errorBuilder: (context, error, stackTrace) {
@@ -756,7 +742,7 @@ class _YAxisLabels extends StatelessWidget {
       final k = (v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1);
       return 'R\$ ${k}k';
     }
-    return _formatBrl(v);
+    return formatBrl(v);
   }
 
   @override
@@ -919,7 +905,7 @@ class _SaldoChartComToqueState extends State<_SaldoChartComToque> {
         final h = constraints.maxHeight;
         final yn = _alturaNormalizadaInterpolada(_t, widget.pontos);
         final valorReais = yn * widget.valorMaxLegenda;
-        final etiqueta = _formatBrl(valorReais);
+        final etiqueta = formatBrl(valorReais);
 
         return Listener(
           behavior: HitTestBehavior.opaque,
