@@ -1,32 +1,17 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Testes de widget: fluxo principal (login) e tela de dashboard isolada.
+// Testes de widget desta branch: arranque na Carteira (demo).
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pi_iii/main.dart';
-import 'package:pi_iii/dashboard/screens/dashboard_screen.dart';
 
 void main() {
-  testWidgets('Login screen monta título do cartão e ação Entrar', (WidgetTester tester) async {
+  testWidgets('App arranca na Carteira (demo desta branch)', (tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Bem-vindo de volta'), findsOneWidget);
-    expect(find.text('Entrar'), findsOneWidget);
-  });
-
-  testWidgets('Dashboard monta conteúdo principal', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: DashboardScreen(),
-      ),
-    );
-
-    expect(find.text('BOM DIA, RICARDO'), findsOneWidget);
-    expect(find.text('Seu Patrimônio'), findsOneWidget);
-    expect(find.text('Minhas Startups'), findsOneWidget);
+    expect(find.text('Carteira'), findsOneWidget);
   });
 }
