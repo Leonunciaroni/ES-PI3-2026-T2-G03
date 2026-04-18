@@ -552,7 +552,7 @@ class _SaldoHeroCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _PillActionButton(
-                  label: '+ Adicionar Fundos',
+                  label: '+ Adicionar Saldo',
                   onPressed: onAdicionar,
                   expandWidth: true,
                 ),
