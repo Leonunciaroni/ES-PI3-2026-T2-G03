@@ -14,7 +14,7 @@ import '../theme/app_colors.dart';
 /// **Como usar:** o ecrã pai guarda um `int` (0..3) e passa em [selectedIndex].
 /// No [onItemTap] chamas `setState(() => índice = i)` para redesenhar a UI.
 ///
-/// **Índices:** 0 = INÍCIO, 1 = BALCÃO, 2 = CATÁLOGO, 3 = PERFIL.
+/// **Índices:** 0 = INÍCIO, 1 = CARTEIRA, 2 = CATÁLOGO, 3 = PERFIL.
 ///
 /// Para o layout completo (gradiente + [IndexedStack] + esta barra), usa
 /// [MesclaMainShell] em `mescla_main_shell.dart`.
