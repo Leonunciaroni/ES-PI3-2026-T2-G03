@@ -4,8 +4,8 @@
 // Tela **Carteira** — protótipo visual alinhado ao Figma (saldo, evolução,
 // startups investidas, movimentações). Dados fixos em memória até existir API.
 //
-// [wrapWithSafeArea]: quando um pai (ex.: [CarteiraDemoHost] ou o shell em `dev`)
-// já aplicou [SafeArea], passa `false` para não duplicar insets no topo.
+// [wrapWithSafeArea]: quando um pai (ex.: [MesclaMainShell]) já aplicou
+// [SafeArea], passa `false` para não duplicar insets no topo.
 
 import 'package:flutter/material.dart';
 
@@ -159,8 +159,8 @@ class _StartupMock {
 class CarteiraScreen extends StatefulWidget {
   const CarteiraScreen({super.key, this.wrapWithSafeArea = true});
 
-  /// Quando `false`, o antecessor (ex.: [CarteiraDemoHost] / shell em `dev`) já
-  /// aplicou [SafeArea] — evita recortar duas vezes a mesma margem.
+  /// Quando `false`, o antecessor (ex.: [MesclaMainShell]) já aplicou
+  /// [SafeArea] — evita recortar duas vezes a mesma margem.
   final bool wrapWithSafeArea;
 
   @override

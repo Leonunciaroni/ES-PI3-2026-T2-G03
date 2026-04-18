@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-import 'carteira/carteira_demo_host.dart';
+import 'auth/screens/login_screen.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_scroll_behavior.dart';
 
@@ -44,7 +44,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const CarteiraDemoHost(),
+      home: const LoginScreen(),
     );
   }
 }

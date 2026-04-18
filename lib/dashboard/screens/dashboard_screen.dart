@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/screens/catalog_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_main_shell.dart';
@@ -243,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onNavIndexChanged: (i) => setState(() => _mainNavIndex = i),
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
-        _buildComingSoonTab('Balcão em breve.'),
+        const CarteiraScreen(wrapWithSafeArea: false),
         const CatalogScreen(wrapWithSafeArea: false),
         _buildComingSoonTab('Perfil em breve.'),
       ],

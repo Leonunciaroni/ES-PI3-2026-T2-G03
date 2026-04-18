@@ -20,7 +20,8 @@ const int kMesclaMainTabCount = 4;
 /// 2 Catálogo, 3 Perfil.
 ///
 /// Telas de autenticação em `lib/auth/screens`, dashboard em `lib/dashboard/screens`;
-/// o catálogo (aba do shell) vive em `lib/catalog/screens`. Rotas empurradas
+/// carteira (aba Balcão) em `lib/carteira/screens`; catálogo em `lib/catalog/screens`.
+/// Rotas empurradas
 /// (ex.: detalhe da startup) ficam **fora** deste shell.
 class MesclaMainShell extends StatelessWidget {
   const MesclaMainShell({
