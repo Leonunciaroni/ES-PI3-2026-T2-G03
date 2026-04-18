@@ -18,7 +18,7 @@ void main() {
     expect(find.textContaining('12.450'), findsOneWidget);
   });
 
-  testWidgets('+ Adicionar Fundos abre ecrã Adicionar fundos', (tester) async {
+  testWidgets('+ Adicionar Saldo abre fluxo Adicionar fundos', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -27,12 +27,8 @@ void main() {
       ),
     );
 
-    final addBtn = find.text('+ Adicionar Fundos').first;
-    await tester.scrollUntilVisible(
-      addBtn,
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
+    final addBtn = find.text('+ Adicionar Saldo');
+    await tester.ensureVisible(addBtn);
     await tester.tap(addBtn);
     await tester.pumpAndSettle();
 
