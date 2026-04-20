@@ -62,7 +62,7 @@ void main() {
 
       // 2) Confirma que os quatro rótulos existem (BALCÃO, como no dashboard).
       expect(find.text('INÍCIO'), findsOneWidget);
-      expect(find.text('BALCÃO'), findsOneWidget);
+      expect(find.text('CARTEIRA'), findsOneWidget);
       expect(find.text('CATÁLOGO'), findsOneWidget);
       expect(find.text('PERFIL'), findsOneWidget);
 
