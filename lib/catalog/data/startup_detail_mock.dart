@@ -50,18 +50,134 @@ const CatalogStartup kPreviewCatalogStartup = CatalogStartup(
   logoIcon: Icons.eco_outlined,
 );
 
-/// Pontos do gráfico de área: valuation em **milhões de R$** + data para tooltip.
+/// Pontos do gráfico de área: valuation em **milhões de R$** + instante por amostra.
 ///
-/// [valuationMillions] e [dateLabels] devem ter o mesmo comprimento.
+/// [valuationMillions] e [sampleTimes] devem ter o mesmo comprimento.
 class ValuationChartSeries {
-  const ValuationChartSeries({
+  ValuationChartSeries({
     required this.valuationMillions,
-    required this.dateLabels,
+    required this.sampleTimes,
   });
 
   final List<double> valuationMillions;
-  final List<String> dateLabels;
+  final List<DateTime> sampleTimes;
 }
+
+// --- Instantes fictícios reutilizados pelos mocks (§5.4) ----------------------
+
+final _sampleTimesDaily9 = <DateTime>[
+  DateTime(2026, 4, 8, 9, 5),
+  DateTime(2026, 4, 9, 11, 20),
+  DateTime(2026, 4, 10, 8, 45),
+  DateTime(2026, 4, 11, 14, 10),
+  DateTime(2026, 4, 12, 10, 0),
+  DateTime(2026, 4, 13, 16, 35),
+  DateTime(2026, 4, 14, 9, 50),
+  DateTime(2026, 4, 15, 13, 25),
+  DateTime(2026, 4, 16, 17, 42),
+];
+
+final _sampleTimesWeekly9 = <DateTime>[
+  DateTime(2026, 2, 17, 10, 15),
+  DateTime(2026, 2, 24, 11, 40),
+  DateTime(2026, 3, 3, 9, 30),
+  DateTime(2026, 3, 10, 15, 5),
+  DateTime(2026, 3, 17, 12, 20),
+  DateTime(2026, 3, 24, 10, 50),
+  DateTime(2026, 3, 31, 14, 0),
+  DateTime(2026, 4, 7, 11, 10),
+  DateTime(2026, 4, 14, 17, 55),
+];
+
+/// Mensal Ago/25 … Abr/26 — primeiro dia útil ao meio-dia.
+final _sampleTimesMonthly9 = <DateTime>[
+  DateTime(2025, 8, 1, 12, 0),
+  DateTime(2025, 9, 1, 12, 0),
+  DateTime(2025, 10, 1, 12, 0),
+  DateTime(2025, 11, 1, 12, 0),
+  DateTime(2025, 12, 1, 12, 0),
+  DateTime(2026, 1, 1, 12, 0),
+  DateTime(2026, 2, 1, 12, 0),
+  DateTime(2026, 3, 1, 12, 0),
+  DateTime(2026, 4, 1, 12, 0),
+];
+
+/// Último ponto “Hoje” para protótipo (abr/2026).
+final _sampleTimeHoje = DateTime(2026, 4, 19, 18, 30);
+
+final _sampleTimesSixMonths9 = <DateTime>[
+  DateTime(2025, 11, 12, 10, 5),
+  DateTime(2025, 12, 8, 10, 45),
+  DateTime(2026, 1, 10, 11, 15),
+  DateTime(2026, 2, 14, 11, 40),
+  DateTime(2026, 3, 11, 12, 20),
+  DateTime(2026, 4, 2, 13, 0),
+  DateTime(2026, 4, 12, 14, 30),
+  DateTime(2026, 4, 17, 16, 0),
+  _sampleTimeHoje,
+];
+
+final _sampleTimesYtd9 = <DateTime>[
+  DateTime(2026, 1, 8, 9, 5),
+  DateTime(2026, 2, 5, 9, 45),
+  DateTime(2026, 3, 6, 10, 30),
+  DateTime(2026, 4, 1, 11, 15),
+  DateTime(2026, 4, 12, 12, 40),
+  DateTime(2026, 4, 15, 14, 20),
+  DateTime(2026, 4, 17, 15, 50),
+  DateTime(2026, 4, 18, 17, 25),
+  _sampleTimeHoje,
+];
+
+final _sampleTimesShape7Daily = <DateTime>[
+  DateTime(2026, 4, 8, 9, 0),
+  DateTime(2026, 4, 9, 10, 15),
+  DateTime(2026, 4, 10, 8, 30),
+  DateTime(2026, 4, 11, 11, 45),
+  DateTime(2026, 4, 12, 14, 20),
+  DateTime(2026, 4, 13, 9, 50),
+  DateTime(2026, 4, 14, 16, 10),
+];
+
+final _sampleTimesShape7Weekly = <DateTime>[
+  DateTime(2026, 2, 24, 10, 0),
+  DateTime(2026, 3, 3, 10, 20),
+  DateTime(2026, 3, 10, 11, 0),
+  DateTime(2026, 3, 17, 11, 40),
+  DateTime(2026, 3, 24, 12, 0),
+  DateTime(2026, 3, 31, 12, 30),
+  DateTime(2026, 4, 7, 13, 0),
+];
+
+final _sampleTimesShape7Monthly = <DateTime>[
+  DateTime(2025, 10, 1, 12, 0),
+  DateTime(2025, 11, 1, 12, 0),
+  DateTime(2025, 12, 1, 12, 0),
+  DateTime(2026, 1, 1, 12, 0),
+  DateTime(2026, 2, 1, 12, 0),
+  DateTime(2026, 3, 1, 12, 0),
+  DateTime(2026, 4, 1, 12, 0),
+];
+
+final _sampleTimesShape7SixM = <DateTime>[
+  DateTime(2025, 12, 1, 10, 0),
+  DateTime(2026, 1, 1, 10, 30),
+  DateTime(2026, 2, 1, 11, 0),
+  DateTime(2026, 3, 1, 11, 30),
+  DateTime(2026, 4, 1, 12, 0),
+  DateTime(2026, 5, 1, 12, 30),
+  _sampleTimeHoje,
+];
+
+final _sampleTimesShape7Ytd = <DateTime>[
+  DateTime(2026, 1, 15, 9, 0),
+  DateTime(2026, 2, 15, 9, 30),
+  DateTime(2026, 3, 15, 10, 0),
+  DateTime(2026, 4, 15, 10, 30),
+  DateTime(2026, 5, 15, 11, 0),
+  DateTime(2026, 6, 15, 11, 30),
+  _sampleTimeHoje,
+];
 
 /// Membro-chave / sócio apresentado na lista circular.
 class StartupTeamMember {
@@ -196,85 +312,40 @@ Map<ValuationPeriod, List<double>> _shapePattern({
   };
 }
 
-/// Converte o padrão normalizado em [ValuationChartSeries] com rótulos por período.
+/// Converte o padrão normalizado em [ValuationChartSeries] com instantes por período.
 Map<ValuationPeriod, ValuationChartSeries> _seriesFromShape(
   Map<ValuationPeriod, List<double>> shape,
   double scaleMinM,
   double scaleMaxM,
 ) {
-  const labelsDiario = [
-    '8 abr',
-    '9 abr',
-    '10 abr',
-    '11 abr',
-    '12 abr',
-    '13 abr',
-    '14 abr',
-  ];
-  const labelsSemanal = [
-    '24 fev',
-    '3 mar',
-    '10 mar',
-    '17 mar',
-    '24 mar',
-    '31 mar',
-    '7 abr',
-  ];
-  const labelsMensal = [
-    'Out/25',
-    'Nov/25',
-    'Dez/25',
-    'Jan/26',
-    'Fev/26',
-    'Mar/26',
-    'Abr/26',
-  ];
-  const labels6m = [
-    'Nov/25',
-    'Dez/25',
-    'Jan/26',
-    'Fev/26',
-    'Mar/26',
-    'Abr/26',
-    'Hoje',
-  ];
-  const labelsYtd = [
-    'Jan/26',
-    'Fev/26',
-    'Mar/26',
-    'Abr/26',
-    'Mai/26',
-    'Jun/26',
-    'Hoje',
-  ];
   List<double> toM(List<double> f) =>
       f.map((t) => scaleMinM + (scaleMaxM - scaleMinM) * t).toList();
   return {
     ValuationPeriod.diario: ValuationChartSeries(
       valuationMillions: toM(shape[ValuationPeriod.diario]!),
-      dateLabels: labelsDiario,
+      sampleTimes: _sampleTimesShape7Daily,
     ),
     ValuationPeriod.semanal: ValuationChartSeries(
       valuationMillions: toM(shape[ValuationPeriod.semanal]!),
-      dateLabels: labelsSemanal,
+      sampleTimes: _sampleTimesShape7Weekly,
     ),
     ValuationPeriod.mensal: ValuationChartSeries(
       valuationMillions: toM(shape[ValuationPeriod.mensal]!),
-      dateLabels: labelsMensal,
+      sampleTimes: _sampleTimesShape7Monthly,
     ),
     ValuationPeriod.seisMeses: ValuationChartSeries(
       valuationMillions: toM(shape[ValuationPeriod.seisMeses]!),
-      dateLabels: labels6m,
+      sampleTimes: _sampleTimesShape7SixM,
     ),
     ValuationPeriod.ytd: ValuationChartSeries(
       valuationMillions: toM(shape[ValuationPeriod.ytd]!),
-      dateLabels: labelsYtd,
+      sampleTimes: _sampleTimesShape7Ytd,
     ),
   };
 }
 
 Map<ValuationPeriod, ValuationChartSeries> _greenFlowCharts() => {
-  ValuationPeriod.diario: const ValuationChartSeries(
+  ValuationPeriod.diario: ValuationChartSeries(
     valuationMillions: [
       20.85,
       20.72,
@@ -286,78 +357,28 @@ Map<ValuationPeriod, ValuationChartSeries> _greenFlowCharts() => {
       21.65,
       22.0,
     ],
-    dateLabels: [
-      '8 abr',
-      '9 abr',
-      '10 abr',
-      '11 abr',
-      '12 abr',
-      '13 abr',
-      '14 abr',
-      '15 abr',
-      '16 abr',
-    ],
+    sampleTimes: _sampleTimesDaily9,
   ),
-  ValuationPeriod.semanal: const ValuationChartSeries(
+  ValuationPeriod.semanal: ValuationChartSeries(
     valuationMillions: [19.4, 19.9, 19.6, 20.2, 20.6, 21.0, 21.3, 21.6, 22.0],
-    dateLabels: [
-      '17 fev',
-      '24 fev',
-      '3 mar',
-      '10 mar',
-      '17 mar',
-      '24 mar',
-      '31 mar',
-      '7 abr',
-      '14 abr',
-    ],
+    sampleTimes: _sampleTimesWeekly9,
   ),
-  ValuationPeriod.mensal: const ValuationChartSeries(
+  ValuationPeriod.mensal: ValuationChartSeries(
     valuationMillions: [17.8, 18.5, 18.2, 19.0, 19.8, 20.4, 21.1, 21.6, 22.0],
-    dateLabels: [
-      'Ago/25',
-      'Set/25',
-      'Out/25',
-      'Nov/25',
-      'Dez/25',
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-    ],
+    sampleTimes: _sampleTimesMonthly9,
   ),
-  ValuationPeriod.seisMeses: const ValuationChartSeries(
+  ValuationPeriod.seisMeses: ValuationChartSeries(
     valuationMillions: [14.5, 15.8, 16.2, 17.5, 18.9, 19.8, 20.6, 21.4, 22.0],
-    dateLabels: [
-      'Nov/25',
-      'Dez/25',
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-      'Mai/26',
-      'Jun/26',
-      'Hoje',
-    ],
+    sampleTimes: _sampleTimesSixMonths9,
   ),
-  ValuationPeriod.ytd: const ValuationChartSeries(
+  ValuationPeriod.ytd: ValuationChartSeries(
     valuationMillions: [12.0, 13.5, 15.0, 16.8, 18.2, 19.5, 20.5, 21.4, 22.0],
-    dateLabels: [
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-      'Mai/26',
-      'Jun/26',
-      'Jul/26',
-      'Ago/26',
-      'Hoje',
-    ],
+    sampleTimes: _sampleTimesYtd9,
   ),
 };
 
 Map<ValuationPeriod, ValuationChartSeries> _cyberMeshCharts() => {
-  ValuationPeriod.diario: const ValuationChartSeries(
+  ValuationPeriod.diario: ValuationChartSeries(
     valuationMillions: [
       39.1,
       38.85,
@@ -369,146 +390,46 @@ Map<ValuationPeriod, ValuationChartSeries> _cyberMeshCharts() => {
       40.25,
       40.8,
     ],
-    dateLabels: [
-      '8 abr',
-      '9 abr',
-      '10 abr',
-      '11 abr',
-      '12 abr',
-      '13 abr',
-      '14 abr',
-      '15 abr',
-      '16 abr',
-    ],
+    sampleTimes: _sampleTimesDaily9,
   ),
-  ValuationPeriod.semanal: const ValuationChartSeries(
+  ValuationPeriod.semanal: ValuationChartSeries(
     valuationMillions: [36.5, 37.2, 36.9, 37.8, 38.4, 39.0, 39.5, 40.0, 40.8],
-    dateLabels: [
-      '17 fev',
-      '24 fev',
-      '3 mar',
-      '10 mar',
-      '17 mar',
-      '24 mar',
-      '31 mar',
-      '7 abr',
-      '14 abr',
-    ],
+    sampleTimes: _sampleTimesWeekly9,
   ),
-  ValuationPeriod.mensal: const ValuationChartSeries(
+  ValuationPeriod.mensal: ValuationChartSeries(
     valuationMillions: [33.0, 34.2, 33.8, 35.0, 36.2, 37.5, 38.6, 39.5, 40.8],
-    dateLabels: [
-      'Ago/25',
-      'Set/25',
-      'Out/25',
-      'Nov/25',
-      'Dez/25',
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-    ],
+    sampleTimes: _sampleTimesMonthly9,
   ),
-  ValuationPeriod.seisMeses: const ValuationChartSeries(
+  ValuationPeriod.seisMeses: ValuationChartSeries(
     valuationMillions: [28.0, 30.5, 31.2, 33.0, 35.0, 36.8, 38.2, 39.5, 40.8],
-    dateLabels: [
-      'Nov/25',
-      'Dez/25',
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-      'Mai/26',
-      'Jun/26',
-      'Hoje',
-    ],
+    sampleTimes: _sampleTimesSixMonths9,
   ),
-  ValuationPeriod.ytd: const ValuationChartSeries(
+  ValuationPeriod.ytd: ValuationChartSeries(
     valuationMillions: [26.0, 28.5, 30.0, 32.5, 34.5, 36.5, 38.0, 39.5, 40.8],
-    dateLabels: [
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-      'Mai/26',
-      'Jun/26',
-      'Jul/26',
-      'Ago/26',
-      'Hoje',
-    ],
+    sampleTimes: _sampleTimesYtd9,
   ),
 };
 
 Map<ValuationPeriod, ValuationChartSeries> _healthlyCharts() => {
-  ValuationPeriod.diario: const ValuationChartSeries(
+  ValuationPeriod.diario: ValuationChartSeries(
     valuationMillions: [65.2, 64.9, 65.6, 65.4, 66.1, 65.95, 66.8, 66.6, 67.5],
-    dateLabels: [
-      '8 abr',
-      '9 abr',
-      '10 abr',
-      '11 abr',
-      '12 abr',
-      '13 abr',
-      '14 abr',
-      '15 abr',
-      '16 abr',
-    ],
+    sampleTimes: _sampleTimesDaily9,
   ),
-  ValuationPeriod.semanal: const ValuationChartSeries(
+  ValuationPeriod.semanal: ValuationChartSeries(
     valuationMillions: [61.0, 62.2, 61.8, 63.0, 64.0, 65.0, 65.8, 66.4, 67.5],
-    dateLabels: [
-      '17 fev',
-      '24 fev',
-      '3 mar',
-      '10 mar',
-      '17 mar',
-      '24 mar',
-      '31 mar',
-      '7 abr',
-      '14 abr',
-    ],
+    sampleTimes: _sampleTimesWeekly9,
   ),
-  ValuationPeriod.mensal: const ValuationChartSeries(
+  ValuationPeriod.mensal: ValuationChartSeries(
     valuationMillions: [54.0, 55.5, 56.2, 58.0, 60.0, 62.0, 64.0, 66.0, 67.5],
-    dateLabels: [
-      'Ago/25',
-      'Set/25',
-      'Out/25',
-      'Nov/25',
-      'Dez/25',
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-    ],
+    sampleTimes: _sampleTimesMonthly9,
   ),
-  ValuationPeriod.seisMeses: const ValuationChartSeries(
+  ValuationPeriod.seisMeses: ValuationChartSeries(
     valuationMillions: [48.0, 50.5, 52.0, 54.5, 57.0, 60.0, 62.5, 65.0, 67.5],
-    dateLabels: [
-      'Nov/25',
-      'Dez/25',
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-      'Mai/26',
-      'Jun/26',
-      'Hoje',
-    ],
+    sampleTimes: _sampleTimesSixMonths9,
   ),
-  ValuationPeriod.ytd: const ValuationChartSeries(
+  ValuationPeriod.ytd: ValuationChartSeries(
     valuationMillions: [45.0, 48.0, 51.0, 54.0, 57.5, 61.0, 63.5, 65.5, 67.5],
-    dateLabels: [
-      'Jan/26',
-      'Fev/26',
-      'Mar/26',
-      'Abr/26',
-      'Mai/26',
-      'Jun/26',
-      'Jul/26',
-      'Ago/26',
-      'Hoje',
-    ],
+    sampleTimes: _sampleTimesYtd9,
   ),
 };
 
