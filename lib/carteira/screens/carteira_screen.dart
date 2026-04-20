@@ -10,6 +10,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
+import '../../widgets/chart_scrubbing.dart';
+import '../../widgets/mescla_chart_reading_card.dart';
 import '../format/carteira_brl.dart';
 import 'adicionar_fundos_screen.dart';
 
@@ -100,6 +102,71 @@ double _valorMaxLegenda(_PeriodoSaldo p) {
       return 20000;
     case _PeriodoSaldo.ytd:
       return 22000;
+  }
+}
+
+final _temposCarteiraDiario = <DateTime>[
+  DateTime(2026, 4, 13, 9, 5),
+  DateTime(2026, 4, 14, 10, 30),
+  DateTime(2026, 4, 15, 8, 50),
+  DateTime(2026, 4, 16, 14, 20),
+  DateTime(2026, 4, 17, 11, 15),
+  DateTime(2026, 4, 18, 16, 40),
+  DateTime(2026, 4, 19, 17, 55),
+];
+
+final _temposCarteiraSemanal = <DateTime>[
+  DateTime(2026, 3, 5, 10, 0),
+  DateTime(2026, 3, 12, 11, 20),
+  DateTime(2026, 3, 19, 9, 45),
+  DateTime(2026, 3, 26, 15, 10),
+  DateTime(2026, 4, 2, 12, 30),
+  DateTime(2026, 4, 9, 14, 0),
+  DateTime(2026, 4, 16, 17, 25),
+];
+
+final _temposCarteiraMensal = <DateTime>[
+  DateTime(2025, 10, 1, 12, 0),
+  DateTime(2025, 11, 1, 12, 0),
+  DateTime(2025, 12, 1, 12, 0),
+  DateTime(2026, 1, 1, 12, 0),
+  DateTime(2026, 2, 1, 12, 0),
+  DateTime(2026, 3, 1, 12, 0),
+  DateTime(2026, 4, 1, 12, 0),
+];
+
+final _temposCarteira6m = <DateTime>[
+  DateTime(2025, 11, 8, 10, 0),
+  DateTime(2025, 12, 10, 10, 30),
+  DateTime(2026, 1, 12, 11, 0),
+  DateTime(2026, 2, 9, 11, 30),
+  DateTime(2026, 3, 11, 12, 0),
+  DateTime(2026, 4, 5, 13, 15),
+  DateTime(2026, 4, 19, 18, 0),
+];
+
+final _temposCarteiraYtd = <DateTime>[
+  DateTime(2026, 1, 12, 9, 0),
+  DateTime(2026, 2, 10, 9, 40),
+  DateTime(2026, 3, 8, 10, 20),
+  DateTime(2026, 4, 2, 11, 5),
+  DateTime(2026, 4, 11, 12, 45),
+  DateTime(2026, 4, 16, 14, 30),
+  DateTime(2026, 4, 19, 18, 15),
+];
+
+List<DateTime> _temposParaPeriodo(_PeriodoSaldo p) {
+  switch (p) {
+    case _PeriodoSaldo.diario:
+      return _temposCarteiraDiario;
+    case _PeriodoSaldo.semanal:
+      return _temposCarteiraSemanal;
+    case _PeriodoSaldo.mensal:
+      return _temposCarteiraMensal;
+    case _PeriodoSaldo.seisMeses:
+      return _temposCarteira6m;
+    case _PeriodoSaldo.ytd:
+      return _temposCarteiraYtd;
   }
 }
 
@@ -357,6 +424,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             periodo: _periodo,
             onPeriodoChanged: (p) => setState(() => _periodo = p),
             pontos: _pontosParaPeriodo(_periodo),
+            sampleTimes: _temposParaPeriodo(_periodo),
             valorMaxLegenda: _valorMaxLegenda(_periodo),
             lineColor: colorScheme.primary,
             hideValues: _hideValues,
@@ -649,6 +717,7 @@ class _EvolucaoSaldoCard extends StatelessWidget {
     required this.periodo,
     required this.onPeriodoChanged,
     required this.pontos,
+    required this.sampleTimes,
     required this.valorMaxLegenda,
     required this.lineColor,
     required this.hideValues,
@@ -657,6 +726,7 @@ class _EvolucaoSaldoCard extends StatelessWidget {
   final _PeriodoSaldo periodo;
   final ValueChanged<_PeriodoSaldo> onPeriodoChanged;
   final List<double> pontos;
+  final List<DateTime> sampleTimes;
   final double valorMaxLegenda;
   final Color lineColor;
 
@@ -711,6 +781,7 @@ class _EvolucaoSaldoCard extends StatelessWidget {
                           )
                         : _SaldoChartComToque(
                             pontos: pontos,
+                            sampleTimes: sampleTimes,
                             valorMaxLegenda: valorMaxLegenda,
                             lineColor: lineColor,
                           ),
@@ -863,11 +934,13 @@ class _PeriodoChip extends StatelessWidget {
 class _SaldoChartComToque extends StatefulWidget {
   const _SaldoChartComToque({
     required this.pontos,
+    required this.sampleTimes,
     required this.valorMaxLegenda,
     required this.lineColor,
   });
 
   final List<double> pontos;
+  final List<DateTime> sampleTimes;
   final double valorMaxLegenda;
   final Color lineColor;
 
@@ -897,17 +970,18 @@ class _SaldoChartComToqueState extends State<_SaldoChartComToque> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
         final yn = _alturaNormalizadaInterpolada(_t, widget.pontos);
         final valorReais = yn * widget.valorMaxLegenda;
-        final etiqueta = formatBrl(valorReais);
+        final tempos = widget.sampleTimes;
+        final mesmoComprimento =
+            tempos.length == widget.pontos.length && tempos.isNotEmpty;
 
         return Listener(
+          key: const ValueKey<String>('carteira_saldo_chart_touch'),
           behavior: HitTestBehavior.opaque,
           onPointerDown: (e) => _atualizaComDx(e.localPosition.dx, w),
           onPointerMove: (e) => _atualizaComDx(e.localPosition.dx, w),
@@ -925,28 +999,15 @@ class _SaldoChartComToqueState extends State<_SaldoChartComToque> {
                   highlightT: _dedoEmCima ? _t : null,
                 ),
               ),
-              if (_dedoEmCima)
+              if (_dedoEmCima && mesmoComprimento)
                 Positioned(
-                  left: (_t * w - 52).clamp(4.0, w - 108.0),
+                  left: (_t * w - 72).clamp(4.0, w - 158.0),
                   top: 2,
-                  child: Material(
-                    elevation: 6,
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
-                    shadowColor: Colors.black.withValues(alpha: 0.15),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      child: Text(
-                        etiqueta,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  child: MesclaChartReadingCard(
+                    dateTimeLine:
+                        formatChartSampleDateTime(dateTimeAtT(_t, tempos)),
+                    valueLine: formatBrl(valorReais),
+                    minWidth: 145,
                   ),
                 ),
             ],

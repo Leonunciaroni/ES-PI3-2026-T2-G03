@@ -13,6 +13,8 @@ import 'package:flutter/services.dart';
 
 import '../data/startup_detail_mock.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/chart_scrubbing.dart';
+import '../../widgets/mescla_chart_reading_card.dart';
 
 /// Asset do wordmark no cabeçalho (registado em `pubspec.yaml` → `flutter: assets:`).
 const String _kMesclaLogoAsset = 'assets/images/mescla_logo.png';
@@ -543,8 +545,8 @@ class _ValuationEvolutionCard extends StatefulWidget {
 }
 
 class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
-  /// Índice do ponto sob o dedo (tooltip); null quando o dedo sai da área.
-  int? _focusIndex;
+  /// Fração horizontal 0..1 enquanto o utilizador arrasta no gráfico.
+  double _t = 0.5;
 
   /// True enquanto há contacto com o gráfico — igual ao "hover" no Google.
   bool _fingerOnChart = false;
@@ -554,15 +556,22 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selected != widget.selected ||
         !identical(oldWidget.series, widget.series)) {
-      _focusIndex = null;
       _fingerOnChart = false;
+      _t = 0.5;
     }
   }
 
-  int _indexForDx(double dx, double width, int n) {
-    if (n <= 1) return 0;
-    final t = (dx / width).clamp(0.0, 1.0);
-    return (t * (n - 1)).round().clamp(0, n - 1);
+  void _atualizaComDx(double dx, double width) {
+    if (width <= 0) return;
+    setState(() {
+      _fingerOnChart = true;
+      _t = (dx / width).clamp(0.0, 1.0);
+    });
+  }
+
+  void _soltaDedo() {
+    if (!_fingerOnChart) return;
+    setState(() => _fingerOnChart = false);
   }
 
   String _formatYAxis(double millions) {
@@ -586,7 +595,7 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final values = widget.series.valuationMillions;
-    final labels = widget.series.dateLabels;
+    final times = widget.series.sampleTimes;
     final n = values.length;
     final rawMin = values.reduce(math.min);
     final rawMax = values.reduce(math.max);
@@ -672,39 +681,18 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
                         child: SizedBox(
                           height: plotHeight,
                           child: Listener(
+                            key: const ValueKey<String>(
+                              'startup_valuation_chart_touch',
+                            ),
                             behavior: HitTestBehavior.opaque,
-                            onPointerDown: (e) {
-                              setState(() {
-                                _fingerOnChart = true;
-                                _focusIndex = _indexForDx(
-                                  e.localPosition.dx,
-                                  plotW,
-                                  n,
-                                );
-                              });
-                            },
+                            onPointerDown: (e) =>
+                                _atualizaComDx(e.localPosition.dx, plotW),
                             onPointerMove: (e) {
                               if (!_fingerOnChart) return;
-                              setState(() {
-                                _focusIndex = _indexForDx(
-                                  e.localPosition.dx,
-                                  plotW,
-                                  n,
-                                );
-                              });
+                              _atualizaComDx(e.localPosition.dx, plotW);
                             },
-                            onPointerUp: (_) {
-                              setState(() {
-                                _fingerOnChart = false;
-                                _focusIndex = null;
-                              });
-                            },
-                            onPointerCancel: (_) {
-                              setState(() {
-                                _fingerOnChart = false;
-                                _focusIndex = null;
-                              });
-                            },
+                            onPointerUp: (_) => _soltaDedo(),
+                            onPointerCancel: (_) => _soltaDedo(),
                             child: Stack(
                               clipBehavior: Clip.none,
                               children: [
@@ -714,9 +702,8 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
                                     values: values,
                                     vmin: vmin,
                                     vmax: vmax,
-                                    focusIndex: _fingerOnChart
-                                        ? _focusIndex
-                                        : null,
+                                    highlightT:
+                                        _fingerOnChart ? _t : null,
                                     lineColor: const Color(0xFF4F6AF0),
                                     gridColor: AppColors.fieldBorder.withValues(
                                       alpha: 0.9,
@@ -724,62 +711,22 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
                                   ),
                                 ),
                                 if (_fingerOnChart &&
-                                    _focusIndex != null &&
-                                    _focusIndex! < n)
+                                    n > 0 &&
+                                    times.length == n)
                                   Positioned(
-                                    left:
-                                        (_focusIndex! /
-                                                    math.max(1, n - 1) *
-                                                    plotW -
-                                                60)
-                                            .clamp(
-                                              0.0,
-                                              math.max(0.0, plotW - 132),
-                                            ),
+                                    left: (_t * plotW - 72).clamp(
+                                      0.0,
+                                      math.max(0.0, plotW - 158),
+                                    ),
                                     top: 4,
-                                    child: Material(
-                                      elevation: 4,
-                                      borderRadius: BorderRadius.circular(10),
-                                      color: Colors.white,
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 8,
-                                        ),
-                                        child: ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                            minWidth: 120,
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                labels[_focusIndex!],
-                                                style: theme
-                                                    .textTheme
-                                                    .labelMedium
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                _formatTooltipValue(
-                                                  values[_focusIndex!],
-                                                ),
-                                                style: theme.textTheme.bodySmall
-                                                    ?.copyWith(
-                                                      color: AppColors
-                                                          .textSecondary,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                    child: MesclaChartReadingCard(
+                                      dateTimeLine: formatChartSampleDateTime(
+                                        dateTimeAtT(_t, times),
                                       ),
+                                      valueLine: _formatTooltipValue(
+                                        scalarAtT(_t, values),
+                                      ),
+                                      minWidth: 145,
                                     ),
                                   ),
                               ],
@@ -794,7 +741,7 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Mantenha o dedo sobre o gráfico para ver data e valuation.',
+              'Mantenha o dedo sobre o gráfico para ver data, horário e valuation.',
               style: theme.textTheme.labelSmall?.copyWith(
                 color: AppColors.textSecondary.withValues(alpha: 0.85),
               ),
@@ -812,7 +759,7 @@ class _ValuationAreaChartPainter extends CustomPainter {
     required this.values,
     required this.vmin,
     required this.vmax,
-    required this.focusIndex,
+    required this.highlightT,
     required this.lineColor,
     required this.gridColor,
   });
@@ -820,7 +767,9 @@ class _ValuationAreaChartPainter extends CustomPainter {
   final List<double> values;
   final double vmin;
   final double vmax;
-  final int? focusIndex;
+
+  /// Fração 0..1 no eixo X para linha vertical + ponto (mesmo critério que o tooltip).
+  final double? highlightT;
   final Color lineColor;
   final Color gridColor;
 
@@ -901,17 +850,29 @@ class _ValuationAreaChartPainter extends CustomPainter {
         ..isAntiAlias = true,
     );
 
-    if (focusIndex != null && focusIndex! >= 0 && focusIndex! < pts.length) {
-      final x = pts[focusIndex!].dx;
-      final dash = Paint()
-        ..color = lineColor.withValues(alpha: 0.45)
-        ..strokeWidth = 1;
-      const dashLen = 4.0;
-      var y = 0.0;
-      while (y < h) {
-        canvas.drawLine(Offset(x, y), Offset(x, y + dashLen), dash);
-        y += dashLen * 2;
+    final ht = highlightT;
+    if (ht != null && values.isNotEmpty) {
+      final t = ht.clamp(0.0, 1.0);
+      final vx = scalarAtT(t, values);
+      final x = t * w;
+      double yPix(double v) {
+        final tp = (v - vmin) / (vmax - vmin);
+        return h * (1.0 - tp.clamp(0.0, 1.0));
       }
+
+      final y = yPix(vx);
+      final guia = Paint()
+        ..color = lineColor.withValues(alpha: 0.35)
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(x, 0), Offset(x, h), guia);
+
+      final fill = Paint()..color = Colors.white;
+      canvas.drawCircle(Offset(x, y), 7, fill);
+      final borda = Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5;
+      canvas.drawCircle(Offset(x, y), 7, borda);
     }
   }
 
@@ -920,7 +881,7 @@ class _ValuationAreaChartPainter extends CustomPainter {
     return !identical(oldDelegate.values, values) ||
         oldDelegate.vmin != vmin ||
         oldDelegate.vmax != vmax ||
-        oldDelegate.focusIndex != focusIndex;
+        oldDelegate.highlightT != highlightT;
   }
 }
 
