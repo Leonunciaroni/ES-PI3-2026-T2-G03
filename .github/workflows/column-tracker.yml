@@ -1,8 +1,11 @@
-name: Column Tracker - Rastreio de Progresso
+name: Column Tracker
 
 on:
-  projects_v2_item:
-    types: [edited]
+  issues:
+    types: [closed]
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   track:
@@ -15,10 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rastrear transição de coluna
+      - name: Executar tracker
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
-          script: |
-            const script = require('./.github/scripts/column-tracker.js')
-            await script({ github, context, core })
+          script: >
+            const script = require('./.github/scripts/column-tracker.js');
+            await script({ github, context, core });
