@@ -1,0 +1,133 @@
+name: Comentário de Prazo - Done
+
+on:
+  projects_v2_item:
+    types: [edited]
+
+jobs:
+  check-deadline:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Verificar prazo e comentar
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const payload = context.payload;
+            const item = payload.projects_v2_item;
+
+            // Só continua se o campo alterado foi o Status
+            const changedField = payload.changes?.field_value?.field_name;
+            if (changedField !== 'Status') return;
+
+            // Só continua se o novo status é "Done"
+            const newValue = payload.changes?.field_value?.after?.name;
+            if (newValue !== 'Done') return;
+
+            const projectItemId = item.node_id;
+
+            const query = `
+              query($nodeId: ID!) {
+                node(id: $nodeId) {
+                  ... on ProjectV2Item {
+                    content {
+                      ... on Issue {
+                        number
+                        repository {
+                          owner { login }
+                          name
+                        }
+                      }
+                    }
+                    fieldValues(first: 20) {
+                      nodes {
+                        ... on ProjectV2ItemFieldDateValue {
+                          date
+                          field { ... on ProjectV2Field { name } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const result = await github.graphql(query, { nodeId: projectItemId });
+            const itemData = result.node;
+
+            const content = itemData?.content;
+            if (!content?.number) return;
+
+            const issueNumber = content.number;
+            const owner = content.repository.owner.login;
+            const repo = content.repository.name;
+
+            const dateField = itemData.fieldValues.nodes.find(
+              n => n?.field?.name === 'Target Date'
+            );
+
+            if (!dateField?.date) {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: issueNumber,
+                body: [
+                  '## ✅ Task concluída!',
+                  '',
+                  '> ⚠️ Nenhuma **Target Date** foi definida para esta task. Não foi possível calcular o prazo.',
+                  '',
+                  '_Gerado automaticamente pelo workflow de prazo._'
+                ].join('\n')
+              });
+              return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(dateField.date + 'T00:00:00');
+            target.setHours(0, 0, 0, 0);
+
+            const diffDays = Math.round((today - target) / (1000 * 60 * 60 * 24));
+            const targetFormatted = target.toLocaleDateString('pt-BR');
+            const todayFormatted = today.toLocaleDateString('pt-BR');
+
+            let body;
+            if (diffDays > 0) {
+              body = [
+                '## ⚠️ Entrega com atraso!',
+                '',
+                `- 📅 **Prazo era:** ${targetFormatted}`,
+                `- 🗓️ **Entregue em:** ${todayFormatted}`,
+                `- ❌ **Atraso:** ${diffDays} dia(s)`,
+                '',
+                '_Gerado automaticamente pelo workflow de prazo._'
+              ].join('\n');
+            } else if (diffDays === 0) {
+              body = [
+                '## ✅ Entrega no prazo!',
+                '',
+                `- 📅 **Prazo era:** ${targetFormatted}`,
+                `- 🗓️ **Entregue em:** ${todayFormatted}`,
+                '- ✅ Task entregue exatamente no prazo!',
+                '',
+                '_Gerado automaticamente pelo workflow de prazo._'
+              ].join('\n');
+            } else {
+              const adiantado = Math.abs(diffDays);
+              body = [
+                '## 🚀 Entrega adiantada!',
+                '',
+                `- 📅 **Prazo era:** ${targetFormatted}`,
+                `- 🗓️ **Entregue em:** ${todayFormatted}`,
+                `- ⏩ **Adiantado:** ${adiantado} dia(s)`,
+                '',
+                '_Gerado automaticamente pelo workflow de prazo._'
+              ].join('\n');
+            }
+
+            await github.rest.issues.createComment({
+              owner, repo,
+              issue_number: issueNumber,
+              body
+            });
