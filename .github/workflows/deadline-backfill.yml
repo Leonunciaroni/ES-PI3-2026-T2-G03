@@ -100,9 +100,9 @@ jobs:
                 continue;
               }
 
-              // Extrai Target Date
+              // Extrai Target date
               const dateField = item.fieldValues.nodes.find(
-                n => n?.field?.name === 'Target Date'
+                n => n?.field?.name === 'Target date'
               );
 
               if (!dateField?.date) {
