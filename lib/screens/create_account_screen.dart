@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'login_screen.dart';
+import '../services/user_firestore_service.dart';
 import '../theme/app_colors.dart';
 
 /// Tela de cadastro apenas visual, desenhada com componentes do Material 3.
@@ -26,6 +27,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
+  bool _isSaving = false;
 
   bool get _passwordHasMin8 {
     final value = _passwordController.text;
@@ -107,7 +109,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _onCreateAccount() {
+  Future<void> _onCreateAccount() async {
+    if (_isSaving) return;
+
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final cpf = _cpfController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || phone.isEmpty || cpf.isEmpty) {
+      _showFeatureMessage('Preencha todos os campos obrigatórios.');
+      return;
+    }
+
     if (!_acceptedTerms) {
       _showFeatureMessage(
         'Aceite os Termos de Uso e a Política de Privacidade para continuar.',
@@ -135,7 +150,34 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
-    _showFeatureMessage('Protótipo visual: conta criada (sem backend).');
+    setState(() => _isSaving = true);
+    try {
+      final emailExists = await UserFirestoreService.emailAlreadyExists(email);
+      if (emailExists) {
+        _showFeatureMessage('Este e-mail já está cadastrado.');
+        return;
+      }
+
+      await UserFirestoreService.createUser(
+        name: name,
+        email: email,
+        phone: phone,
+        cpf: cpf,
+        password: password,
+      );
+
+      _showFeatureMessage('Conta criada com sucesso.');
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      );
+    } catch (_) {
+      _showFeatureMessage('Erro ao criar conta. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -237,9 +279,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[0-9()\-\s]'),
-                      ),
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9()\-\s]')),
                       LengthLimitingTextInputFormatter(15),
                     ],
                     decoration: _fieldDecoration(
@@ -401,7 +441,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                   const SizedBox(height: 10),
                   FilledButton(
-                    onPressed: _onCreateAccount,
+                    onPressed: _isSaving ? null : _onCreateAccount,
                     style: FilledButton.styleFrom(
                       elevation: 3,
                       shadowColor: AppColors.primaryShadow(colorScheme),
@@ -409,13 +449,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       shape: const StadiumBorder(),
                       backgroundColor: colorScheme.primary,
                     ),
-                    child: const Text(
-                      'Criar Conta →',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Criar Conta →',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 28),
                   Center(

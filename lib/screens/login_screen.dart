@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'create_account_screen.dart';
 import 'dashboard_screen.dart';
 import 'recover_password_screen.dart';
+import '../services/user_firestore_service.dart';
 import '../theme/app_colors.dart';
 
 /// Tela de login apenas visual (sem backend).
@@ -27,9 +28,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
-  static const _footerTrust =
-      'PROJETO INTEGRADOR III - GRUPO 3';
+  static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
   @override
   void dispose() {
@@ -40,9 +41,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Validação leve só para a demo: evita “Entrar” vazio sem carregar servidor.
@@ -53,7 +54,9 @@ class _LoginScreenState extends State<LoginScreen> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
-  void _onLogin() {
+  Future<void> _onLogin() async {
+    if (_isLoading) return;
+
     final email = _emailController.text;
     final password = _passwordController.text;
     if (!_isEmailPlausible(email)) {
@@ -64,12 +67,28 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnack('Informe a senha.');
       return;
     }
-    // Protótipo: sem API — após validação local, entra na dashboard.
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (context) => const DashboardScreen(),
-      ),
-    );
+    setState(() => _isLoading = true);
+    try {
+      final isValid = await UserFirestoreService.validateLogin(
+        email: email,
+        password: password,
+      );
+      if (!isValid) {
+        _showSnack('E-mail ou senha inválidos.');
+        return;
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (context) => const DashboardScreen()),
+      );
+    } catch (_) {
+      _showSnack('Erro ao autenticar. Tente novamente.');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   OutlineInputBorder _stadiumBorder(Color color) {
@@ -102,10 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: [AppColors.gradientTop, AppColors.gradientBottom],
             ),
           ),
           child: SafeArea(
@@ -114,9 +130,14 @@ class _LoginScreenState extends State<LoginScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   // Em ecrãs pequenos o teclado empurra o conteúdo; scroll evita overflow.
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 40,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -179,9 +200,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(AppColors.fieldBorder),
-                                    focusedBorder: _stadiumBorder(colorScheme.primary),
-                                    border: _stadiumBorder(AppColors.fieldBorder),
+                                    enabledBorder: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
+                                    focusedBorder: _stadiumBorder(
+                                      colorScheme.primary,
+                                    ),
+                                    border: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
@@ -202,14 +229,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                         minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ),
                                       child: Text(
                                         'Esqueci minha senha',
-                                        style: theme.textTheme.labelLarge?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              color: colorScheme.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -248,40 +277,63 @@ class _LoginScreenState extends State<LoginScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(AppColors.fieldBorder),
-                                    focusedBorder: _stadiumBorder(colorScheme.primary),
-                                    border: _stadiumBorder(AppColors.fieldBorder),
+                                    enabledBorder: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
+                                    focusedBorder: _stadiumBorder(
+                                      colorScheme.primary,
+                                    ),
+                                    border: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 28),
                                 FilledButton(
-                                  onPressed: _onLogin,
+                                  onPressed: _isLoading ? null : _onLogin,
                                   style: FilledButton.styleFrom(
                                     elevation: 4,
-                                    shadowColor: AppColors.primaryShadow(colorScheme),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shadowColor: AppColors.primaryShadow(
+                                      colorScheme,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: const StadiumBorder(),
                                     backgroundColor: colorScheme.primary,
                                   ),
-                                  child: const Text(
-                                    'Entrar',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Entrar',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
                                 ),
                                 const SizedBox(height: 20),
                                 Center(
                                   child: Text.rich(
                                     TextSpan(
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: AppColors.textSecondary,
+                                          ),
                                       children: [
-                                        const TextSpan(text: 'Não possui uma conta? '),
+                                        const TextSpan(
+                                          text: 'Não possui uma conta? ',
+                                        ),
                                         WidgetSpan(
-                                          alignment: PlaceholderAlignment.baseline,
+                                          alignment:
+                                              PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
                                             onTap: () {
@@ -294,10 +346,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                             },
                                             child: Text(
                                               'Criar Conta',
-                                              style: theme.textTheme.bodyMedium?.copyWith(
-                                                color: colorScheme.primary,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -315,7 +368,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           _footerTrust,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary.withValues(alpha: 0.85),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.85,
+                            ),
                             letterSpacing: 0.6,
                             height: 1.4,
                           ),
