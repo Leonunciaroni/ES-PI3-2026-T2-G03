@@ -25,7 +25,7 @@ Widget _wrapStartupDetailScreen() {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.gradientBottom,
     ),
-    home: StartupDetailScreen(data: startupDetailFor(kPreviewCatalogStartup)),
+    home: StartupDetailScreen(catalog: kPreviewCatalogStartup),
   );
 }
 
