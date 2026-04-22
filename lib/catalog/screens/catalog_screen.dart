@@ -36,6 +36,7 @@ class CatalogScreen extends StatefulWidget {
     super.key,
     this.wrapWithSafeArea = true,
     this.startupsStreamForTesting,
+    this.catalogService,
   });
 
   /// Caminho do PNG registado em `pubspec.yaml` → `flutter: assets:`.
@@ -46,6 +47,9 @@ class CatalogScreen extends StatefulWidget {
 
   /// Quando não é null, a tela usa este stream em vez do Firestore (útil em `flutter test`).
   final Stream<List<CatalogStartup>>? startupsStreamForTesting;
+
+  /// Injecção opcional do serviço (testes / DI).
+  final StartupCatalogService? catalogService;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -68,7 +72,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     super.initState();
     // Se o teste injetou dados, usa-os; senão abre o canal com o Firestore.
     _startupStream = widget.startupsStreamForTesting ??
-        StartupCatalogService().watchStartups();
+        (widget.catalogService ?? StartupCatalogService()).watchStartups();
   }
 
   @override
