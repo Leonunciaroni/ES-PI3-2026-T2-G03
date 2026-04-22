@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import 'screens/recover_password_screen.dart';
 import 'theme/app_colors.dart';
-import 'screens/login_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -13,13 +16,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.seedPurple,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.seedPurple,
-      onPrimary: const Color(0xFFFFFFFF),
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.seedPurple,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.seedPurple,
+          onPrimary: const Color(0xFFFFFFFF),
+        );
 
     return MaterialApp(
       title: 'Mescla Invest',
@@ -34,7 +38,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const LoginScreen(),
+      home: const RecoverPasswordScreen(),
     );
   }
 }

@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../theme/app_colors.dart';
 
@@ -22,6 +23,7 @@ class RecoverPasswordScreen extends StatefulWidget {
 
 class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   final _emailController = TextEditingController();
+  bool _isSending = false;
 
   /// Caminho registado no [pubspec.yaml] em `flutter: assets:`.
   static const _logoAsset = 'assets/images/mescla_logo.png';
@@ -36,9 +38,9 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Verificação simples só para o protótipo (o servidor validaria de forma completa).
@@ -48,15 +50,34 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
-  void _onSendInstructions() {
+  Future<void> _onSendInstructions() async {
+    if (_isSending) return;
+
     final email = _emailController.text;
     if (!_isEmailPlausible(email)) {
       _showSnack('Informe um e-mail válido.');
       return;
     }
-    _showSnack(
-      'Protótipo: instruções seriam enviadas para $email quando o backend estiver pronto.',
-    );
+
+    setState(() => _isSending = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email.trim().toLowerCase(),
+      );
+      _showSnack('Instruções enviadas para ${email.trim()}.');
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-email') {
+        _showSnack('E-mail inválido.');
+      } else {
+        _showSnack('Não foi possível enviar agora. Tente novamente.');
+      }
+    } catch (_) {
+      _showSnack('Erro inesperado ao enviar instruções.');
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
   }
 
   OutlineInputBorder _stadiumBorder(Color color) {
@@ -88,10 +109,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: [AppColors.gradientTop, AppColors.gradientBottom],
             ),
           ),
           child: SafeArea(
@@ -102,9 +120,14 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                     ? (constraints.maxHeight - 24).clamp(0.0, double.infinity)
                     : 0.0;
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: minScrollContentHeight),
+                    constraints: BoxConstraints(
+                      minHeight: minScrollContentHeight,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -195,49 +218,76 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(AppColors.fieldBorder),
-                                    focusedBorder: _stadiumBorder(colorScheme.primary),
-                                    border: _stadiumBorder(AppColors.fieldBorder),
+                                    enabledBorder: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
+                                    focusedBorder: _stadiumBorder(
+                                      colorScheme.primary,
+                                    ),
+                                    border: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 28),
                                 FilledButton(
-                                  onPressed: _onSendInstructions,
+                                  onPressed: _isSending
+                                      ? null
+                                      : _onSendInstructions,
                                   style: FilledButton.styleFrom(
                                     elevation: 4,
-                                    shadowColor: AppColors.primaryShadow(colorScheme),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shadowColor: AppColors.primaryShadow(
+                                      colorScheme,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: const StadiumBorder(),
                                     backgroundColor: colorScheme.primary,
                                   ),
-                                  child: const Text(
-                                    'Enviar instruções',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
+                                  child: _isSending
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Enviar instruções',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
                                 ),
                                 const SizedBox(height: 20),
                                 Center(
                                   child: Text.rich(
                                     TextSpan(
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: AppColors.textSecondary,
+                                          ),
                                       children: [
-                                        const TextSpan(text: 'Lembrou da senha? '),
+                                        const TextSpan(
+                                          text: 'Lembrou da senha? ',
+                                        ),
                                         WidgetSpan(
-                                          alignment: PlaceholderAlignment.baseline,
+                                          alignment:
+                                              PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
-                                            onTap: () => Navigator.of(context).pop(),
+                                            onTap: () =>
+                                                Navigator.of(context).pop(),
                                             child: Text(
                                               'Entrar',
-                                              style: theme.textTheme.bodyMedium?.copyWith(
-                                                color: colorScheme.primary,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -255,7 +305,9 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                           _footerTrust,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary.withValues(alpha: 0.85),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.85,
+                            ),
                             letterSpacing: 0.6,
                             height: 1.4,
                           ),
