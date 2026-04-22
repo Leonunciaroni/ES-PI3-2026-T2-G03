@@ -3,38 +3,40 @@
 //
 // Funções partilhadas entre catálogo e detalhe: ler campos do Firestore e montar [CatalogStartup].
 
+export 'startup_firestore_schema.dart';
+
 import 'package:flutter/material.dart';
 import 'package:pi_iii/catalog/models/catalog_startup.dart';
 
-/// Nome da coleção no console Firebase (mesmo ID em catálogo e detalhe).
-const String kFirestoreStartupsCollection = 'startups';
+import 'startup_firestore_schema.dart';
 
-/// Placeholder de rendimento até regra de negócio no backend.
+/// Placeholder de rendimento até existir valor em [kFieldRendimentoLabel].
 const String kPlaceholderYieldLabel = 'N/D';
 
 /// Constrói [CatalogStartup] a partir do mapa de um documento e do [documentId].
 ///
-/// Devolve null se faltar [nome_startup]. Usado na lista Explorar e na rota de detalhe.
+/// Devolve null se faltar [kFieldNomeStartup]. Usado na lista Explorar e na rota de detalhe.
 CatalogStartup? catalogStartupFromFirestoreMap(
   String documentId,
   Map<String, dynamic> d,
 ) {
   try {
-    final String name = readFirestoreString(d, 'nome_startup');
+    final String name = readFirestoreString(d, kFieldNomeStartup);
     if (name.trim().isEmpty) {
       return null;
     }
-    final String setorRaw = readFirestoreString(d, 'setor');
+    final String setorRaw = readFirestoreString(d, kFieldSetor);
     final String category =
         setorRaw.trim().isEmpty ? 'SETOR' : setorRaw.toUpperCase();
-    final String description = readFirestoreString(d, 'descricao');
-    final StartupStage stage = parseFirestoreStage(readFirestoreString(d, 'estagio'));
-    final String? sigla = readFirestoreOptionalString(d, 'sigla');
+    final String description = readFirestoreString(d, kFieldDescricao);
+    final StartupStage stage =
+        parseFirestoreStage(readFirestoreString(d, kFieldEstagio));
+    final String? sigla = readFirestoreOptionalString(d, kFieldSigla);
     final Color logoColor = firestoreColorForSector(setorRaw);
     final IconData logoIcon = firestoreIconForSector(setorRaw);
-    const String yieldPercentLabel = kPlaceholderYieldLabel;
-    const double tokenPrice = 0.0;
-    const double captureProgress = 0.0;
+    final String yieldPercentLabel = yieldLabelFromFirestore(d);
+    final double tokenPrice = tokenPriceFromFirestore(d);
+    final double captureProgress = captureProgressFractionFromFirestore(d);
     return CatalogStartup(
       name: name,
       category: category,
@@ -72,6 +74,40 @@ String? readFirestoreOptionalString(Map<String, dynamic> d, String key) {
     return null;
   }
   return s;
+}
+
+double? readFirestoreOptionalDouble(Map<String, dynamic> d, String key) {
+  final Object? v = d[key];
+  if (v is num) {
+    return v.toDouble();
+  }
+  if (v is String) {
+    return double.tryParse(v.trim().replaceAll(',', '.'));
+  }
+  return null;
+}
+
+String yieldLabelFromFirestore(Map<String, dynamic> d) {
+  final String? s = readFirestoreOptionalString(d, kFieldRendimentoLabel);
+  if (s != null && s.isNotEmpty) {
+    return s;
+  }
+  return kPlaceholderYieldLabel;
+}
+
+double tokenPriceFromFirestore(Map<String, dynamic> d) {
+  return readFirestoreOptionalDouble(d, kFieldPrecoToken) ?? 0.0;
+}
+
+double captureProgressFractionFromFirestore(Map<String, dynamic> d) {
+  final double? v = readFirestoreOptionalDouble(d, kFieldProgressoCaptacao);
+  if (v == null) {
+    return 0.0;
+  }
+  if (v > 1.0) {
+    return (v / 100.0).clamp(0.0, 1.0);
+  }
+  return v.clamp(0.0, 1.0);
 }
 
 String _foldPortuguese(String s) {
