@@ -37,7 +37,7 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           _themedApp(
-            StartupDetailScreen(data: startupDetailFor(kPreviewCatalogStartup)),
+            StartupDetailScreen(catalog: kPreviewCatalogStartup),
           ),
         );
         await tester.pumpAndSettle();
