@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Modelos partilhados entre o catálogo (Explorar) e a tela de detalhes da startup.
-// Tipos simples para o protótipo PI3 (dados mock em memória).
+// Os cards podem vir do Firestore ([firestoreId] preenchido) ou de dados locais de pré-visualização.
 
 import 'package:flutter/material.dart';
 
@@ -68,6 +68,6 @@ class CatalogStartup {
   /// Sigla/ticker (ex.: ABKT) para busca no catálogo; opcional.
   final String? sigla;
 
-  /// ID do documento na coleção Firestore; null quando o card vem só de mock local.
+  /// ID do documento na coleção Firestore `startups`; null só em mock/preview local.
   final String? firestoreId;
 }
