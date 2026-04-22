@@ -34,6 +34,7 @@ class CatalogStartup {
     required this.captureProgress,
     required this.logoColor,
     required this.logoIcon,
+    this.sigla,
   });
 
   /// Nome comercial exibido no card e no cabeçalho do detalhe.
@@ -62,4 +63,7 @@ class CatalogStartup {
 
   /// Ícone Material representando o setor.
   final IconData logoIcon;
+
+  /// Sigla/ticker (ex.: ABKT) para busca no catálogo; opcional.
+  final String? sigla;
 }
