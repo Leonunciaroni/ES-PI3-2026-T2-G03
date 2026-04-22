@@ -64,16 +64,27 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Um único [Stream] por estado: Firestore, teste ou mock estático.
   late final Stream<StartupDetailLoadState> _detailStream;
 
+  /// Dados a partir do card, antes do primeiro evento do stream.
+  /// Evita tela vazia / [CircularProgressIndicator] a tapar a transição quando o
+  /// [StreamBuilder] ainda não recebeu o snapshot do Firestore.
+  late final StartupDetailLoadState? _streamInitialData;
+
   @override
   void initState() {
     super.initState();
-    _detailStream = widget.detailLoadStreamForTesting ??
-        (widget.catalog.firestoreId != null
-            ? (widget.detailService ?? StartupDetailService())
-                .watchDetail(widget.catalog.firestoreId!)
-            : Stream<StartupDetailLoadState>.value(
-                StartupDetailReady(startupDetailFor(widget.catalog)),
-              ));
+    if (widget.detailLoadStreamForTesting != null) {
+      _streamInitialData = null;
+      _detailStream = widget.detailLoadStreamForTesting!;
+    } else if (widget.catalog.firestoreId != null) {
+      _streamInitialData =
+          StartupDetailReady(startupDetailFor(widget.catalog));
+      _detailStream = (widget.detailService ?? StartupDetailService())
+          .watchDetail(widget.catalog.firestoreId!);
+    } else {
+      final ready = StartupDetailReady(startupDetailFor(widget.catalog));
+      _streamInitialData = ready;
+      _detailStream = Stream<StartupDetailLoadState>.value(ready);
+    }
   }
 
   /// Iniciais para o avatar textual (ex.: "Ana Luíza Costa" → "AC").
@@ -100,7 +111,12 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
       _snack('Vídeo não disponível neste build.');
       return;
     }
-    final Uri uri = Uri.parse(url.trim());
+    final String normalized = videoUrlWithHttpsScheme(url) ?? url.trim();
+    final Uri? uri = Uri.tryParse(normalized);
+    if (uri == null) {
+      _snack('Link do vídeo inválido.');
+      return;
+    }
     try {
       final bool ok = await launchUrl(
         uri,
@@ -149,6 +165,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
           ),
           child: SafeArea(
             child: StreamBuilder<StartupDetailLoadState>(
+              initialData: _streamInitialData,
               stream: _detailStream,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
@@ -311,11 +328,13 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                       const SizedBox(height: 14),
                       _PdfSectionCard(
                         title: 'Vídeos demonstrativos',
-                        child: DetailDemoVideoSection(
-                          videoTitle: detail.demoVideoTitle,
-                          videoUrl: detail.demoVideoUrl,
-                          primary: primary,
-                          onOpenExternal: _openDemoVideo,
+                        child: RepaintBoundary(
+                          child: DetailDemoVideoSection(
+                            videoTitle: detail.demoVideoTitle,
+                            videoUrl: detail.demoVideoUrl,
+                            primary: primary,
+                            onOpenExternal: _openDemoVideo,
+                          ),
                         ),
                       ),
                     ],
