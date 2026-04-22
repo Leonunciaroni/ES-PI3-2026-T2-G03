@@ -1,10 +1,42 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:pi_iii/services/auth_service.dart';
 
 void main() {
   group('AuthService.messageForError', () {
+    test('no-app (FirebaseException)', () {
+      final out = AuthService.messageForError(
+        FirebaseException(
+          plugin: 'core',
+          code: 'no-app',
+          message: 'No app',
+        ),
+      );
+      expect(out, 'Firebase não está configurado para esta plataforma.');
+    });
+
+    test('invalid-api-key mapeado por código', () {
+      final out = AuthService.messageForError(
+        FirebaseAuthException(
+          code: 'invalid-api-key',
+          message: 'API key not valid',
+        ),
+      );
+      expect(out, 'Configuração Firebase incompleta para Android (SHA/API).');
+    });
+
+    test('app-not-authorized mapeado por código', () {
+      final out = AuthService.messageForError(
+        FirebaseAuthException(
+          code: 'app-not-authorized',
+          message: 'App not authorized',
+        ),
+      );
+      expect(out, 'Configuração Firebase incompleta para Android (SHA/API).');
+    });
+
     test('internal-error com detalhe CONFIGURATION_NOT_FOUND', () {
       final out = AuthService.messageForError(
         FirebaseAuthException(

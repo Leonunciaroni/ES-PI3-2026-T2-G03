@@ -31,6 +31,12 @@ class AuthService {
     }
 
     if (error is FirebaseAuthException) {
+      if (_codeImpliesProjectConfiguration(error.code)) {
+        return 'Configuração Firebase incompleta para Android (SHA/API).';
+      }
+      if (error.code == 'internal-error' && _messageImpliesConfigurationNotFound(error)) {
+        return 'Configuração Firebase incompleta para Android (SHA/API).';
+      }
       switch (error.code) {
         case 'invalid-email':
           return 'E-mail inválido.';
@@ -47,10 +53,6 @@ class AuthService {
         case 'network-request-failed':
           return 'Sem conexão com a internet.';
         case 'internal-error':
-          final message = (error.message ?? '').toUpperCase();
-          if (message.contains('CONFIGURATION_NOT_FOUND')) {
-            return 'Configuração Firebase incompleta para Android (SHA/API).';
-          }
           return 'Erro interno do Firebase. Verifique a configuração do projeto.';
         default:
           return 'Falha na autenticação. Tente novamente.';
@@ -58,4 +60,23 @@ class AuthService {
     }
     return 'Não foi possível concluir a operação agora.';
   }
+}
+
+/// Códigos [FirebaseAuth] que apontam para projeto / app / chave mal configurados
+/// (preferível a inspecionar texto livre).
+bool _codeImpliesProjectConfiguration(String code) {
+  switch (code) {
+    case 'invalid-api-key':
+    case 'app-not-authorized':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// Alguns SDKs embutem `CONFIGURATION_NOT_FOUND` só em [FirebaseAuthException.message]
+/// (ex.: `internal-error`).
+bool _messageImpliesConfigurationNotFound(FirebaseAuthException error) {
+  final String text = (error.message ?? error.toString()).toUpperCase();
+  return text.contains('CONFIGURATION_NOT_FOUND');
 }
