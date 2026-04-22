@@ -2,13 +2,14 @@
 // RA: 25005592
 //
 // Tela Explorar (catálogo de startups) — protótipo visual alinhado ao Figma.
-// Os dados vêm de listas fixas em memória; depois substituímos por chamadas à API.
+// A lista vem do Firestore via [StartupCatalogService]; em testes injeta-se um [Stream] fixo.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/startup_detail_mock.dart';
 import '../models/catalog_startup.dart';
+import '../services/startup_catalog_service.dart';
 import '../../theme/app_colors.dart';
 import 'startup_detail_screen.dart';
 
@@ -32,13 +33,20 @@ enum _ChipFilter {
 ///
 /// Com [wrapWithSafeArea]: false, o antecessor aplica insets (ex.: shell do dashboard com bottom nav).
 class CatalogScreen extends StatefulWidget {
-  const CatalogScreen({super.key, this.wrapWithSafeArea = true});
+  const CatalogScreen({
+    super.key,
+    this.wrapWithSafeArea = true,
+    this.startupsStreamForTesting,
+  });
 
   /// Caminho do PNG registado em `pubspec.yaml` → `flutter: assets:`.
   static const String logoAsset = 'assets/images/mescla_logo.png';
 
   /// Evita SafeArea duplicado quando a tela é filha de um [SafeArea] maior (dashboard shell).
   final bool wrapWithSafeArea;
+
+  /// Quando não é null, a tela usa este stream em vez do Firestore (útil em `flutter test`).
+  final Stream<List<CatalogStartup>>? startupsStreamForTesting;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -53,42 +61,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   static const _horizontalPadding = 20.0;
 
-  /// Dados de exemplo até existir backend (Firestore + API).
-  static const List<CatalogStartup> _allStartups = [
-    CatalogStartup(
-      name: 'GreenFlow',
-      category: 'AGROTECH',
-      stage: StartupStage.nova,
-      yieldPercentLabel: '+18.5%',
-      tokenPrice: 15.30,
-      description: 'Soluções de automações para a sua colheita',
-      captureProgress: 0.8,
-      logoColor: Color(0xFF22C55E),
-      logoIcon: Icons.eco_outlined,
-    ),
-    CatalogStartup(
-      name: 'CyberMesh',
-      category: 'CYBERSECURITY',
-      stage: StartupStage.emOperacao,
-      yieldPercentLabel: '+12.3%',
-      tokenPrice: 42.00,
-      description: 'Monitoramento de ameaças em tempo real para PMEs',
-      captureProgress: 0.55,
-      logoColor: Color(0xFF18181B),
-      logoIcon: Icons.security_outlined,
-    ),
-    CatalogStartup(
-      name: 'Healthly',
-      category: 'HEALTHTECH',
-      stage: StartupStage.emExpansao,
-      yieldPercentLabel: '+9.8%',
-      tokenPrice: 8.75,
-      description: 'Telemedicina e histórico clínico integrado',
-      captureProgress: 0.92,
-      logoColor: Color(0xFF14B8A6),
-      logoIcon: Icons.favorite_outline,
-    ),
-  ];
+  /// Stream único por ciclo de vida do State: evita nova subscrição a cada [build].
+  late final Stream<List<CatalogStartup>> _startupStream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Se o teste injetou dados, usa-os; senão abre o canal com o Firestore.
+    _startupStream = widget.startupsStreamForTesting ??
+        StartupCatalogService().watchStartups();
+  }
 
   @override
   void dispose() {
@@ -111,18 +93,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
-  /// Pesquisa case-insensitive no nome, categoria e descrição.
+  /// Pesquisa case-insensitive no nome, categoria, descrição e sigla (se existir).
   bool _matchesSearch(CatalogStartup s) {
     final q = _searchController.text.trim().toLowerCase();
     if (q.isEmpty) return true;
+    final String sigla = s.sigla?.toLowerCase() ?? '';
     return s.name.toLowerCase().contains(q) ||
         s.category.toLowerCase().contains(q) ||
-        s.description.toLowerCase().contains(q);
+        s.description.toLowerCase().contains(q) ||
+        (sigla.isNotEmpty && sigla.contains(q));
   }
 
-  /// Lista que de facto aparece na tela (chip + caixa de busca em conjunto).
-  List<CatalogStartup> get _visibleStartups {
-    return _allStartups.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
+  /// Lista visível após aplicar chip + texto de busca sobre [all].
+  List<CatalogStartup> _visibleFrom(List<CatalogStartup> all) {
+    return all.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
   }
 
   /// Formata preço em estilo BR: "R$ 15,30" (sem separador de milhar nestes exemplos).
@@ -130,6 +114,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final fixed = value.toStringAsFixed(2);
     final parts = fixed.split('.');
     return 'R\$ ${parts[0]},${parts[1]}';
+  }
+
+  /// Quando o preço ainda não existe no backend usamos 0.0 e mostramos traço no card.
+  String _tokenPriceLabel(CatalogStartup s) {
+    if (s.tokenPrice <= 0) {
+      return '—';
+    }
+    return _formatTokenPrice(s.tokenPrice);
   }
 
   /// Borda arredondada tipo "pílula" para o campo de busca.
@@ -255,28 +247,60 @@ class _CatalogScreenState extends State<CatalogScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // Um card por startup visível; o operador ... expande o mapa para widgets filhos.
-                        ..._visibleStartups.map(
-                          (s) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _CatalogStartupCard(
-                              startup: s,
-                              tokenPriceFormatted: _formatTokenPrice(s.tokenPrice),
-                              primary: colorScheme.primary,
-                            ),
-                          ),
+                        // O StreamBuilder reage ao Firestore: loading, erro ou lista.
+                        StreamBuilder<List<CatalogStartup>>(
+                          stream: _startupStream,
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 24),
+                                child: Text(
+                                  'Não foi possível carregar o catálogo. Verifique a rede e o Firebase.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyLarge?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              );
+                            }
+                            if (!snapshot.hasData) {
+                              return const Padding(
+                                padding: EdgeInsets.only(top: 48),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            final List<CatalogStartup> visible =
+                                _visibleFrom(snapshot.data!);
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                ...visible.map(
+                                  (s) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _CatalogStartupCard(
+                                      startup: s,
+                                      tokenPriceFormatted: _tokenPriceLabel(s),
+                                      primary: colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                                if (visible.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 32),
+                                    child: Text(
+                                      'Nenhuma startup encontrada.',
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.bodyLarge?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
-                        if (_visibleStartups.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 32),
-                            child: Text(
-                              'Nenhuma startup encontrada.',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyLarge?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                   ),
