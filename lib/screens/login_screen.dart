@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'create_account_screen.dart';
 import 'dashboard_screen.dart';
@@ -69,21 +70,27 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isLoading = true);
     try {
-      final isValid = await UserFirestoreService.validateLogin(
+      await UserFirestoreService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      if (!isValid) {
-        _showSnack('E-mail ou senha inválidos.');
-        return;
-      }
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (context) => const DashboardScreen()),
       );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+        _showSnack('E-mail ou senha inválidos.');
+      } else if (e.code == 'invalid-email') {
+        _showSnack('E-mail inválido.');
+      } else if (e.code == 'invalid-credential') {
+        _showSnack('Credenciais inválidas.');
+      } else {
+        _showSnack('Erro ao autenticar. Tente novamente.');
+      }
     } catch (_) {
-      _showSnack('Erro ao autenticar. Tente novamente.');
+      _showSnack('Erro inesperado ao autenticar.');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

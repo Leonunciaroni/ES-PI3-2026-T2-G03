@@ -1,6 +1,7 @@
 //Miguel Fernandes Costacurta - 25003110
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'login_screen.dart';
 import '../services/user_firestore_service.dart';
@@ -152,13 +153,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     setState(() => _isSaving = true);
     try {
-      final emailExists = await UserFirestoreService.emailAlreadyExists(email);
-      if (emailExists) {
-        _showFeatureMessage('Este e-mail já está cadastrado.');
-        return;
-      }
-
-      await UserFirestoreService.createUser(
+      await UserFirestoreService.createUserWithEmailAndPassword(
         name: name,
         email: email,
         phone: phone,
@@ -171,8 +166,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
       );
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') {
+        _showFeatureMessage('Este e-mail já está cadastrado.');
+      } else if (e.code == 'invalid-email') {
+        _showFeatureMessage('E-mail inválido.');
+      } else if (e.code == 'weak-password') {
+        _showFeatureMessage('Senha fraca. Use uma senha mais forte.');
+      } else {
+        _showFeatureMessage('Erro ao criar conta. Tente novamente.');
+      }
     } catch (_) {
-      _showFeatureMessage('Erro ao criar conta. Tente novamente.');
+      _showFeatureMessage('Erro inesperado ao criar conta.');
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
