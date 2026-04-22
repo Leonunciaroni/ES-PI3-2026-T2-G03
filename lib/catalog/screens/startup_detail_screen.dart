@@ -10,11 +10,15 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/startup_detail_mock.dart';
+import '../models/catalog_startup.dart';
+import '../services/startup_detail_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/chart_scrubbing.dart';
 import '../../widgets/mescla_chart_reading_card.dart';
+import '../widgets/detail_demo_video_section.dart';
 
 /// Asset do wordmark no cabeçalho (registado em `pubspec.yaml` → `flutter: assets:`).
 const String _kMesclaLogoAsset = 'assets/images/mescla_logo.png';
@@ -24,12 +28,20 @@ const double _kCardRadius = 22;
 
 /// Tela completa de detalhes da startup.
 ///
-/// [data] agrega o [CatalogStartup] de identidade e os campos extra do mock.
+/// Com [catalog.firestoreId] preenchido (vindo do Firestore), os dados são lidos em tempo real.
+/// Sem ID ou em testes, usa [detailStreamForTesting] ou [startupDetailFor] local.
 class StartupDetailScreen extends StatefulWidget {
-  const StartupDetailScreen({super.key, required this.data});
+  const StartupDetailScreen({
+    super.key,
+    required this.catalog,
+    this.detailStreamForTesting,
+  });
 
-  /// Modelo de vista já resolvido por [startupDetailFor].
-  final StartupDetailViewData data;
+  /// Startup tocada no catálogo (mantém identidade visual e o ID do documento, se houver).
+  final CatalogStartup catalog;
+
+  /// Injeta um stream fixo em `flutter test` (sem Firebase).
+  final Stream<StartupDetailViewData?>? detailStreamForTesting;
 
   @override
   State<StartupDetailScreen> createState() => _StartupDetailScreenState();
@@ -42,7 +54,19 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Simula favoritar na lista de desejos (sem persistência).
   bool _onWishlist = false;
 
-  StartupDetailViewData get _d => widget.data;
+  /// Um único [Stream] por estado: Firestore, teste ou mock estático.
+  late final Stream<StartupDetailViewData?> _detailStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _detailStream = widget.detailStreamForTesting ??
+        (widget.catalog.firestoreId != null
+            ? StartupDetailService().watchDetail(widget.catalog.firestoreId!)
+            : Stream<StartupDetailViewData?>.value(
+                startupDetailFor(widget.catalog),
+              ));
+  }
 
   /// Iniciais para o avatar textual (ex.: "Ana Luíza Costa" → "AC").
   String _initials(String fullName) {
@@ -61,6 +85,38 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _openDemoVideo(String? url) async {
+    if (url == null || url.trim().isEmpty) {
+      _snack('Vídeo não disponível neste build.');
+      return;
+    }
+    final Uri uri = Uri.parse(url.trim());
+    try {
+      final bool ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!mounted) {
+        return;
+      }
+      if (!ok) {
+        _snack('Não foi possível abrir o link.');
+      }
+    } on MissingPluginException {
+      if (!mounted) {
+        return;
+      }
+      _snack(
+        'Plugin de link não carregado. Pare o app, rode: flutter clean && flutter pub get && flutter run',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _snack('Erro ao abrir o vídeo: $e');
+    }
   }
 
   @override
@@ -84,139 +140,161 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
             ),
           ),
           child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _DetailHeader(),
-                  const SizedBox(height: 16),
-                  _MainInfoCard(
-                    data: _d,
-                    primary: primary,
-                    onWishlist: _onWishlist,
-                    onToggleWishlist: () =>
-                        setState(() => _onWishlist = !_onWishlist),
-                    onInvest: () =>
-                        _snack('Investimento simulado — em integração.'),
-                  ),
-                  const SizedBox(height: 14),
-                  _CaptureCard(
-                    headline: _d.captureHeadline,
-                    progress: _d.captureProgressFraction,
-                    caption: _d.captureProgressLabel,
-                    primary: primary,
-                  ),
-                  const SizedBox(height: 14),
-                  _ValuationCard(
-                    roundLabel: _d.valuationRoundLabel,
-                    headline: _d.valuationHeadline,
-                    trend: _d.valuationTrendText,
-                  ),
-                  const SizedBox(height: 14),
-                  _ValuationEvolutionCard(
-                    selected: _valuationPeriod,
-                    onSelect: (p) => setState(() => _valuationPeriod = p),
-                    series: _d.chartSeriesByPeriod[_valuationPeriod]!,
-                    primary: primary,
-                  ),
-                  const SizedBox(height: 14),
-                  _PerformanceMetricsCard(metrics: _d.performanceMetrics),
-                  const SizedBox(height: 14),
-                  _CompanyInfoCard(data: _d, primary: primary),
-                  const SizedBox(height: 14),
-                  _TeamCard(members: _d.teamMembers, initialsFor: _initials),
-                  const SizedBox(height: 14),
-                  _PdfSectionCard(
-                    title: 'Sumário executivo',
-                    child: Text(
-                      _d.executiveSummary,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.4,
+            child: StreamBuilder<StartupDetailViewData?>(
+              stream: _detailStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Não foi possível carregar os detalhes. Tente novamente.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  _PdfSectionCard(
-                    title: 'Estrutura societária',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _d.societaryLines
-                          .map(
-                            (line) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Text(
-                                '• $line',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textSecondary,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _PdfSectionCard(
-                    title: 'Perguntas e respostas públicas',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _d.publicQa.isEmpty
-                          ? [
-                              Text(
-                                'Ainda não há perguntas públicas.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ]
-                          : _d.publicQa.map((qa) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'P: ${qa.question}',
-                                      style: theme.textTheme.titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'R: ${qa.answer}',
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: AppColors.textSecondary,
-                                            height: 1.35,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  _PdfSectionCard(
-                    title: 'Vídeos demonstrativos',
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        Icons.play_circle_outline_rounded,
-                        color: primary,
-                        size: 40,
+                  );
+                }
+                if (!snapshot.hasData || snapshot.data == null) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final StartupDetailViewData _d = snapshot.data!;
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const _DetailHeader(),
+                      const SizedBox(height: 16),
+                      _MainInfoCard(
+                        data: _d,
+                        primary: primary,
+                        onWishlist: _onWishlist,
+                        onToggleWishlist: () =>
+                            setState(() => _onWishlist = !_onWishlist),
+                        onInvest: () =>
+                            _snack('Investimento simulado — em integração.'),
                       ),
-                      title: Text(_d.demoVideoTitle),
-                      subtitle: const Text('Protótipo — reprodução simulada'),
-                      onTap: () => _snack('Vídeo não disponível neste build.'),
-                    ),
+                      const SizedBox(height: 14),
+                      _CaptureCard(
+                        headline: _d.captureHeadline,
+                        progress: _d.captureProgressFraction,
+                        caption: _d.captureProgressLabel,
+                        primary: primary,
+                      ),
+                      const SizedBox(height: 14),
+                      _ValuationCard(
+                        roundLabel: _d.valuationRoundLabel,
+                        headline: _d.valuationHeadline,
+                        trend: _d.valuationTrendText,
+                      ),
+                      const SizedBox(height: 14),
+                      _ValuationEvolutionCard(
+                        selected: _valuationPeriod,
+                        onSelect: (p) => setState(() => _valuationPeriod = p),
+                        series: _d.chartSeriesByPeriod[_valuationPeriod]!,
+                        primary: primary,
+                      ),
+                      const SizedBox(height: 14),
+                      _PerformanceMetricsCard(metrics: _d.performanceMetrics),
+                      const SizedBox(height: 14),
+                      _CompanyInfoCard(data: _d, primary: primary),
+                      const SizedBox(height: 14),
+                      _TeamCard(
+                        members: _d.teamMembers,
+                        initialsFor: _initials,
+                      ),
+                      const SizedBox(height: 14),
+                      _PdfSectionCard(
+                        title: 'Sumário executivo',
+                        child: Text(
+                          _d.executiveSummary,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _PdfSectionCard(
+                        title: 'Estrutura societária',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _d.societaryLines
+                              .map(
+                                (line) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Text(
+                                    '• $line',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _PdfSectionCard(
+                        title: 'Perguntas e respostas públicas',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: _d.publicQa.isEmpty
+                              ? [
+                                  Text(
+                                    'Ainda não há perguntas públicas.',
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ]
+                              : _d.publicQa.map((qa) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'P: ${qa.question}',
+                                          style: theme.textTheme.titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'R: ${qa.answer}',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: AppColors.textSecondary,
+                                                height: 1.35,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _PdfSectionCard(
+                        title: 'Vídeos demonstrativos',
+                        child: DetailDemoVideoSection(
+                          videoTitle: _d.demoVideoTitle,
+                          videoUrl: _d.demoVideoUrl,
+                          primary: primary,
+                          onOpenExternal: _openDemoVideo,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ),
