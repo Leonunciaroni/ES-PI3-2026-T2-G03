@@ -48,6 +48,7 @@ const CatalogStartup kPreviewCatalogStartup = CatalogStartup(
   captureProgress: 0.8,
   logoColor: Color(0xFF22C55E),
   logoIcon: Icons.eco_outlined,
+  firestoreId: null,
 );
 
 /// Pontos do gráfico de área: valuation em **milhões de R$** + instante por amostra.
@@ -241,6 +242,7 @@ class StartupDetailViewData {
     required this.societaryLines,
     required this.publicQa,
     required this.demoVideoTitle,
+    this.demoVideoUrl,
   });
 
   /// Dados já mostrados no catálogo (ícone, cor, nome curto, etc.).
@@ -290,6 +292,9 @@ class StartupDetailViewData {
 
   /// Título placeholder para vídeo demonstrativo (§5.2).
   final String demoVideoTitle;
+
+  /// URL do vídeo (ex.: YouTube) quando existir no Firestore.
+  final String? demoVideoUrl;
 }
 
 /// Curvas fictícias 0–1 (7 pontos) — escalamos para milhões de R$ no fallback.
@@ -342,6 +347,14 @@ Map<ValuationPeriod, ValuationChartSeries> _seriesFromShape(
       sampleTimes: _sampleTimesShape7Ytd,
     ),
   };
+}
+
+/// Séries do gráfico §5.4 para startups sem template estático (ex.: dados só no Firestore).
+Map<ValuationPeriod, ValuationChartSeries> fallbackChartSeriesForStartupDetail(
+  CatalogStartup _,
+) {
+  final shape = _shapePattern(base: 0.3, spread: 0.5);
+  return _seriesFromShape(shape, 14.0, 24.0);
 }
 
 Map<ValuationPeriod, ValuationChartSeries> _greenFlowCharts() => {
@@ -445,6 +458,7 @@ const CatalogStartup _catalogPlaceholder = CatalogStartup(
   captureProgress: 0,
   logoColor: Color(0xFF000000),
   logoIcon: Icons.help_outline,
+  firestoreId: null,
 );
 
 /// Modelos por nome da startup (sem acoplar à instância exacta vinda do card).
@@ -708,12 +722,12 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
     societaryLines: template.societaryLines,
     publicQa: template.publicQa,
     demoVideoTitle: template.demoVideoTitle,
+    demoVideoUrl: template.demoVideoUrl,
   );
 }
 
 StartupDetailViewData _fallbackFor(CatalogStartup c) {
-  final shape = _shapePattern(base: 0.3, spread: 0.5);
-  final charts = _seriesFromShape(shape, 14.0, 24.0);
+  final charts = fallbackChartSeriesForStartupDetail(c);
   return StartupDetailViewData(
     catalog: c,
     categoryDisplay: c.category,
@@ -735,5 +749,6 @@ StartupDetailViewData _fallbackFor(CatalogStartup c) {
     societaryLines: const ['Estrutura societária em elaboração.'],
     publicQa: const [],
     demoVideoTitle: 'Vídeo demonstrativo em breve',
+    demoVideoUrl: null,
   );
 }
