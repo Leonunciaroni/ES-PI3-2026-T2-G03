@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_iii/screens/create_account_screen.dart';
 
-Future<void> _mockAssets() async {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = 'flutter/assets';
-  ServicesBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
-    channel,
-    (message) async => ByteData(0),
-  );
-}
-
 void main() {
-  setUpAll(_mockAssets);
-
   Widget buildScreen() {
     return const MaterialApp(home: CreateAccountScreen());
+  }
+
+  Future<void> scrollTo(WidgetTester tester, Finder target) async {
+    await tester.scrollUntilVisible(
+      target,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
   }
 
   testWidgets('Renderiza campo de telefone acima do CPF', (
@@ -40,6 +36,7 @@ void main() {
     Checkbox checkbox = tester.widget<Checkbox>(checkboxFinder);
     expect(checkbox.value, isFalse);
 
+    await scrollTo(tester, checkboxFinder);
     await tester.tap(checkboxFinder);
     await tester.pumpAndSettle();
 
@@ -53,7 +50,13 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Criar Conta →'));
+    await tester.enterText(find.byType(TextField).at(0), 'Usuário Teste');
+    await tester.enterText(find.byType(TextField).at(1), 'teste@email.com');
+    await tester.enterText(find.byType(TextField).at(2), '(19) 99999-9999');
+    await tester.enterText(find.byType(TextField).at(3), '123.456.789-00');
+    final createButton = find.text('Criar Conta →');
+    await scrollTo(tester, createButton);
+    await tester.tap(createButton);
     await tester.pump();
 
     expect(

@@ -35,22 +35,39 @@ class UserFirestoreService {
       email: normalizedEmail,
       password: password,
     );
-    final uid = credential.user!.uid;
+    final createdUser = credential.user;
+    if (createdUser == null) {
+      throw FirebaseAuthException(
+        code: 'internal-error',
+        message: 'Não foi possível concluir o cadastro no Firebase Auth.',
+      );
+    }
+    final uid = createdUser.uid;
 
-    await _usersCollection.doc(uid).set({
-      'uid': uid,
-      'name': name.trim(),
-      'email': email.trim(),
-      'emailLowercase': normalizedEmail,
-      'phone': phone.trim(),
-      'cpf': cpf.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      await _usersCollection.doc(uid).set({
+        'uid': uid,
+        'name': name.trim(),
+        'email': email.trim(),
+        'emailLowercase': normalizedEmail,
+        'phone': phone.trim(),
+        'cpf': cpf.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
-    await _removeLegacyPasswordFieldForEmail(normalizedEmail);
+      await _removeLegacyPasswordFieldForEmail(normalizedEmail);
 
-    // Mantem o fluxo atual da interface: após cadastro, volta para tela de login.
-    await _auth.signOut();
+      // Mantém o fluxo atual da interface: após cadastro, volta para tela de login.
+      await _auth.signOut();
+    } catch (_) {
+      // Evita usuário órfão no Auth caso o perfil em Firestore falhe.
+      try {
+        await createdUser.delete();
+      } catch (_) {
+        // Se não conseguir apagar, propagamos o erro original para a UI.
+      }
+      rethrow;
+    }
   }
 
   static Future<void> signInWithEmailAndPassword({
