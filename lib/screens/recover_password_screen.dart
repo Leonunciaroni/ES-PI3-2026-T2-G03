@@ -5,15 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 
-/// Tela de recuperação de senha (protótipo visual).
+/// Tela de recuperação de senha com [FirebaseAuth.sendPasswordResetEmail].
 ///
-/// No documento do PI, o fluxo real envia instruções por e-mail; aqui só validamos
-/// o texto e mostramos [SnackBar], como nas outras telas até existir API no backend.
+/// Mensagens de erro passam por [AuthService.messageForPasswordResetError] para
+/// alinhar com o resto do app. O texto de sucesso é neutro (enumeração de e-mails).
 ///
-/// Usamos [StatefulWidget] porque o [TextEditingController] do e-mail precisa de
-/// [dispose] para não ficar preso na memória após sair da tela.
+/// [StatefulWidget] para o [TextEditingController] do e-mail e o estado de envio.
 class RecoverPasswordScreen extends StatefulWidget {
   const RecoverPasswordScreen({super.key});
 
@@ -64,15 +64,13 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: email.trim().toLowerCase(),
       );
-      _showSnack('Instruções enviadas para ${email.trim()}.');
+      _showSnack(
+        'Se existir uma conta com este e-mail, receberá instruções em breve.',
+      );
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'invalid-email') {
-        _showSnack('E-mail inválido.');
-      } else {
-        _showSnack('Não foi possível enviar agora. Tente novamente.');
-      }
-    } catch (_) {
-      _showSnack('Erro inesperado ao enviar instruções.');
+      _showSnack(AuthService.messageForPasswordResetError(e));
+    } catch (e) {
+      _showSnack(AuthService.messageForPasswordResetError(e));
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
