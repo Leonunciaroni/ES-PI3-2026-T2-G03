@@ -2,40 +2,42 @@
 // RA: 25005592
 //
 // Lê um documento Firestore da startup e monta [StartupDetailViewData] para a tela de detalhe.
-// Mesmo padrão do catálogo: stream em tempo real + mapeamento explícito dos campos do console.
+// Usa [startup_firestore_schema] para os mesmos nomes de campo que o catálogo.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
 import 'package:pi_iii/catalog/models/catalog_startup.dart';
+import 'package:pi_iii/catalog/models/startup_detail_load_state.dart';
 
 import 'startup_firestore_mapper.dart';
 
-/// Ouve um único documento; emite null se foi apagado ou inválido.
+/// Ouve um único documento; emite [StartupDetailNotFound] se foi apagado ou inválido.
 class StartupDetailService {
   StartupDetailService({FirebaseFirestore? firestore})
       : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
 
-  Stream<StartupDetailViewData?> watchDetail(String documentId) {
+  Stream<StartupDetailLoadState> watchDetail(String documentId) {
     return _db
         .collection(kFirestoreStartupsCollection)
         .doc(documentId)
         .snapshots()
         .map((DocumentSnapshot<Map<String, dynamic>> snap) {
       if (!snap.exists) {
-        return null;
+        return const StartupDetailNotFound();
       }
       final Map<String, dynamic>? raw = snap.data();
       if (raw == null) {
-        return null;
+        return const StartupDetailNotFound();
       }
-      final CatalogStartup? catalog = catalogStartupFromFirestoreMap(snap.id, raw);
+      final CatalogStartup? catalog =
+          catalogStartupFromFirestoreMap(snap.id, raw);
       if (catalog == null) {
-        return null;
+        return const StartupDetailNotFound();
       }
-      return _detailFromFirestoreMap(raw, catalog);
+      return StartupDetailReady(_detailFromFirestoreMap(raw, catalog));
     });
   }
 }
@@ -44,37 +46,48 @@ StartupDetailViewData _detailFromFirestoreMap(
   Map<String, dynamic> d,
   CatalogStartup catalog,
 ) {
-  final String descricao = readFirestoreString(d, 'descricao');
-  final String setorRaw = readFirestoreString(d, 'setor');
-  final String categoryDisplay =
-      setorRaw.trim().isEmpty ? catalog.category : '${setorRaw.toUpperCase()} & ECOSYSTEM';
-  final int? ano = _readOptionalInt(d, 'anoDeInicio');
-  final String foundedLabel =
-      ano != null ? 'Ano de início: $ano' : 'Ano de início em definição.';
+  final String descricao = readFirestoreString(d, kFieldDescricao);
+  final String setorRaw = readFirestoreString(d, kFieldSetor);
+  final String categoryDisplay = setorRaw.trim().isEmpty
+      ? catalog.category
+      : '${setorRaw.toUpperCase()} & ECOSYSTEM';
+  final int? ano = _readOptionalInt(d, kFieldAnoDeInicio);
+  final String foundedLabel = ano != null
+      ? 'Ano de início: $ano'
+      : 'Ano de início em definição.';
   final List<StartupTeamMember> team = _teamFromFirestore(d);
   final List<String> societary = _societaryLinesFromFirestore(d);
   final List<StartupPerformanceMetric> metrics = _metricsFromFirestore(d);
-  final String? videoUrl = readFirestoreOptionalString(d, 'video_demo');
+  final String? videoUrl = readFirestoreOptionalString(d, kFieldVideoDemo);
   final String videoTitle = _videoTitleFromFirestore(d, catalog);
+  final double captureFraction = captureProgressFractionFromFirestore(d);
+  final String captureHeadline = _captureHeadlineFromFirestore(d);
+  final String valuationHeadline = _valuationHeadlineFromFirestore(d);
+  final String rodadaRaw = readFirestoreString(d, kFieldValuationRodada).trim();
+  final String valuationRound = rodadaRaw.isEmpty ? 'VALUATION' : rodadaRaw;
+  final String valuationTrend = _valuationTrendFromFirestore(d);
+  final String headquarters = _headquartersFromFirestore(d);
 
   return StartupDetailViewData(
     catalog: catalog,
     categoryDisplay: categoryDisplay,
     longDescription: descricao.isEmpty ? catalog.description : descricao,
-    captureHeadline: 'R\$ —',
-    captureProgressFraction: catalog.captureProgress,
-    captureProgressLabel: catalog.captureProgress <= 0
+    captureHeadline: captureHeadline,
+    captureProgressFraction: captureFraction,
+    captureProgressLabel: captureFraction <= 0
         ? 'Meta de captação em definição'
-        : '${(catalog.captureProgress * 100).round()}% da meta atingida',
-    valuationHeadline: 'R\$ —',
-    valuationRoundLabel: 'VALUATION',
-    valuationTrendText: '—',
-    chartSeriesByPeriod: fallbackChartSeriesForStartupDetail(catalog),
-    headquarters: '—',
+        : '${(captureFraction * 100).round()}% da meta atingida',
+    valuationHeadline: valuationHeadline,
+    valuationRoundLabel: valuationRound,
+    valuationTrendText: valuationTrend,
+    chartSeriesByPeriod: _chartSeriesFromFirestoreOrFallback(d, catalog),
+    headquarters: headquarters,
     foundedLabel: foundedLabel,
     missionQuote: descricao.isEmpty
         ? 'Missão em definição.'
-        : (descricao.length > 200 ? '${descricao.substring(0, 197)}…' : descricao),
+        : (descricao.length > 200
+            ? '${descricao.substring(0, 197)}…'
+            : descricao),
     teamMembers: team,
     performanceMetrics: metrics,
     executiveSummary: descricao.isEmpty
@@ -85,6 +98,130 @@ StartupDetailViewData _detailFromFirestoreMap(
     demoVideoTitle: videoTitle,
     demoVideoUrl: videoUrl,
   );
+}
+
+String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
+  final String? direct =
+      readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
+  if (direct != null && direct.isNotEmpty) {
+    return direct;
+  }
+  final double? cap = readFirestoreOptionalDouble(d, kFieldValorCaptadoReais);
+  final double? meta = readFirestoreOptionalDouble(d, kFieldMetaCaptacaoReais);
+  if (cap != null && meta != null && meta > 0) {
+    return 'R\$ ${_formatIntBR(cap.round())} / R\$ ${_formatIntBR(meta.round())}';
+  }
+  if (cap != null) {
+    return 'R\$ ${_formatIntBR(cap.round())}';
+  }
+  return 'R\$ —';
+}
+
+String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
+  final String? h =
+      readFirestoreOptionalString(d, kFieldValuationHeadline);
+  if (h != null && h.isNotEmpty) {
+    return h;
+  }
+  return 'R\$ —';
+}
+
+String _valuationTrendFromFirestore(Map<String, dynamic> d) {
+  final String? t =
+      readFirestoreOptionalString(d, kFieldValuationTendencia);
+  if (t != null && t.isNotEmpty) {
+    return t;
+  }
+  return '—';
+}
+
+String _headquartersFromFirestore(Map<String, dynamic> d) {
+  final String? s = readFirestoreOptionalString(d, kFieldSede);
+  if (s != null && s.isNotEmpty) {
+    return s;
+  }
+  return '—';
+}
+
+Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
+  Map<String, dynamic> d,
+  CatalogStartup catalog,
+) {
+  final Object? raw = d[kFieldGraficoValuation];
+  if (raw is! Map) {
+    return fallbackChartSeriesForStartupDetail(catalog);
+  }
+  final Map<String, dynamic> map = Map<String, dynamic>.from(raw);
+  final Map<ValuationPeriod, ValuationChartSeries> fallback =
+      fallbackChartSeriesForStartupDetail(catalog);
+  ValuationPeriod? periodFromKey(String k) {
+    final String x = k.toLowerCase().trim();
+    switch (x) {
+      case 'diario':
+        return ValuationPeriod.diario;
+      case 'semanal':
+        return ValuationPeriod.semanal;
+      case 'mensal':
+        return ValuationPeriod.mensal;
+      case 'seis_meses':
+      case 'seismeses':
+      case '6_meses':
+        return ValuationPeriod.seisMeses;
+      case 'ytd':
+        return ValuationPeriod.ytd;
+      default:
+        return null;
+    }
+  }
+
+  ValuationChartSeries? parseSeries(Object? value) {
+    if (value is! List) {
+      return null;
+    }
+    final List<DateTime> times = [];
+    final List<double> vals = [];
+    for (final Object? item in value) {
+      final Map<String, dynamic>? m = _asStringKeyMap(item);
+      if (m == null) {
+        continue;
+      }
+      final String t = readFirestoreString(m, 't');
+      final double? v = readFirestoreOptionalDouble(m, 'v') ??
+          readFirestoreOptionalDouble(m, 'valor');
+      if (v == null) {
+        continue;
+      }
+      final DateTime? dt = DateTime.tryParse(t);
+      if (dt == null) {
+        continue;
+      }
+      times.add(dt);
+      vals.add(v);
+    }
+    if (times.isEmpty || times.length != vals.length) {
+      return null;
+    }
+    return ValuationChartSeries(
+      valuationMillions: vals,
+      sampleTimes: times,
+    );
+  }
+
+  final Map<ValuationPeriod, ValuationChartSeries> out = {};
+  for (final MapEntry<String, dynamic> e in map.entries) {
+    final ValuationPeriod? p = periodFromKey(e.key);
+    if (p == null) {
+      continue;
+    }
+    final ValuationChartSeries? s = parseSeries(e.value);
+    if (s != null) {
+      out[p] = s;
+    }
+  }
+  for (final ValuationPeriod p in ValuationPeriod.values) {
+    out.putIfAbsent(p, () => fallback[p]!);
+  }
+  return out;
 }
 
 int? _readOptionalInt(Map<String, dynamic> d, String key) {
@@ -110,7 +247,7 @@ Map<String, dynamic>? _asStringKeyMap(Object? item) {
 
 List<String> _societaryLinesFromFirestore(Map<String, dynamic> d) {
   final List<String> lines = [];
-  final Object? socios = d['socios'];
+  final Object? socios = d[kFieldSocios];
   if (socios is List) {
     for (final Object? item in socios) {
       final Map<String, dynamic>? map = _asStringKeyMap(item);
@@ -119,8 +256,9 @@ List<String> _societaryLinesFromFirestore(Map<String, dynamic> d) {
       }
       final String nome = readFirestoreString(map, 'nome');
       final Object? pct = map['porcentagem'];
-      final String pctStr =
-          pct is num ? '${pct.round()}%' : readFirestoreString(map, 'porcentagem');
+      final String pctStr = pct is num
+          ? '${pct.round()}%'
+          : readFirestoreString(map, 'porcentagem');
       if (nome.trim().isNotEmpty) {
         lines.add('$nome — $pctStr');
       }
@@ -134,7 +272,7 @@ List<String> _societaryLinesFromFirestore(Map<String, dynamic> d) {
 
 List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
   final List<StartupTeamMember> out = [];
-  final Object? socios = d['socios'];
+  final Object? socios = d[kFieldSocios];
   if (socios is List) {
     for (final Object? item in socios) {
       final Map<String, dynamic>? map = _asStringKeyMap(item);
@@ -143,8 +281,9 @@ List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
       }
       final String nome = readFirestoreString(map, 'nome');
       final Object? pct = map['porcentagem'];
-      final String pctStr =
-          pct is num ? '${pct.round()}%' : readFirestoreString(map, 'porcentagem');
+      final String pctStr = pct is num
+          ? '${pct.round()}%'
+          : readFirestoreString(map, 'porcentagem');
       if (nome.trim().isNotEmpty) {
         out.add(
           StartupTeamMember(
@@ -156,7 +295,7 @@ List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
       }
     }
   }
-  final Object? mentores = d['mentores_conselho'];
+  final Object? mentores = d[kFieldMentoresConselho];
   if (mentores is List) {
     for (final Object? m in mentores) {
       if (m is String && m.trim().isNotEmpty) {
@@ -192,7 +331,7 @@ Color _avatarColorForString(String s) {
 
 List<StartupPerformanceMetric> _metricsFromFirestore(Map<String, dynamic> d) {
   final List<StartupPerformanceMetric> list = [];
-  final Object? rm = d['receita_mensal'];
+  final Object? rm = d[kFieldReceitaMensal];
   if (rm is num) {
     list.add(
       StartupPerformanceMetric(
@@ -204,7 +343,7 @@ List<StartupPerformanceMetric> _metricsFromFirestore(Map<String, dynamic> d) {
       ),
     );
   }
-  final Map<String, dynamic>? tokens = _asStringKeyMap(d['tokens_emitidos']);
+  final Map<String, dynamic>? tokens = _asStringKeyMap(d[kFieldTokensEmitidos]);
   if (tokens != null) {
     final Object? q = tokens['quantidade'];
     final String tokenNome = readFirestoreString(tokens, 'nome');
@@ -221,7 +360,7 @@ List<StartupPerformanceMetric> _metricsFromFirestore(Map<String, dynamic> d) {
       );
     }
   }
-  final Object? modelos = d['modelo_negocio'];
+  final Object? modelos = d[kFieldModeloNegocio];
   if (modelos is List && modelos.isNotEmpty) {
     final String joined = modelos
         .map((e) => e.toString().trim())
@@ -256,7 +395,8 @@ String _formatIntBR(int v) {
 }
 
 String _videoTitleFromFirestore(Map<String, dynamic> d, CatalogStartup catalog) {
-  final Map<String, dynamic>? tokens = _asStringKeyMap(d['tokens_emitidos']);
+  final Map<String, dynamic>? tokens =
+      _asStringKeyMap(d[kFieldTokensEmitidos]);
   if (tokens != null) {
     final String n = readFirestoreString(tokens, 'nome');
     if (n.isNotEmpty) {
