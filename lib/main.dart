@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
-import 'screens/recover_password_screen.dart';
+import 'firebase_options.dart';
+import 'screens/login_screen.dart';
 import 'theme/app_colors.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+
+  if (_supportsFirebaseCurrentPlatform()) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
   runApp(const MyApp());
+}
+
+bool _supportsFirebaseCurrentPlatform() {
+  if (kIsWeb) return true;
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 }
 
 class MyApp extends StatelessWidget {
@@ -38,7 +52,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const RecoverPasswordScreen(),
+      home: const LoginScreen(),
     );
   }
 }
