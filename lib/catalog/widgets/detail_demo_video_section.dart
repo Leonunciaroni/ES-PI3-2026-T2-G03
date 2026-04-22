@@ -9,13 +9,25 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../theme/app_colors.dart';
 
-/// Extrai o ID de 11 caracteres a partir de links comuns do YouTube.
-String? youtubeVideoIdFromUrl(String? raw) {
+/// Garante esquema para [Uri] / [launchUrl] (`youtu.be/...`, `www.youtube.com/...`).
+String? videoUrlWithHttpsScheme(String? raw) {
   if (raw == null) {
     return null;
   }
-  final String url = raw.trim();
-  if (url.isEmpty) {
+  final String t = raw.trim();
+  if (t.isEmpty) {
+    return null;
+  }
+  if (t.contains('://')) {
+    return t;
+  }
+  return 'https://$t';
+}
+
+/// Extrai o ID de 11 caracteres a partir de links comuns do YouTube.
+String? youtubeVideoIdFromUrl(String? raw) {
+  final String? url = videoUrlWithHttpsScheme(raw);
+  if (url == null) {
     return null;
   }
   final Uri? uri = Uri.tryParse(url);
@@ -66,28 +78,101 @@ class DetailDemoVideoSection extends StatefulWidget {
 
 class _DetailDemoVideoSectionState extends State<DetailDemoVideoSection> {
   YoutubePlayerController? _controller;
+  int _attachGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    final String? id = youtubeVideoIdFromUrl(widget.videoUrl);
-    if (id != null && id.length == 11) {
-      _controller = YoutubePlayerController(
-        initialVideoId: id,
-        flags: const YoutubePlayerFlags(
-          autoPlay: false,
-          mute: false,
-          controlsVisibleAtStart: false,
-          enableCaption: true,
-        ),
-      );
+    _schedulePlayerAttach(widget.videoUrl);
+  }
+
+  @override
+  void didUpdateWidget(covariant DetailDemoVideoSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoUrl == widget.videoUrl) {
+      return;
     }
+    // URL mudou (ex.: [startupDetailFor] → Firestore): invalida attach antigo.
+    _controller?.dispose();
+    _controller = null;
+    _schedulePlayerAttach(widget.videoUrl);
+  }
+
+  /// Cria o [YoutubePlayerController] *depois* do 1.º frame para não bloquear a
+  /// transição de rota nem o [StreamBuilder] (WebView é pesado na UI thread).
+  void _schedulePlayerAttach(String? videoUrl) {
+    final String? id = youtubeVideoIdFromUrl(videoUrl);
+    if (id == null || id.length != 11) {
+      return;
+    }
+    final int gen = ++_attachGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || gen != _attachGeneration) {
+        return;
+      }
+      if (youtubeVideoIdFromUrl(widget.videoUrl) != id) {
+        return;
+      }
+      // Cede à animação; evita pico de trabalho no mesmo tique que a lista.
+      Future<void>.delayed(Duration.zero, () {
+        if (!mounted || gen != _attachGeneration) {
+          return;
+        }
+        if (youtubeVideoIdFromUrl(widget.videoUrl) != id) {
+          return;
+        }
+        _controller?.dispose();
+        _controller = YoutubePlayerController(
+          initialVideoId: id,
+          flags: const YoutubePlayerFlags(
+            autoPlay: false,
+            mute: false,
+            controlsVisibleAtStart: false,
+            enableCaption: true,
+          ),
+        );
+        setState(() {});
+      });
+    });
   }
 
   @override
   void dispose() {
+    _attachGeneration++;
     _controller?.dispose();
     super.dispose();
+  }
+
+  Widget _openExternalButton(ThemeData theme) {
+    return Center(
+      child: OutlinedButton.icon(
+        onPressed: () => widget.onOpenExternal(widget.videoUrl),
+        icon: Icon(
+          Icons.open_in_new_rounded,
+          size: 20,
+          color: widget.primary,
+        ),
+        label: Text(
+          'Abrir no app YouTube / navegador',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: widget.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: widget.primary,
+          backgroundColor: Colors.white,
+          side: BorderSide(
+            color: widget.primary.withValues(alpha: 0.45),
+            width: 1.5,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -109,7 +194,44 @@ class _DetailDemoVideoSectionState extends State<DetailDemoVideoSection> {
       );
     }
 
-    if (_controller != null) {
+    final String? youTubeId = youtubeVideoIdFromUrl(url);
+    if (youTubeId != null && youTubeId.length == 11) {
+      if (_controller != null) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.videoTitle,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Toque em play no vídeo para assistir.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            RepaintBoundary(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: YoutubePlayer(
+                  key: ObjectKey(_controller),
+                  controller: _controller!,
+                  showVideoProgressIndicator: true,
+                  aspectRatio: 16 / 9,
+                  progressIndicatorColor: widget.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _openExternalButton(theme),
+          ],
+        );
+      }
+      // URL válido, leitor a carregar (não mostrar o ListTile a errar "não YouTube").
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -121,7 +243,7 @@ class _DetailDemoVideoSectionState extends State<DetailDemoVideoSection> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Toque em play no vídeo para assistir.',
+            'Preparando o leitor de vídeo…',
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.textSecondary,
             ),
@@ -129,46 +251,22 @@ class _DetailDemoVideoSectionState extends State<DetailDemoVideoSection> {
           const SizedBox(height: 10),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: YoutubePlayer(
-              controller: _controller!,
-              showVideoProgressIndicator: true,
+            child: AspectRatio(
               aspectRatio: 16 / 9,
-              progressIndicatorColor: widget.primary,
+              child: ColoredBox(
+                color: const Color(0xFF0F0F0F).withValues(alpha: 0.08),
+                child: const Center(
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  ),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: () => widget.onOpenExternal(widget.videoUrl),
-              icon: Icon(
-                Icons.open_in_new_rounded,
-                size: 20,
-                color: widget.primary,
-              ),
-              label: Text(
-                'Abrir no app YouTube / navegador',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: widget.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: widget.primary,
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                  color: widget.primary.withValues(alpha: 0.45),
-                  width: 1.5,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-            ),
-          ),
+          _openExternalButton(theme),
         ],
       );
     }
