@@ -1,19 +1,30 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import 'auth/screens/login_screen.dart';
+import 'firebase_options.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_scroll_behavior.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  if (_supportsFirebaseCurrentPlatform()) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
 
   runApp(const MyApp());
+}
+
+bool _supportsFirebaseCurrentPlatform() {
+  if (kIsWeb) {
+    return true;
+  }
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 }
 
 class MyApp extends StatelessWidget {
@@ -21,7 +32,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
+    // fromSeed ajusta o primary para tons "Material"; fixamos a marca em #6234EA.
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.seedPurple,
       brightness: Brightness.light,

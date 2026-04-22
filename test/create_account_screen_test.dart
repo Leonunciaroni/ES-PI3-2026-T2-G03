@@ -7,6 +7,14 @@ void main() {
     return const MaterialApp(home: CreateAccountScreen());
   }
 
+  Future<void> scrollTo(WidgetTester tester, Finder target) async {
+    await tester.scrollUntilVisible(
+      target,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+  }
+
   testWidgets('Renderiza campo de telefone acima do CPF', (
     WidgetTester tester,
   ) async {
@@ -28,7 +36,7 @@ void main() {
     Checkbox checkbox = tester.widget<Checkbox>(checkboxFinder);
     expect(checkbox.value, isFalse);
 
-    await tester.ensureVisible(checkboxFinder);
+    await scrollTo(tester, checkboxFinder);
     await tester.tap(checkboxFinder);
     await tester.pumpAndSettle();
 
@@ -42,10 +50,11 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
-    final criarConta = find.text('Criar Conta →');
-    await tester.ensureVisible(criarConta);
-    await tester.tap(criarConta);
-    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(1), 'teste@email.com');
+    final createButton = find.text('Criar Conta →');
+    await scrollTo(tester, createButton);
+    await tester.tap(createButton);
+    await tester.pump();
 
     expect(
       find.text(

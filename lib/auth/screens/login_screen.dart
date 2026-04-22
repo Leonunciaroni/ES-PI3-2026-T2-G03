@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/app_colors.dart';
+import '../services/auth_service.dart';
 import 'create_account_screen.dart';
 import 'recover_password_screen.dart';
 import 'two_factor_verification_screen.dart';
 
-/// Tela de login apenas visual (sem backend).
+/// Tela de login integrada ao Firebase Auth.
 ///
 /// Usamos [StatefulWidget] porque a visibilidade da senha muda ao tocar no ícone
 /// do olho — isso exige [setState] para reconstruir o [TextField] com
@@ -24,12 +25,13 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
 
   /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
 
-  static const _footerTrust =
-      'PROJETO INTEGRADOR III - GRUPO 3';
+  static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
   @override
   void dispose() {
@@ -40,9 +42,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Validação leve só para a demo: evita “Entrar” vazio sem carregar servidor.
@@ -53,8 +55,10 @@ class _LoginScreenState extends State<LoginScreen> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
-  void _onLogin() {
-    final email = _emailController.text;
+  Future<void> _onLogin() async {
+    if (_isSubmitting) return;
+
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
     if (!_isEmailPlausible(email)) {
       _showSnack('Informe um e-mail válido.');
@@ -64,14 +68,29 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnack('Informe a senha.');
       return;
     }
-    // Protótipo: sem API — credenciais ok → 2FA → dashboard (código demo: 123456).
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const TwoFactorVerificationScreen(
-          replaceStackWithDashboard: true,
+    setState(() => _isSubmitting = true);
+    try {
+      await _authService.signIn(email: email, password: password);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const TwoFactorVerificationScreen(
+            replaceStackWithDashboard: true,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnack(AuthService.messageForError(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   OutlineInputBorder _stadiumBorder(Color color) {
@@ -104,10 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: [AppColors.gradientTop, AppColors.gradientBottom],
             ),
           ),
           child: SafeArea(
@@ -116,9 +132,14 @@ class _LoginScreenState extends State<LoginScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   // Em ecrãs pequenos o teclado empurra o conteúdo; scroll evita overflow.
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight - 40),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight - 40,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -181,9 +202,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(AppColors.fieldBorder),
-                                    focusedBorder: _stadiumBorder(colorScheme.primary),
-                                    border: _stadiumBorder(AppColors.fieldBorder),
+                                    enabledBorder: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
+                                    focusedBorder: _stadiumBorder(
+                                      colorScheme.primary,
+                                    ),
+                                    border: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
@@ -194,24 +221,30 @@ class _LoginScreenState extends State<LoginScreen> {
                                       child: Text('SENHA', style: labelStyle),
                                     ),
                                     TextButton(
-                                      onPressed: () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              const RecoverPasswordScreen(),
-                                        ),
-                                      ),
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () {
+                                              Navigator.push<void>(
+                                                context,
+                                                MaterialPageRoute<void>(
+                                                  builder: (context) =>
+                                                      const RecoverPasswordScreen(),
+                                                ),
+                                              );
+                                            },
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                         minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ),
                                       child: Text(
                                         'Esqueci minha senha',
-                                        style: theme.textTheme.labelLarge?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              color: colorScheme.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -250,56 +283,82 @@ class _LoginScreenState extends State<LoginScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(AppColors.fieldBorder),
-                                    focusedBorder: _stadiumBorder(colorScheme.primary),
-                                    border: _stadiumBorder(AppColors.fieldBorder),
+                                    enabledBorder: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
+                                    focusedBorder: _stadiumBorder(
+                                      colorScheme.primary,
+                                    ),
+                                    border: _stadiumBorder(
+                                      AppColors.fieldBorder,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 28),
                                 FilledButton(
-                                  onPressed: _onLogin,
+                                  onPressed: _isSubmitting ? null : _onLogin,
                                   style: FilledButton.styleFrom(
                                     elevation: 4,
-                                    shadowColor: AppColors.primaryShadow(colorScheme),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shadowColor: AppColors.primaryShadow(
+                                      colorScheme,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: const StadiumBorder(),
                                     backgroundColor: colorScheme.primary,
                                   ),
-                                  child: const Text(
-                                    'Entrar',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
+                                  child: _isSubmitting
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Text(
+                                          'Entrar',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
                                 ),
                                 const SizedBox(height: 20),
                                 Center(
                                   child: Text.rich(
                                     TextSpan(
-                                      style: theme.textTheme.bodyMedium?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: AppColors.textSecondary,
+                                          ),
                                       children: [
-                                        const TextSpan(text: 'Não possui uma conta? '),
+                                        const TextSpan(
+                                          text: 'Não possui uma conta? ',
+                                        ),
                                         WidgetSpan(
-                                          alignment: PlaceholderAlignment.baseline,
+                                          alignment:
+                                              PlaceholderAlignment.baseline,
                                           baseline: TextBaseline.alphabetic,
                                           child: GestureDetector(
-                                            onTap: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute<void>(
-                                                  builder: (_) =>
-                                                      const CreateAccountScreen(),
-                                                ),
-                                              );
-                                            },
+                                            onTap: _isSubmitting
+                                                ? null
+                                                : () {
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute<void>(
+                                                        builder: (_) =>
+                                                            const CreateAccountScreen(),
+                                                      ),
+                                                    );
+                                                  },
                                             child: Text(
                                               'Criar Conta',
-                                              style: theme.textTheme.bodyMedium?.copyWith(
-                                                color: colorScheme.primary,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                    color: colorScheme.primary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                             ),
                                           ),
                                         ),
@@ -317,7 +376,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           _footerTrust,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary.withValues(alpha: 0.85),
+                            color: AppColors.textSecondary.withValues(
+                              alpha: 0.85,
+                            ),
                             letterSpacing: 0.6,
                             height: 1.4,
                           ),
