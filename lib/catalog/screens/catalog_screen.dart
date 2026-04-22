@@ -7,7 +7,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../data/startup_detail_mock.dart';
 import '../models/catalog_startup.dart';
 import '../services/startup_catalog_service.dart';
 import '../../theme/app_colors.dart';
@@ -435,9 +434,7 @@ class _CatalogStartupCard extends StatelessWidget {
         onTap: () {
           Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (context) => StartupDetailScreen(
-                data: startupDetailFor(startup),
-              ),
+              builder: (context) => StartupDetailScreen(catalog: startup),
             ),
           );
         },
