@@ -2,13 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 
-/// Tela de cadastro integrada ao Firebase Auth, desenhada com Material 3.
+/// Tela de cadastro integrada ao Firebase Auth e Firestore (Material 3).
 ///
-/// O foco principal continua no layout, mas o fluxo de criação de conta é real.
+/// O layout segue o protótipo do PI; o fluxo cria o utilizador no Auth e o
+/// documento de perfil em `users/{uid}`.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
 
@@ -23,7 +25,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _cpfController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _authService = AuthService();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -119,8 +120,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Future<void> _onCreateAccount() async {
     if (_isSubmitting) return;
 
+    final name = _nameController.text.trim();
     final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final cpf = _cpfController.text.trim();
     final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || phone.isEmpty || cpf.isEmpty) {
+      _showFeatureMessage('Preencha todos os campos obrigatórios.');
+      return;
+    }
 
     if (!_isEmailPlausible(email)) {
       _showFeatureMessage('Informe um e-mail válido.');
@@ -156,14 +165,19 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await _authService.createAccount(email: email, password: password);
-      if (!mounted) return;
-      _showFeatureMessage(
-        'Conta criada com sucesso. Faça login para continuar.',
+      await UserFirestoreService.createUserWithEmailAndPassword(
+        name: name,
+        email: email,
+        phone: phone,
+        cpf: cpf,
+        password: password,
       );
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+
+      if (!mounted) return;
+      _showFeatureMessage('Conta criada com sucesso. Faça login para continuar.');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      );
     } catch (error) {
       if (!mounted) return;
       _showFeatureMessage(AuthService.messageForError(error));

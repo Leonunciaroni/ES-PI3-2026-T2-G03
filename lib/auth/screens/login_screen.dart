@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import 'create_account_screen.dart';
@@ -25,7 +26,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _authService = AuthService();
 
   /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
   bool _obscurePassword = true;
@@ -70,7 +70,10 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
-      await _authService.signIn(email: email, password: password);
+      await UserFirestoreService.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       if (!mounted) {
         return;
       }

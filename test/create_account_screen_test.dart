@@ -50,7 +50,10 @@ void main() {
     await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.byType(TextField).at(0), 'Usuário Teste');
     await tester.enterText(find.byType(TextField).at(1), 'teste@email.com');
+    await tester.enterText(find.byType(TextField).at(2), '(19) 99999-9999');
+    await tester.enterText(find.byType(TextField).at(3), '123.456.789-00');
     final createButton = find.text('Criar Conta →');
     await scrollTo(tester, createButton);
     await tester.tap(createButton);

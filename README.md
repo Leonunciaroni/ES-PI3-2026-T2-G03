@@ -27,9 +27,9 @@ Este projeto atende aos requisitos arquiteturais obrigatórios da disciplina:
 
 ## Observações de desenvolvimento
 
-- **Testes com autenticação:** evite chamadas reais ao Firebase Auth em testes automatizados; prefira mocks/fakes para manter CI estável e sem dependência de rede. A implementação está em `lib/auth/services/auth_service.dart`; há testes unitários de `AuthService.messageForError` em `test/auth_service_test.dart` (sem rede, sem `Firebase.initializeApp`).
+- **Testes com autenticação:** evite chamadas reais ao Firebase Auth em testes automatizados; use mocks/fakes para CI estável e sem rede. A implementação centraliza mensagens em `lib/auth/services/auth_service.dart` (`AuthService`); testes unitários puros podem importar isso sem `Firebase.initializeApp` se apenas exercitarem `messageForError` / mapeamento de códigos.
 
-- **Configuração no repositório:** arquivos como `android/app/google-services.json` e `lib/firebase_options.dart` contêm identificadores do app Firebase (padrão em clientes móveis). Não substituem segredos de backend; o que protege a API e os dados é a **política de segurança no console** (regras do Firestore, restringir chaves, **App Check** em produção, etc.).
+- **Configuração no repositório:** ficheiros como `android/app/google-services.json` e `lib/firebase_options.dart` são a configuração padrão de app cliente. Não substituem segredos de backend; a política de segurança no console (regras do Firestore, chaves, **App Check** em produção, etc.) é o que protege dados e API.
 
 ## Fase atual do projeto
 
