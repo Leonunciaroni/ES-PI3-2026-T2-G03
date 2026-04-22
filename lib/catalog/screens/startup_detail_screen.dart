@@ -1,4 +1,4 @@
-// Autor principal: Pedro Henrique Contardi Soler
+﻿// Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
 // Tela de detalhes da startup (MesclaInvest) — layout inspirado no Figma.
@@ -15,6 +15,7 @@ import '../data/startup_detail_mock.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/chart_scrubbing.dart';
 import '../../widgets/mescla_chart_reading_card.dart';
+import '../../widgets/mescla_period_pill_chip.dart';
 
 /// Asset do wordmark no cabeçalho (registado em `pubspec.yaml` → `flutter: assets:`).
 const String _kMesclaLogoAsset = 'assets/images/mescla_logo.png';
@@ -628,7 +629,7 @@ class _ValuationEvolutionCardState extends State<_ValuationEvolutionCard> {
               child: Row(
                 children: [
                   for (final p in ValuationPeriod.values) ...[
-                    _PeriodChip(
+                    MesclaPeriodPillChip(
                       label: p.chipLabel,
                       selected: widget.selected == p,
                       primary: widget.primary,
@@ -882,45 +883,6 @@ class _ValuationAreaChartPainter extends CustomPainter {
         oldDelegate.vmin != vmin ||
         oldDelegate.vmax != vmax ||
         oldDelegate.highlightT != highlightT;
-  }
-}
-
-class _PeriodChip extends StatelessWidget {
-  const _PeriodChip({
-    required this.label,
-    required this.selected,
-    required this.primary,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final Color primary;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: selected
-          ? primary.withValues(alpha: 0.12)
-          : const Color(0xFFF3F4F6),
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: selected ? primary : AppColors.textSecondary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }
 
