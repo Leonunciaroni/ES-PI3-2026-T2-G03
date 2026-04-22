@@ -23,6 +23,7 @@ class StartupCatalogService {
       : _db = firestore ?? FirebaseFirestore.instance;
 
   /// Devolve um fluxo contínuo: cada vez que um documento muda, a lista é reemitida.
+  /// Para muitas startups, considere paginação ou queries filtradas (escala).
   Stream<List<CatalogStartup>> watchStartups() {
     return _db.collection(kFirestoreStartupsCollection).snapshots().map(
       (QuerySnapshot<Map<String, dynamic>> snapshot) {
