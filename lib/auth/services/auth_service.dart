@@ -61,6 +61,27 @@ class AuthService {
     }
     return 'Não foi possível concluir a operação agora.';
   }
+
+  /// Erros de [sendPasswordResetEmail] (mensagens distintas de login onde necessário).
+  static String messageForPasswordResetError(Object error) {
+    if (error is FirebaseException && error.code == 'no-app') {
+      return messageForError(error);
+    }
+    if (error is FirebaseAuthException) {
+      switch (error.code) {
+        case 'invalid-email':
+          return 'E-mail inválido.';
+        case 'user-not-found':
+          return 'Se existir uma conta para este e-mail, receberá instruções em breve.';
+        case 'too-many-requests':
+        case 'network-request-failed':
+          return messageForError(error);
+        default:
+          return 'Não foi possível enviar agora. Tente novamente.';
+      }
+    }
+    return 'Erro inesperado ao enviar instruções.';
+  }
 }
 
 /// Códigos [FirebaseAuth] que apontam para projeto / app / chave mal configurados
