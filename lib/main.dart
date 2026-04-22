@@ -1,10 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 
+import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'theme/app_colors.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (_supportsFirebaseCurrentPlatform()) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
   runApp(const MyApp());
+}
+
+bool _supportsFirebaseCurrentPlatform() {
+  if (kIsWeb) return true;
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
 }
 
 class MyApp extends StatelessWidget {
@@ -13,13 +30,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: AppColors.seedPurple,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.seedPurple,
-      onPrimary: const Color(0xFFFFFFFF),
-    );
+    final colorScheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.seedPurple,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.seedPurple,
+          onPrimary: const Color(0xFFFFFFFF),
+        );
 
     return MaterialApp(
       title: 'Mescla Invest',

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/auth_service.dart';
 import 'login_screen.dart';
 import '../theme/app_colors.dart';
 
@@ -22,10 +23,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _cpfController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _authService = AuthService();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
+  bool _isSubmitting = false;
 
   bool get _passwordHasMin8 {
     final value = _passwordController.text;
@@ -107,7 +110,23 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _onCreateAccount() {
+  bool _isEmailPlausible(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return false;
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
+  }
+
+  Future<void> _onCreateAccount() async {
+    if (_isSubmitting) return;
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (!_isEmailPlausible(email)) {
+      _showFeatureMessage('Informe um e-mail válido.');
+      return;
+    }
+
     if (!_acceptedTerms) {
       _showFeatureMessage(
         'Aceite os Termos de Uso e a Política de Privacidade para continuar.',
@@ -135,7 +154,24 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
-    _showFeatureMessage('Protótipo visual: conta criada (sem backend).');
+    setState(() => _isSubmitting = true);
+    try {
+      await _authService.createAccount(email: email, password: password);
+      if (!mounted) return;
+      _showFeatureMessage(
+        'Conta criada com sucesso. Faça login para continuar.',
+      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    } catch (error) {
+      if (!mounted) return;
+      _showFeatureMessage(AuthService.messageForError(error));
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
@@ -237,9 +273,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[0-9()\-\s]'),
-                      ),
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9()\-\s]')),
                       LengthLimitingTextInputFormatter(15),
                     ],
                     decoration: _fieldDecoration(
@@ -401,7 +435,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   ),
                   const SizedBox(height: 10),
                   FilledButton(
-                    onPressed: _onCreateAccount,
+                    onPressed: _isSubmitting ? null : _onCreateAccount,
                     style: FilledButton.styleFrom(
                       elevation: 3,
                       shadowColor: AppColors.primaryShadow(colorScheme),
@@ -409,13 +443,22 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       shape: const StadiumBorder(),
                       backgroundColor: colorScheme.primary,
                     ),
-                    child: const Text(
-                      'Criar Conta →',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Criar Conta →',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                   ),
                   const SizedBox(height: 28),
                   Center(
