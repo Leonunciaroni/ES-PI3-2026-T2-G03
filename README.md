@@ -22,8 +22,12 @@ Este projeto atende aos requisitos arquiteturais obrigatórios da disciplina:
 
 - **Frontend (Mobile):** Flutter (Linguagem Dart)
 - **Backend / API:** Node.js (Linguagem TypeScript/JavaScript)
-- **Banco de Dados:** Firebase Firestore (NoSQL)
+- **Autenticação e Banco de Dados:** Firebase Authentication + Firebase Firestore (NoSQL)
 - **Controle de Versão:** Git e GitHub
+
+## Observações de desenvolvimento
+
+- **Testes com autenticação:** evite chamadas reais ao Firebase Auth em testes automatizados; prefira mocks/fakes para manter CI estável e sem dependência de rede.
 
 ## Fase atual do projeto
 

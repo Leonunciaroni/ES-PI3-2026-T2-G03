@@ -26,11 +26,6 @@ class AuthService {
   }
 
   static String messageForError(Object error) {
-    final errorText = error.toString().toUpperCase();
-    if (errorText.contains('CONFIGURATION_NOT_FOUND')) {
-      return 'Configuração Firebase incompleta para Android (SHA/API).';
-    }
-
     if (error is FirebaseException && error.code == 'no-app') {
       return 'Firebase não está configurado para esta plataforma.';
     }
@@ -52,6 +47,10 @@ class AuthService {
         case 'network-request-failed':
           return 'Sem conexão com a internet.';
         case 'internal-error':
+          final message = (error.message ?? '').toUpperCase();
+          if (message.contains('CONFIGURATION_NOT_FOUND')) {
+            return 'Configuração Firebase incompleta para Android (SHA/API).';
+          }
           return 'Erro interno do Firebase. Verifique a configuração do projeto.';
         default:
           return 'Falha na autenticação. Tente novamente.';

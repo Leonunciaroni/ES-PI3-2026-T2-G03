@@ -6,9 +6,9 @@ import '../services/auth_service.dart';
 import 'login_screen.dart';
 import '../theme/app_colors.dart';
 
-/// Tela de cadastro apenas visual, desenhada com componentes do Material 3.
+/// Tela de cadastro integrada ao Firebase Auth, desenhada com Material 3.
 ///
-/// Esta tela não chama API nem salva dados: o foco aqui e no layout para o PI.
+/// O foco principal continua no layout, mas o fluxo de criação de conta é real.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});
 

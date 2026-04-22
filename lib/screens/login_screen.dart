@@ -8,7 +8,7 @@ import '../services/auth_service.dart';
 import 'create_account_screen.dart';
 import '../theme/app_colors.dart';
 
-/// Tela de login apenas visual (sem backend).
+/// Tela de login integrada ao Firebase Auth.
 ///
 /// Usamos [StatefulWidget] porque a visibilidade da senha muda ao tocar no ícone
 /// do olho — isso exige [setState] para reconstruir o [TextField] com
