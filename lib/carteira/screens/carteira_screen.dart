@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/chart_scrubbing.dart';
 import '../../widgets/mescla_chart_reading_card.dart';
+import '../../widgets/mescla_period_pill_chip.dart';
 import '../format/carteira_brl.dart';
 import 'adicionar_fundos_screen.dart';
 
@@ -53,17 +54,17 @@ enum _PeriodoSaldo {
 }
 
 extension _PeriodoSaldoLabel on _PeriodoSaldo {
-  /// Texto curto mostrado no chip do seletor.
+  /// Mesmos rótulos que [ValuationPeriod.chipLabel] no detalhe da startup (§5.4).
   String get label {
     switch (this) {
       case _PeriodoSaldo.diario:
-        return 'Diário';
+        return 'DIÁRIO';
       case _PeriodoSaldo.semanal:
-        return 'Semanal';
+        return 'SEMANAL';
       case _PeriodoSaldo.mensal:
-        return 'Mensal';
+        return 'MENSAL';
       case _PeriodoSaldo.seisMeses:
-        return '6 meses';
+        return '6 MESES';
       case _PeriodoSaldo.ytd:
         return 'YTD';
     }
@@ -235,8 +236,8 @@ class CarteiraScreen extends StatefulWidget {
 }
 
 class _CarteiraScreenState extends State<CarteiraScreen> {
-  /// Período selecionado no seletor “Diário / Semanal / …”.
-  _PeriodoSaldo _periodo = _PeriodoSaldo.semanal;
+  /// Período inicial alinhado ao gráfico de valuation do detalhe ([ValuationPeriod.mensal]).
+  _PeriodoSaldo _periodo = _PeriodoSaldo.mensal;
 
   /// Quando `true`, valores em reais, percentagens e o gráfico são mascarados
   /// (privacidade em demo, igual à ideia do dashboard com o ícone de olho).
@@ -753,9 +754,21 @@ class _EvolucaoSaldoCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            _PeriodoSelectorBar(
-              periodo: periodo,
-              onChanged: onPeriodoChanged,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final o in _PeriodoSaldo.values) ...[
+                    MesclaPeriodPillChip(
+                      label: o.label,
+                      selected: periodo == o,
+                      primary: theme.colorScheme.primary,
+                      onTap: () => onPeriodoChanged(o),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             SizedBox(
@@ -843,87 +856,6 @@ class _YAxisLabels extends StatelessWidget {
               style: style,
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Barra cinza com opções; a ativa fica branca com sombra leve.
-class _PeriodoSelectorBar extends StatelessWidget {
-  const _PeriodoSelectorBar({
-    required this.periodo,
-    required this.onChanged,
-  });
-
-  final _PeriodoSaldo periodo;
-  final ValueChanged<_PeriodoSaldo> onChanged;
-
-  static const _opcoes = _PeriodoSaldo.values;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFECEFF3),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final o in _opcoes) ...[
-              _PeriodoChip(
-                label: o.label,
-                selected: periodo == o,
-                onTap: () => onChanged(o),
-                theme: theme,
-              ),
-              if (o != _opcoes.last) const SizedBox(width: 4),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PeriodoChip extends StatelessWidget {
-  const _PeriodoChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    required this.theme,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? Colors.white : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
-      elevation: selected ? 2 : 0,
-      shadowColor: Colors.black.withValues(alpha: 0.12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: selected
-                  ? theme.colorScheme.primary
-                  : AppColors.textSecondary,
-            ),
-          ),
-        ),
       ),
     );
   }
