@@ -35,6 +35,7 @@ class CatalogStartup {
     required this.logoColor,
     required this.logoIcon,
     this.sigla,
+    this.firestoreId,
   });
 
   /// Nome comercial exibido no card e no cabeçalho do detalhe.
@@ -66,4 +67,7 @@ class CatalogStartup {
 
   /// Sigla/ticker (ex.: ABKT) para busca no catálogo; opcional.
   final String? sigla;
+
+  /// ID do documento na coleção Firestore; null quando o card vem só de mock local.
+  final String? firestoreId;
 }
