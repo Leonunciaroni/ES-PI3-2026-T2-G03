@@ -25,6 +25,16 @@ const String kQrPayloadMock =
     '00020126580014br.gov.bcb.pix0136mescla.invest.pix@exemplo.com.br5204000053039865802BR5925MESCLA'
     'INVEST6009SAO_PAULO62070503***6304ABCD';
 
+/// Quebra a chave antes de `.com.br` (segunda linha só o sufixo), como no Figma.
+String _chavePixDuasLinhas(String chave) {
+  const sufixo = '.com.br';
+  if (chave.endsWith(sufixo)) {
+    final antes = chave.substring(0, chave.length - sufixo.length);
+    return '$antes\n$sufixo';
+  }
+  return chave;
+}
+
 /// Segundo passo do fluxo “Adicionar fundos”: mostrar QR e contagem decrescente.
 class PagamentoPixScreen extends StatefulWidget {
   const PagamentoPixScreen({
@@ -319,7 +329,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Faixa lilás clara + botão “Copiar” em destaque (protótipo Figma).
+                // Faixa lilás + chave em duas linhas (.com.br em baixo) + “Copiar” em pílula (Figma).
                 Material(
                   color: const Color(0xFFF3F0FA),
                   elevation: 0,
@@ -327,7 +337,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Column(
@@ -343,7 +353,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                               ),
                               const SizedBox(height: 6),
                               SelectableText(
-                                kChavePixMock,
+                                _chavePixDuasLinhas(kChavePixMock),
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   height: 1.25,
@@ -353,23 +363,10 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton.icon(
-                          onPressed: () => _copiarChave(context),
-                          icon: const Icon(Icons.copy_rounded, size: 20),
-                          label: const Text('Copiar'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: primary.withValues(alpha: 0.88),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                        const SizedBox(width: 10),
+                        _BotaoCopiarChavePix(
+                          onTap: () => _copiarChave(context),
+                          textoEscuro: onSurface,
                         ),
                       ],
                     ),
@@ -393,6 +390,45 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                 ],
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão “Copiar” em pílula: fundo lilás mais escuro que o cartão, ícone e texto escuros.
+class _BotaoCopiarChavePix extends StatelessWidget {
+  const _BotaoCopiarChavePix({required this.onTap, required this.textoEscuro});
+
+  final VoidCallback onTap;
+  final Color textoEscuro;
+
+  static const _fundoPilula = Color(0xFFE8DFF5);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _fundoPilula,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.copy_outlined, size: 20, color: textoEscuro),
+              const SizedBox(width: 8),
+              Text(
+                'Copiar',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: textoEscuro,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
