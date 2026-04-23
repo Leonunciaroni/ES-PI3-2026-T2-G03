@@ -1,9 +1,9 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Layout “logado” partilhado: gradiente Mescla, área segura, quatro painéis em
+// Layout “logado” partilhado: gradiente Mescla, área segura, cinco painéis em
 // [IndexedStack] e [MesclaBottomNavBar]. Evita copiar o mesmo [Scaffold] em
-// cada ecrã — basta passar os quatro corpos dos separadores.
+// cada ecrã — basta passar os cinco corpos dos separadores.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,16 +11,18 @@ import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import 'mescla_bottom_nav_bar.dart';
 
-/// Número de separadores da barra inferior (Início, Balcão, Catálogo, Perfil).
-const int kMesclaMainTabCount = 4;
+/// Número de separadores da barra inferior (Figma: Início, Carteira, Balcão,
+/// Catálogo, Perfil).
+const int kMesclaMainTabCount = 5;
 
 /// Shell com navegação inferior para o fluxo principal após autenticação.
 ///
-/// **Índices:** alinhados com [MesclaBottomNavBar] — 0 Início, 1 Balcão,
-/// 2 Catálogo, 3 Perfil.
+/// **Índices:** alinhados com [MesclaBottomNavBar] — 0 Início, 1 Carteira,
+/// 2 Balcão, 3 Catálogo, 4 Perfil.
 ///
 /// Telas de autenticação em `lib/auth/screens`, dashboard em `lib/dashboard/screens`;
-/// carteira (aba Balcão) em `lib/carteira/screens`; catálogo em `lib/catalog/screens`.
+/// carteira em `lib/carteira/screens`; catálogo em `lib/catalog/screens`.
+/// A tela Balcão pode ser placeholder no dashboard até a integração em `dev`.
 /// Rotas empurradas
 /// (ex.: detalhe da startup) ficam **fora** deste shell.
 class MesclaMainShell extends StatelessWidget {

@@ -54,26 +54,36 @@ class _NavBarHarnessState extends State<_NavBarHarness> {
 
 void main() {
   testWidgets(
-    'MesclaBottomNavBar: rótulos dashboard, BALCÃO e troca para índice 2 (CATÁLOGO)',
+    'MesclaBottomNavBar: cinco rótulos Figma; toque em CATÁLOGO muda para índice 3',
     (tester) async {
-      // 1) Monta o widget na “superfície” de teste e espera animações terminarem.
       await tester.pumpWidget(const _NavBarHarness());
       await tester.pumpAndSettle();
 
-      // 2) Confirma que os quatro rótulos existem (BALCÃO, como no dashboard).
       expect(find.text('INÍCIO'), findsOneWidget);
       expect(find.text('CARTEIRA'), findsOneWidget);
+      expect(find.text('BALCÃO'), findsOneWidget);
       expect(find.text('CATÁLOGO'), findsOneWidget);
       expect(find.text('PERFIL'), findsOneWidget);
 
-      // 3) Estado inicial: índice 0.
       expect(find.text('idx:0'), findsOneWidget);
 
-      // 4) Simula toque no terceiro separador (CATÁLOGO → índice 2).
+      // Catálogo é o 4.º item (índice 3): Início, Carteira, Balcão, Catálogo.
       await tester.tap(find.text('CATÁLOGO'));
       await tester.pumpAndSettle();
 
-      // 5) O texto do corpo deve refletir o novo índice.
+      expect(find.text('idx:3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'MesclaBottomNavBar: toque em BALCÃO muda para índice 2',
+    (tester) async {
+      await tester.pumpWidget(const _NavBarHarness());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('BALCÃO'));
+      await tester.pumpAndSettle();
+
       expect(find.text('idx:2'), findsOneWidget);
     },
   );
