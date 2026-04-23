@@ -1,27 +1,22 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Barra de navegação inferior alinhada ao Figma: fundo branco em cápsula; item
-// ativo com pílula roxa (primary) **à volta do ícone e do rótulo** (ambos
-// brancos); inativos em cinza, sem realce de fundo.
+// Barra de navegação inferior (Figma): cápsula branca, 5 itens, pílula roxa
+// no selecionado. Comentários abaixo são didáticos — explicam o “porquê” do
+// layout, como se estivéssemos a rever o código na aula.
 
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Barra inferior “flutuante” (Material branco elevado + margens).
+// --- Widget “público” (é este que o resto do app importa) ---
+
+/// Barra de baixo com 5 abas (Início, Carteira, Balcão, Catálogo, Perfil).
 ///
-/// **Como usar:** o ecrã pai guarda um `int` de `0` a `itemCount - 1` (hoje
-/// `0`..`4`) e
-/// passa em [selectedIndex]. No [onItemTap] chama-se
-/// `setState(() => índice = i)` no pai para redesenhar a UI (o índice visível
-/// do [IndexedStack] deve coincidir com o da barra).
-///
-/// **Índices (Figma):** 0 = INÍCIO, 1 = CARTEIRA, 2 = BALCÃO, 3 = CATÁLOGO,
-/// 4 = PERFIL.
-///
-/// Para o layout completo (gradiente + [IndexedStack] + esta barra), usa
-/// [MesclaMainShell] em `mescla_main_shell.dart`.
+/// O [DashboardScreen] (ou outro ecrã) guarda um `int` com o índice da aba
+/// ativa e passa aqui em [selectedIndex]. Quando o utilizador toca num item,
+/// o Flutter chama [onItemTap] com o índice novo — normalmente fazes
+/// `setState` lá no pai e o [IndexedStack] muda a tela.
 class MesclaBottomNavBar extends StatelessWidget {
   const MesclaBottomNavBar({
     super.key,
@@ -29,19 +24,19 @@ class MesclaBottomNavBar extends StatelessWidget {
     required this.onItemTap,
   });
 
-  /// Número de abas; mantém a lista de ícones/labels e o loop no mesmo valor.
   static const int itemCount = 5;
 
   final int selectedIndex;
   final ValueChanged<int> onItemTap;
 
-  /// Um ícone por aba, na mesma ordem de [_labels] (Figma / Material Icons).
+  // Cada aba tem um par (ícone, texto). A ordem tem de ser a mesma nas duas
+  // listas, senão o ícone da Carteira podia aparecer em cima da palavra Balcão.
   static const List<IconData> _icons = [
-    Icons.home_rounded,
+    Icons.home_outlined,
     Icons.account_balance_wallet_outlined,
     Icons.storefront_outlined,
     Icons.grid_view_outlined,
-    Icons.person_outline_rounded,
+    Icons.person_outline,
   ];
 
   static const List<String> _labels = [
@@ -52,36 +47,71 @@ class MesclaBottomNavBar extends StatelessWidget {
     'PERFIL',
   ];
 
+  // Altura fixa (em dp = unidade lógica que o Flutter escala por ecrã) da faixa
+  // dos cinco itens, como no Figma. Assim a pílula ativa fica alinhada; sem
+  // isso, o layout escolhia alturas sozinho e o destaque saía do sítio.
+  static const double _faixaItensAltura = 56;
+
+  // “Respiro” em cima e embaixo do chip roxo, dentro desta faixa. É o ar
+  // branco fino que separa a pílula do rebordo da cápsula.
+  static const double _margemChipVertical = 4;
+
   @override
   Widget build(BuildContext context) {
+    // A cor primária vem do Theme (no main.dart já pusemos o roxo da marca).
+    // Uso a mesma no fundo ativo e na sombra, para tudo bater certo.
     final primary = Theme.of(context).colorScheme.primary;
 
-    // Margens laterais: afastam a cápsula das bordas do ecrã.
-    // Com 5 itens, o padding interno abaixo fica ligeiramente mais apertado
-    // para evitar corte de texto em telas estreitas.
+    // Padding fora: afasta a barra das laterais do telemóvel e deixa espaço
+    // embaixo (senão a cápsula colava na borda da tela).
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: Material(
-        elevation: 8,
-        shadowColor: Colors.black.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(28),
-        color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Container(
+        // O "miolo" branco: uma única peça com sombra. Não usei só Material
+        // com elevation porque queria a sombra com um bocadinho de roxo, mais
+        // parecida com o Figma.
+        decoration: BoxDecoration(
+          color: Colors.white,
+          // borderRadius bem grande = forma de cápsula/estádio (parece um
+          // comprimido). Se fosse 8 ou 12, ficava um retângulo só ligeiramente
+          // redondo, não a barra "redondinha" do desenho.
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: [
+            BoxShadow(
+              color: primary.withValues(alpha: 0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        // Dentro, mais um padding: o conteúdo (ícones) não encosta no branco
+        // do rebordo; isso dá a sensação de que a cápsula "respira" por dentro.
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            // [Expanded] em cada _NavItem reparte o espaço em fatias iguais.
-            children: [
-              for (var i = 0; i < itemCount; i++)
-                _NavItem(
-                  icon: _icons[i],
-                  label: _labels[i],
-                  isActive: selectedIndex == i,
-                  activeColor: primary,
-                  inactiveColor: AppColors.navBarInactive,
-                  onTap: () => onItemTap(i),
-                ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          // SizedBox com height fixa: força a Row a ter exatamente esta altura.
+          // Assim, quando o item está ativo, a gente sabe de antemão quanto
+          // espaço vertical existe para desenhar o roxo.
+          child: SizedBox(
+            height: _faixaItensAltura,
+            child: Row(
+              children: [
+                // for + Expanded: as 5 abas partilham a largura em partes
+                // iguais. Sem Expanded, tudo se amontoava à esquerda ou estourava.
+                for (var i = 0; i < itemCount; i++)
+                  Expanded(
+                    child: _NavItem(
+                      icon: _icons[i],
+                      label: _labels[i],
+                      isActive: selectedIndex == i,
+                      trackHeight: _faixaItensAltura,
+                      chipVertMargin: _margemChipVertical,
+                      activeColor: primary,
+                      inactiveColor: AppColors.navBarInactive,
+                      onTap: () => onItemTap(i),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -89,11 +119,17 @@ class MesclaBottomNavBar extends StatelessWidget {
   }
 }
 
+// --- Cada célula: um ícone, um rótulo, toque, estado ativo ou não ---
+
+/// Um item da barra. Se [isActive] for true, desenha a pílula roxa; se não,
+/// só a coluna cinza, sem fundo.
 class _NavItem extends StatelessWidget {
   const _NavItem({
     required this.icon,
     required this.label,
     required this.isActive,
+    required this.trackHeight,
+    required this.chipVertMargin,
     required this.activeColor,
     required this.inactiveColor,
     required this.onTap,
@@ -102,62 +138,88 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final double trackHeight;
+  final double chipVertMargin;
   final Color activeColor;
   final Color inactiveColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // Cor do ícone e do texto: no ativo, ambos brancos sobre a pílula roxa; no
-    // inativo, cinza de marca ([AppColors.navBarInactive]).
+    // Uma cor só para tudo o que “é conteúdo” (ícone + letras). Ativo: branco
+    // em cima do roxo. Inativo: o cinza do design system.
     final contentColor = isActive ? Colors.white : inactiveColor;
 
-    return Expanded(
+    final textStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: contentColor,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+          fontSize: 9.5,
+        );
+
+    // Column porque no Figma o ícone vem em cima e o texto em baixo, centrados.
+    // mainAxisSize.min evita a coluna a ocupar mais altura do que o necessário.
+    final coluna = Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: contentColor, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: textStyle,
+        ),
+      ],
+    );
+
+    // Matemática simples: a faixa tem [trackHeight] de alto; tiro a margem
+    // de cima e a de baixo, e o que sobra é a altura certa do retângulo roxo
+    // (fica quase a encher a faixa, como no desenho).
+    final alturaRoxa = trackHeight - 2 * chipVertMargin;
+
+    // Material + InkWell: o Material em transparente deixa passar a cor do pai,
+    // mas o InkWell precisa dele para desenhar o efeito de toque (ripple).
+    // Se não tivéssemos InkWell, o onTap funcionava, mas o utilizador não via
+    // feedback visual ao tocar.
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        // Raio alinhado ao recorte de splash do toque.
-        borderRadius: BorderRadius.circular(20),
-        // Centraliza a pílula dentro da fatia horizontal deste item.
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Align(
-            alignment: Alignment.center,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: isActive ? activeColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                // Espaçamento mínimo entre o conteúdo e a borda roxa (Figma).
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      color: contentColor,
-                      // Tamanho um pouco menor com 5 ícones na mesma largura.
-                      size: 22,
+        borderRadius: BorderRadius.circular(100),
+        child: Center(
+          child: isActive
+              ? ConstrainedBox(
+                  // Mínimo de largura: textos curtos (ex. INÍCIO) não encolhem a
+                  // pílula demais. min/max na mesma altura: o roxo vira um bloco
+                  // de altura fixa (não “cresce” com o texto e parte o layout).
+                  constraints: BoxConstraints(
+                    minWidth: 72,
+                    minHeight: alturaRoxa,
+                    maxHeight: alturaRoxa,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: activeColor,
+                      borderRadius: BorderRadius.circular(100),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: contentColor,
-                            fontWeight: FontWeight.w700,
-                            // Menos rótulo longo: leve compactação para 5 abas.
-                            letterSpacing: 0.2,
-                            fontSize: 9,
-                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      // Center: ícone+texto ficam ao meio do retângulo roxo, não
+                      // colados a um dos cantos.
+                      child: Center(child: coluna),
                     ),
-                  ],
+                  ),
+                )
+              : Padding(
+                  // Inativo: mesma “respiração” vertical que a margem do ativo,
+                  // para o cinza alinhar visualmente com a posição do conteúdo
+                  // quando a aba ao lado liga o roxo.
+                  padding: EdgeInsets.symmetric(vertical: chipVertMargin),
+                  child: coluna,
                 ),
-              ),
-            ),
-          ),
         ),
       ),
     );
