@@ -111,7 +111,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
     return v != null && v > 0;
   }
 
-  /// Modal central: escudo, pergunta só com o valor em reais, Cancelar / Confirmar.
+  /// [AlertDialog]: pergunta em duas linhas (valor em baixo), mesma hierarquia de botões.
   Future<void> _mostrarConfirmacao() async {
     final valor = _valorReais!;
     final tokens = _quantidadeTokens!;
@@ -122,87 +122,104 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
       builder: (dialogContext) {
         final theme = Theme.of(dialogContext);
         final primary = theme.colorScheme.primary;
+        // Largura confortável: um pouco menos que a faixa máxima anterior.
+        final screenW = MediaQuery.sizeOf(dialogContext).width;
+        final contentW = (screenW - 56).clamp(280.0, 500.0);
 
-        return Dialog(
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: const Color(0xFFF9FAFB),
-          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+          icon: Icon(
+            Icons.shield_outlined,
+            size: 40,
+            color: primary.withValues(alpha: 0.9),
+          ),
+          title: Text(
+            'Confirmar transação',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          content: SizedBox(
+            width: contentW,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.shield_outlined,
-                  size: 44,
-                  color: primary.withValues(alpha: 0.95),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Confirmar transação',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Confirma o investimento de ${formatBrl(valor)}?',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    height: 1.45,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 26),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primary,
-                      side: BorderSide(
-                        color: primary.withValues(alpha: 0.65),
-                        width: 1.5,
+                // Mesma área de mensagem ~3 linhas (altura visual próxima do texto antigo).
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 72),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Confirma o investimento de',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.45,
+                          color: AppColors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      backgroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${formatBrl(valor)}?',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.45,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: primary,
+                    side: BorderSide(
+                      color: primary.withValues(alpha: 0.65),
+                      width: 1.5,
                     ),
-                    child: const Text('Cancelar'),
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
+                  child: const Text('Cancelar'),
                 ),
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PagamentoPixScreen(
-                            valorReais: valor,
-                            quantidadeTokens: tokens,
-                          ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(
+                        builder: (_) => PagamentoPixScreen(
+                          valorReais: valor,
+                          quantidadeTokens: tokens,
                         ),
-                      );
-                    },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: primary,
-                      foregroundColor: Colors.white,
-                      elevation: 2,
-                      shadowColor: AppColors.primaryShadow(theme.colorScheme),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
                       ),
+                    );
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: primary,
+                    foregroundColor: Colors.white,
+                    elevation: 2,
+                    shadowColor: AppColors.primaryShadow(theme.colorScheme),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Text('Confirmar'),
                   ),
+                  child: const Text('Confirmar'),
                 ),
               ],
             ),
