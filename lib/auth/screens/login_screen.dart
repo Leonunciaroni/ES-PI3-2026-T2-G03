@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../services/user_firestore_service.dart';
+import '../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import 'create_account_screen.dart';
