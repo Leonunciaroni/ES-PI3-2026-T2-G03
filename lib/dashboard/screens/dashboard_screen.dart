@@ -24,7 +24,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// Quando true, valores monetários e percentuais aparecem mascarados.
   bool _hideValues = false;
 
-  /// Índice da barra inferior: 0 Início, 1 Balcão, 2 Catálogo, 3 Perfil.
+  /// Índice da barra inferior (Figma): 0 Início, 1 Carteira, 2 Balcão,
+  /// 3 Catálogo, 4 Perfil.
   int _mainNavIndex = 0;
 
   static const _horizontalPadding = 20.0;
@@ -177,8 +178,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ),
+              // Atalho da home: aba Catálogo (índice 3 após inclusão de Balcão).
               TextButton(
-                onPressed: () => setState(() => _mainNavIndex = 2),
+                onPressed: () => setState(() => _mainNavIndex = 3),
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
@@ -245,6 +247,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
         const CarteiraScreen(wrapWithSafeArea: false),
+        _buildComingSoonTab('Balcão em breve.'),
         const CatalogScreen(wrapWithSafeArea: false),
         _buildComingSoonTab('Perfil em breve.'),
       ],
