@@ -5,11 +5,7 @@ import 'package:pi_iii/carteira/screens/adicionar_fundos_screen.dart';
 
 void main() {
   testWidgets('AdicionarFundosScreen mostra título e CTA', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdicionarFundosScreen(),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: AdicionarFundosScreen()));
 
     expect(find.text('Quanto deseja investir?'), findsOneWidget);
     expect(find.text('Investir agora'), findsOneWidget);
@@ -17,11 +13,7 @@ void main() {
   });
 
   testWidgets('valor preenchido ativa Investir agora', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdicionarFundosScreen(),
-      ),
-    );
+    await tester.pumpWidget(const MaterialApp(home: AdicionarFundosScreen()));
 
     final investirFinder = find.widgetWithText(FilledButton, 'Investir agora');
     expect(tester.widget<FilledButton>(investirFinder).onPressed, isNull);
@@ -32,12 +24,10 @@ void main() {
     expect(tester.widget<FilledButton>(investirFinder).onPressed, isNotNull);
   });
 
-  testWidgets('Confirmar transação mostra só o valor em reais', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdicionarFundosScreen(),
-      ),
-    );
+  testWidgets('Confirmar transação: pergunta e valor em linhas separadas', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AdicionarFundosScreen()));
 
     await tester.enterText(find.byType(TextField), '100,00');
     await tester.pump();
@@ -46,11 +36,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Confirmar transação'), findsOneWidget);
-    expect(
-      find.textContaining('Confirma o investimento de R\$ 100,00?'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('token'), findsNothing);
+    expect(find.text('Confirma o investimento de'), findsOneWidget);
+    expect(find.textContaining('R\$ 100,00?'), findsOneWidget);
+    expect(find.textContaining('cotação'), findsNothing);
+    expect(find.textContaining('tokens'), findsNothing);
   });
 
   test('parseValorReaisInput interpreta milhar BR', () {
