@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../balcao/screens/balcao_tab_screen.dart';
 import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/screens/catalog_screen.dart';
+import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_main_shell.dart';
 
@@ -69,22 +70,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _percent(String value) {
     if (_hideValues) return '•••';
     return value;
-  }
-
-  Widget _buildComingSoonTab(String message) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildHomeTab(
@@ -254,7 +239,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         const BalcaoTabScreen(wrapWithSafeArea: false),
         const CatalogScreen(wrapWithSafeArea: false),
-        _buildComingSoonTab('Perfil em breve.'),
+        const PerfilScreen(wrapWithSafeArea: false),
       ],
     );
   }
