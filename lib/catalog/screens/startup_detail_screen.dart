@@ -14,16 +14,14 @@ import '../models/catalog_startup.dart';
 import '../models/startup_detail_load_state.dart';
 import '../services/startup_detail_service.dart';
 import '../widgets/detail_demo_video_section.dart';
+import '../widgets/mescla_detail_header.dart';
+import '../widgets/mescla_pdf_section_card.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 
+import 'socio_detail_screen.dart';
+
 part 'startup_detail_screen_widgets.dart';
-
-/// Asset do wordmark no cabeçalho (registado em `pubspec.yaml` → `flutter: assets:`).
-const String _kMesclaLogoAsset = 'assets/images/mescla_logo.png';
-
-/// Raio dos cards grandes (referência visual ~18–22 dp).
-const double _kCardRadius = 22;
 
 /// Tela completa de detalhes da startup.
 ///
@@ -206,7 +204,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const _DetailHeader(),
+                      const MesclaDetailHeader(),
                       const SizedBox(height: 16),
                       _MainInfoCard(
                         data: detail,
@@ -245,9 +243,19 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                       _TeamCard(
                         members: detail.teamMembers,
                         initialsFor: _initials,
+                        onMemberTap: (member) {
+                          Navigator.of(context).push<void>(
+                            MaterialPageRoute<void>(
+                              builder: (context) => SocioDetailScreen(
+                                data: socioDetailForTeamMember(member),
+                                startupDisplayName: detail.catalog.name,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 14),
-                      _PdfSectionCard(
+                      MesclaPdfSectionCard(
                         title: 'Sumário executivo',
                         child: Text(
                           detail.executiveSummary,
@@ -258,7 +266,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _PdfSectionCard(
+                      MesclaPdfSectionCard(
                         title: 'Estrutura societária',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,7 +287,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _PdfSectionCard(
+                      MesclaPdfSectionCard(
                         title: 'Perguntas e respostas públicas',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,7 +330,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _PdfSectionCard(
+                      MesclaPdfSectionCard(
                         title: 'Vídeos demonstrativos',
                         child: RepaintBoundary(
                           child: DetailDemoVideoSection(
