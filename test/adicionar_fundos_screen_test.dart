@@ -4,31 +4,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_iii/carteira/screens/adicionar_fundos_screen.dart';
 
 void main() {
-  testWidgets('AdicionarFundosScreen mostra título e preço do token', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdicionarFundosScreen(),
-      ),
-    );
+  testWidgets('AdicionarFundosScreen mostra título e CTA', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AdicionarFundosScreen()));
 
     expect(find.text('Quanto deseja investir?'), findsOneWidget);
-    expect(find.textContaining('1 token ='), findsOneWidget);
-    expect(find.textContaining('15,30'), findsOneWidget);
+    expect(find.text('Investir agora'), findsOneWidget);
+    expect(find.textContaining('1 token ='), findsNothing);
   });
 
-  testWidgets('valor 1000,00 mostra quantidade de tokens', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdicionarFundosScreen(),
-      ),
-    );
+  testWidgets('valor preenchido ativa Investir agora', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: AdicionarFundosScreen()));
+
+    final investirFinder = find.widgetWithText(FilledButton, 'Investir agora');
+    expect(tester.widget<FilledButton>(investirFinder).onPressed, isNull);
 
     await tester.enterText(find.byType(TextField), '1000,00');
     await tester.pump();
 
-    // 1000 / 15.30 ≈ 65,36 tokens (vírgula na UI)
-    expect(find.textContaining('65'), findsWidgets);
-    expect(find.textContaining('token'), findsWidgets);
+    expect(tester.widget<FilledButton>(investirFinder).onPressed, isNotNull);
+  });
+
+  testWidgets('Confirmar transação: pergunta e valor em linhas separadas', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: AdicionarFundosScreen()));
+
+    await tester.enterText(find.byType(TextField), '100,00');
+    await tester.pump();
+
+    await tester.tap(find.text('Investir agora'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Confirmar transação'), findsOneWidget);
+    expect(find.text('Confirma o investimento de'), findsOneWidget);
+    expect(find.textContaining('R\$ 100,00?'), findsOneWidget);
+    expect(find.textContaining('cotação'), findsNothing);
+    expect(find.textContaining('tokens'), findsNothing);
   });
 
   test('parseValorReaisInput interpreta milhar BR', () {
@@ -36,23 +47,5 @@ void main() {
     expect(parseValorReaisInput('1000'), 1000);
     expect(parseValorReaisInput('R\$ 500,25'), 500.25);
     expect(parseValorReaisInput(''), null);
-  });
-
-  testWidgets('após 21 s o botão Investir fica desativado', (tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: AdicionarFundosScreen(),
-      ),
-    );
-
-    await tester.enterText(find.byType(TextField), '100');
-    await tester.pump();
-
-    final investirFinder = find.byType(FilledButton);
-    expect(tester.widget<FilledButton>(investirFinder).onPressed, isNotNull);
-
-    await tester.pump(const Duration(seconds: 21));
-
-    expect(tester.widget<FilledButton>(investirFinder).onPressed, isNull);
   });
 }

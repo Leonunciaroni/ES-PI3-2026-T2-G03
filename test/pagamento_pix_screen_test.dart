@@ -5,7 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:pi_iii/carteira/screens/pagamento_pix_screen.dart';
 
 void main() {
-  testWidgets('PagamentoPixScreen mostra valor, tokens e QR', (tester) async {
+  testWidgets('PagamentoPixScreen mostra valor total e QR', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: PagamentoPixScreen(
@@ -16,9 +16,10 @@ void main() {
     );
 
     expect(find.textContaining('1.000'), findsWidgets);
-    expect(find.textContaining('65,36'), findsWidgets);
+    expect(find.text('Total a pagar'), findsOneWidget);
     expect(find.textContaining('PIX'), findsWidgets);
     expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.textContaining('token'), findsNothing);
   });
 
   testWidgets('contador inicia visível', (tester) async {
