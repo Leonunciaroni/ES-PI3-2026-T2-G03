@@ -38,5 +38,13 @@ void main() {
       expect(find.text('Investir Agora'), findsOneWidget);
       expect(find.text('GreenFlow'), findsOneWidget);
     });
+
+    testWidgets('Membros-Chave tem Saber mais em cada linha', (tester) async {
+      await tester.pumpWidget(_wrapStartupDetailScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Membros-Chave'), findsOneWidget);
+      expect(find.text('Saber mais'), findsNWidgets(3));
+    });
   });
 }
