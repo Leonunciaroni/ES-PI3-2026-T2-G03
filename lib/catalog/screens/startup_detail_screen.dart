@@ -5,9 +5,6 @@
 // Conteúdo institucional mínimo do documento §5.2; filtros de gráfico conforme §5.4.
 // Esta rota não inclui a bottom navigation bar (é um [MaterialPageRoute] empilhado).
 
-import 'dart:math' as math;
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,8 +15,7 @@ import '../models/startup_detail_load_state.dart';
 import '../services/startup_detail_service.dart';
 import '../widgets/detail_demo_video_section.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/chart_scrubbing.dart';
-import '../../widgets/mescla_chart_reading_card.dart';
+import '../../widgets/valuation_evolution_chart_card.dart';
 
 part 'startup_detail_screen_widgets.dart';
 
@@ -235,7 +231,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         trend: detail.valuationTrendText,
                       ),
                       const SizedBox(height: 14),
-                      _ValuationEvolutionCard(
+                      ValuationEvolutionChartCard(
                         selected: _valuationPeriod,
                         onSelect: (p) => setState(() => _valuationPeriod = p),
                         series: detail.chartSeriesByPeriod[_valuationPeriod]!,
