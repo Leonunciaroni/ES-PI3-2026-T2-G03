@@ -81,4 +81,23 @@ class UserFirestoreService {
     );
     await _removeLegacyPasswordFieldForEmail(normalizedEmail);
   }
+
+  /// Encerra a sessão no Firebase Auth (ex.: botão Sair do Perfil).
+  static Future<void> signOut() => _auth.signOut();
+
+  /// Nome do cadastro em `users/{uid}`; `null` se não houver documento ou em erro
+  /// (testes sem Firebase, rede, etc.).
+  static Future<String?> fetchNameFromFirestore(String uid) async {
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) return null;
+      final n = snap.data()?['name'];
+      if (n is String && n.trim().isNotEmpty) {
+        return n.trim();
+      }
+    } catch (_) {
+      // Sem Firebase ou falha de rede: o ecrã Perfil usa fallback.
+    }
+    return null;
+  }
 }
