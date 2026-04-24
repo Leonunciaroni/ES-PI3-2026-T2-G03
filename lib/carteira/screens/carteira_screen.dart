@@ -225,11 +225,19 @@ class _StartupMock {
 /// O estado local gere o **período do gráfico** ([_PeriodoSaldo]) e se os
 /// valores sensíveis estão **ocultos** (ícone de olho ao lado do título).
 class CarteiraScreen extends StatefulWidget {
-  const CarteiraScreen({super.key, this.wrapWithSafeArea = true});
+  const CarteiraScreen({
+    super.key,
+    this.wrapWithSafeArea = true,
+    this.onCompraVendaTokens,
+  });
 
   /// Quando `false`, o antecessor (ex.: [MesclaMainShell]) já aplicou
   /// [SafeArea] — evita recortar duas vezes a mesma margem.
   final bool wrapWithSafeArea;
+
+  /// Quando preenchido (ex.: a partir de [DashboardScreen]), o botão “Compra / Venda
+  /// de Tokens” no card de saldo deixa o “em breve” e abre o separador Balcão.
+  final VoidCallback? onCompraVendaTokens;
 
   @override
   State<CarteiraScreen> createState() => _CarteiraScreenState();
@@ -418,7 +426,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
             onAdicionar: _abrirAdicionarFundos,
             onVerStartups: _scrollParaStartupsInvestidas,
-            onVenderTokens: () => _emBreve('Vender tokens'),
+            onVenderTokens: widget.onCompraVendaTokens ??
+                () => _emBreve('Compra / Venda de tokens'),
           ),
           const SizedBox(height: _sectionGap),
           _EvolucaoSaldoCard(

@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../balcao/screens/balcao_tab_screen.dart';
 import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/screens/catalog_screen.dart';
 import '../../theme/app_colors.dart';
@@ -246,8 +247,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onNavIndexChanged: (i) => setState(() => _mainNavIndex = i),
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
-        const CarteiraScreen(wrapWithSafeArea: false),
-        _buildComingSoonTab('Balcão em breve.'),
+        CarteiraScreen(
+          wrapWithSafeArea: false,
+          onCompraVendaTokens: () =>
+              setState(() => _mainNavIndex = 2), // Balcão
+        ),
+        const BalcaoTabScreen(wrapWithSafeArea: false),
         const CatalogScreen(wrapWithSafeArea: false),
         _buildComingSoonTab('Perfil em breve.'),
       ],
