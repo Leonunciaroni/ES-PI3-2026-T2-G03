@@ -78,7 +78,7 @@ void main() {
         find.textContaining('Pré-visualização com dados fictícios'),
         findsOneWidget,
       );
-      expect(find.text('Formação académica'), findsOneWidget);
+      expect(find.text('Formação acadêmica'), findsOneWidget);
       expect(find.text('Competências principais'), findsOneWidget);
       expect(find.text('Fulana Silva'), findsOneWidget);
     });
