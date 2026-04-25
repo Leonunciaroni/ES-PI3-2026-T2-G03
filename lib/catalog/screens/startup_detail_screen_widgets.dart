@@ -1,43 +1,5 @@
 ﻿part of 'startup_detail_screen.dart';
 
-/// Voltar + logo centrado (referência Figma).
-class _DetailHeader extends StatelessWidget {
-  const _DetailHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        IconButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          color: theme.colorScheme.onSurface,
-          tooltip: 'Voltar',
-        ),
-        Expanded(
-          child: Center(
-            child: Image.asset(
-              _kMesclaLogoAsset,
-              height: 44,
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Text(
-                'mescla invest',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Espaçador invisível para equilibrar o [IconButton] à esquerda.
-        const SizedBox(width: 48),
-      ],
-    );
-  }
-}
-
 class _MainInfoCard extends StatelessWidget {
   const _MainInfoCard({
     required this.data,
@@ -60,7 +22,7 @@ class _MainInfoCard extends StatelessWidget {
 
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(_kCardRadius),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.06),
       child: Padding(
@@ -187,7 +149,7 @@ class _CaptureCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: primary,
-        borderRadius: BorderRadius.circular(_kCardRadius),
+        borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
         boxShadow: [
           BoxShadow(
             color: primary.withValues(alpha: 0.35),
@@ -256,7 +218,7 @@ class _ValuationCard extends StatelessWidget {
     const green = Color(0xFF16A34A);
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(_kCardRadius),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.05),
       child: Padding(
@@ -311,7 +273,7 @@ class _PerformanceMetricsCard extends StatelessWidget {
     if (metrics.isEmpty) return const SizedBox.shrink();
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(_kCardRadius),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -396,7 +358,7 @@ class _CompanyInfoCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: const Color(0xFFF3F4F6),
-      borderRadius: BorderRadius.circular(_kCardRadius),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -493,10 +455,17 @@ class _InfoLine extends StatelessWidget {
 }
 
 class _TeamCard extends StatelessWidget {
-  const _TeamCard({required this.members, required this.initialsFor});
+  const _TeamCard({
+    required this.members,
+    required this.initialsFor,
+    this.onMemberTap,
+  });
 
   final List<StartupTeamMember> members;
   final String Function(String) initialsFor;
+
+  /// Abre a ficha do membro (mock rico ou resumo a partir do Firestore).
+  final void Function(StartupTeamMember member)? onMemberTap;
 
   @override
   Widget build(BuildContext context) {
@@ -504,7 +473,7 @@ class _TeamCard extends StatelessWidget {
     if (members.isEmpty) return const SizedBox.shrink();
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(_kCardRadius),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -521,41 +490,12 @@ class _TeamCard extends StatelessWidget {
             for (final m in members)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: m.avatarColor,
-                      child: Text(
-                        initialsFor(m.name),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            m.name,
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            m.role,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                child: _TeamMemberTile(
+                  member: m,
+                  initialsFor: initialsFor,
+                  theme: theme,
+                  onSaberMais:
+                      onMemberTap != null ? () => onMemberTap!(m) : null,
                 ),
               ),
           ],
@@ -565,36 +505,69 @@ class _TeamCard extends StatelessWidget {
   }
 }
 
-/// Secção branca genérica para blocos do documento §5.2.
-class _PdfSectionCard extends StatelessWidget {
-  const _PdfSectionCard({required this.title, required this.child});
+/// Uma linha da lista com CTA **Saber mais** à direita (design alinhado ao Figma).
+class _TeamMemberTile extends StatelessWidget {
+  const _TeamMemberTile({
+    required this.member,
+    required this.initialsFor,
+    required this.theme,
+    this.onSaberMais,
+  });
 
-  final String title;
-  final Widget child;
+  final StartupTeamMember member;
+  final String Function(String) initialsFor;
+  final ThemeData theme;
+  final VoidCallback? onSaberMais;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(_kCardRadius),
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: member.avatarColor,
+          child: Text(
+            initialsFor(member.name),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
             ),
-            const SizedBox(height: 12),
-            child,
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                member.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                member.role,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (onSaberMais != null)
+          TextButton(
+            onPressed: onSaberMais,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.linkAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Saber mais'),
+          ),
+      ],
     );
   }
 }

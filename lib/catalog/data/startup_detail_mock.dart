@@ -180,12 +180,189 @@ final _sampleTimesShape7Ytd = <DateTime>[
   _sampleTimeHoje,
 ];
 
+/// Dados para a tela **detalhe do sócio** — nesta fase só mock; depois pode
+/// ser preenchido a partir do Firestore sem mudar a [SocioDetailScreen].
+///
+/// Campos opcionais: a UI **esconde** secções vazias — exceto quando usamos
+/// [isMockPlaceholder]: aí preenchemos tudo com texto fictício para pré-visualizar
+/// o layout antes da integração real com o documento `socios` no Firebase.
+class SocioDetailViewData {
+  const SocioDetailViewData({
+    required this.fullName,
+    required this.listRoleLine,
+    required this.participationLabel,
+    required this.avatarFallbackColor,
+    this.photoUrl,
+    this.shortBio,
+    this.linkedinUrl,
+    this.academicBackground,
+    this.mainInstitution,
+    this.specialties = const [],
+    this.marketExperience,
+    this.priorRoles = const [],
+    this.skills = const [],
+    this.strategicEdge,
+    this.responsibilities,
+    this.highlights = const [],
+    this.certifications = const [],
+    this.languages = const [],
+    this.isMockPlaceholder = false,
+  });
+
+  /// Nome completo no cabeçalho da ficha.
+  final String fullName;
+
+  /// Mesma linha que aparece em “Membros-Chave” (ex.: CEO & Fundador).
+  final String listRoleLine;
+
+  /// Texto curto com participação societária (ex.: "42% das quotas").
+  final String participationLabel;
+
+  /// Quando [photoUrl] falha ou é nula, usamos iniciais sobre esta cor.
+  final Color avatarFallbackColor;
+
+  /// URL de foto (rede); se null ou inválida, mostramos iniciais.
+  final String? photoUrl;
+
+  /// Resumo institucional / mini bio.
+  final String? shortBio;
+
+  /// Perfil público LinkedIn (https…).
+  final String? linkedinUrl;
+
+  /// Formação académica resumida.
+  final String? academicBackground;
+
+  /// Instituição principal (PUC, USP, etc.).
+  final String? mainInstitution;
+
+  /// Áreas de atuação / especialidades.
+  final List<String> specialties;
+
+  /// Tempo de experiência no mercado (texto livre).
+  final String? marketExperience;
+
+  /// Experiências anteriores relevantes (uma frase por item).
+  final List<String> priorRoles;
+
+  /// Competências principais.
+  final List<String> skills;
+
+  /// Diferencial estratégico na startup.
+  final String? strategicEdge;
+
+  /// Responsabilidades atuais na startup.
+  final String? responsibilities;
+
+  /// Projetos ou conquistas.
+  final List<String> highlights;
+
+  /// Certificações (opcional).
+  final List<String> certifications;
+
+  /// Idiomas (opcional).
+  final List<String> languages;
+
+  /// `true` quando os textos são só para **demo** (ex.: membro vindo do Firestore
+  /// ainda sem campos ricos — ver [_placeholderSocioDetailFromListRow]).
+  /// A [SocioDetailScreen] pode mostrar um aviso discreto no topo.
+  final bool isMockPlaceholder;
+}
+
+/// Exemplo rico — GreenFlow (tocar em Ricardo Silveira na lista mock).
+const SocioDetailViewData kSocioMockRicardoSilveira = SocioDetailViewData(
+  fullName: 'Ricardo Silveira',
+  listRoleLine: 'CEO & Fundador',
+  participationLabel: '42% de participação societária',
+  avatarFallbackColor: Color(0xFF6366F1),
+  shortBio:
+      'Empreendedor de agrotech com foco em produto e operações em escala. '
+      'Lidera a visão da GreenFlow e a relação com investidores e parceiros agrícolas.',
+  linkedinUrl: 'https://www.linkedin.com/in/example-ricardo-silveira',
+  academicBackground: 'Engenharia Agronômica; MBA em Negócios',
+  mainInstitution: 'ESALQ/USP (extensão) e CEAG FGV',
+  specialties: ['Agrotech', 'Operações', 'Produto digital', 'Captação'],
+  marketExperience: '14 anos em tecnologia aplicada ao campo e supply chain.',
+  priorRoles: [
+    'Diretor de operações em cooperativa de café (5 anos).',
+    'Consultor de precisão agrícola em multinacional de insumos.',
+  ],
+  skills: ['Liderança', 'OKRs', 'Negociação', 'Roadmap de produto', 'ESG'],
+  strategicEdge:
+      'Combinação de hardware acessível com modelos de IA treinados em dados brasileiros de solo e clima.',
+  responsibilities:
+      'Definição de estratégia, captação, parcerias com cooperativas e governança até a Série A.',
+  highlights: [
+    'Piloto regional com +120 propriedades em SC/PR.',
+    'Prémio regional de inovação aberta 2025 (categoria agro).',
+  ],
+  certifications: ['PMI — CAPM (em curso)'],
+  languages: [
+    'Português (nativo)',
+    'Inglês (avançado)',
+    'Espanhol (intermediário)',
+  ],
+);
+
+/// Exemplo rico — CyberMesh (Juliana Prado).
+const SocioDetailViewData kSocioMockJulianaPrado = SocioDetailViewData(
+  fullName: 'Juliana Prado',
+  listRoleLine: 'CEO & Fundadora',
+  participationLabel: '51% de participação societária',
+  avatarFallbackColor: Color(0xFF8B5CF6),
+  shortBio:
+      'Fundadora da CyberMesh. Especialista em segurança para PMEs e resposta a incidentes.',
+  linkedinUrl: 'https://www.linkedin.com/in/example-juliana-prado',
+  academicBackground: 'Ciência da Computação; especialização em Segurança da Informação',
+  mainInstitution: 'UNICAMP',
+  specialties: ['SOC', 'Threat intel', 'Conformidade', 'Liderança técnica'],
+  marketExperience: '12 anos em cibersegurança e infraestrutura crítica.',
+  priorRoles: [
+    'Arquiteta de segurança em banco digital.',
+    'Head de IR em consultoria especializada.',
+  ],
+  skills: ['Python', 'Playbooks', 'Gestão de crise', 'Mentoria de times'],
+  strategicEdge:
+      'Correlação automática de telemetria com feeds abertos, reduzindo tempo de deteção para PMEs.',
+  responsibilities: 'Produto, visão de longo prazo, grandes contas e fundraising.',
+  highlights: ['SOC simulado usado em 40+ empresas piloto'],
+  certifications: ['CompTIA Security+'],
+  languages: ['Português (nativo)', 'Inglês (fluente)'],
+);
+
+/// Exemplo rico — Healthly (Dra. Paula Menezes).
+const SocioDetailViewData kSocioMockPaulaMenezes = SocioDetailViewData(
+  fullName: 'Dra. Paula Menezes',
+  listRoleLine: 'CEO & Médica',
+  participationLabel: '38% de participação societária',
+  avatarFallbackColor: Color(0xFF14B8A6),
+  shortBio:
+      'Médica e empreendedora. Conecta protocolos clínicos à experiência do paciente no app Healthly.',
+  linkedinUrl: 'https://www.linkedin.com/in/example-paula-menezes',
+  academicBackground: 'Medicina; residência em Medicina de Família',
+  mainInstitution: 'UNIFESP',
+  specialties: ['Atenção primária', 'Telemedicina', 'Produto em saúde'],
+  marketExperience: '10 anos na linha de frente do SUS e iniciativas privadas.',
+  priorRoles: [
+    'Coordenação de unidade básica de saúde.',
+    'Consultoria para operadoras regionais.',
+  ],
+  skills: ['Triagem', 'Fluxos clínicos', 'Regulação', 'UX em saúde'],
+  strategicEdge:
+      'Prontuário longitudinal com notificações inteligentes e integração a laboratórios parceiros.',
+  responsibilities: 'Visão clínica, parcerias com redes e compliance em saúde.',
+  highlights: ['Dois pilotos municipais agendados para 2026'],
+  certifications: ['CRM ativo — RQE em MF'],
+  languages: ['Português (nativo)', 'Inglês (avançado)'],
+);
+
 /// Membro-chave / sócio apresentado na lista circular.
 class StartupTeamMember {
   const StartupTeamMember({
     required this.name,
     required this.role,
     required this.avatarColor,
+    this.detailPreview,
   });
 
   final String name;
@@ -193,6 +370,9 @@ class StartupTeamMember {
 
   /// Cor de fundo do círculo com iniciais (sem fotos no protótipo).
   final Color avatarColor;
+
+  /// Quando não é null (só no mock), a linha abre a [SocioDetailScreen].
+  final SocioDetailViewData? detailPreview;
 }
 
 /// Linha de pergunta e resposta pública (§5.2).
@@ -485,6 +665,7 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
         name: 'Ricardo Silveira',
         role: 'CEO & Fundador',
         avatarColor: Color(0xFF6366F1),
+        detailPreview: kSocioMockRicardoSilveira,
       ),
       StartupTeamMember(
         name: 'Ana Luíza Costa',
@@ -570,6 +751,7 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
         name: 'Juliana Prado',
         role: 'CEO & Fundadora',
         avatarColor: Color(0xFF8B5CF6),
+        detailPreview: kSocioMockJulianaPrado,
       ),
       StartupTeamMember(
         name: 'Otávio Ramos',
@@ -643,6 +825,7 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
         name: 'Dra. Paula Menezes',
         role: 'CEO & Médica',
         avatarColor: Color(0xFF14B8A6),
+        detailPreview: kSocioMockPaulaMenezes,
       ),
       StartupTeamMember(
         name: 'Igor Nunes',
@@ -697,6 +880,103 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
     demoVideoTitle: 'Fluxo do paciente — vídeo conceitual',
   ),
 };
+
+/// Devolve o modelo para [SocioDetailScreen] ao tocar em **Saber mais**.
+///
+/// 1. Se existir [StartupTeamMember.detailPreview] → perfil **rico** já definido
+///    nos templates (GreenFlow, etc.) — dados fictícios completos para demo.
+/// 2. Caso contrário → usa [_placeholderSocioDetailFromListRow]: pega o **nome**
+///    e o **papel** reais da lista (como virão do Firestore) e preenche **todos**
+///    os outros campos com texto marcado como exemplo, para você ver **todas**
+///    as secções da ficha antes de mapear campos no `startup_firestore_schema`.
+SocioDetailViewData socioDetailForTeamMember(StartupTeamMember member) {
+  final SocioDetailViewData? rich = member.detailPreview;
+  if (rich != null) return rich;
+  return _placeholderSocioDetailFromListRow(member);
+}
+
+/// Monta identidade a partir da linha "Membros-Chave" e completa o resto com
+/// **placeholders** — assim a UI mostra todas as secções (LinkedIn, formação,
+/// skills, …) mesmo antes de existir JSON rico no Firestore.
+SocioDetailViewData _placeholderSocioDetailFromListRow(StartupTeamMember m) {
+  final String role = m.role.trim();
+  final String name = m.name.trim();
+  final String firstName = name.split(RegExp(r'\s+')).first;
+
+  // Mesma lógica que o serviço usa hoje: "Sócio — 34%" ou mentor em texto livre.
+  String listRoleLine;
+  String participationLabel;
+
+  if (role.startsWith('Sócio')) {
+    listRoleLine = 'Sócio';
+    final RegExpMatch? match =
+        RegExp(r'^Sócio\s*[—–-]\s*(.+)$').firstMatch(role);
+    final String pct = match?.group(1)?.trim() ?? '';
+    participationLabel = pct.isEmpty
+        ? 'Participação societária em definição.'
+        : '$pct de participação societária';
+  } else if (role.toLowerCase().contains('mentor')) {
+    listRoleLine = role;
+    participationLabel =
+        'Membro de mentoria ou conselho — sem quota societária nesta visão.';
+  } else {
+    listRoleLine = role;
+    participationLabel = 'Informações societárias em definição.';
+  }
+
+  return SocioDetailViewData(
+    fullName: name,
+    listRoleLine: listRoleLine,
+    participationLabel: participationLabel,
+    avatarFallbackColor: m.avatarColor,
+    isMockPlaceholder: true,
+    shortBio:
+        '[Exemplo PI3] Mini biografia institucional de $name. '
+        'No Firestore, este texto viria de um campo como `bio` ou `apresentacao` '
+        'dentro de cada objeto em `socios`.',
+    linkedinUrl: 'https://www.linkedin.com/in/exemplo-mescla-invest',
+    academicBackground:
+        '[Exemplo] Formação acadêmica resumida (mock). Mapear para campos '
+        '`formacao` / `curso` no documento da startup.',
+    mainInstitution:
+        '[Exemplo] Instituição principal — ex.: PUC, USP (campo `instituicao`).',
+    specialties: [
+      '[Mock] Especialidade / área 1',
+      '[Mock] Especialidade / área 2',
+      '[Mock] Especialidade / área 3',
+    ],
+    marketExperience:
+        '[Exemplo] Tempo de experiência no mercado — texto ou número vindo do backend.',
+    priorRoles: [
+      '[Mock] Experiência anterior relevante 1 (`experiencias_previas`).',
+      '[Mock] Experiência anterior relevante 2.',
+    ],
+    skills: [
+      'Competência A (mock)',
+      'Competência B (mock)',
+      'Competência C (mock)',
+      'Competência D (mock)',
+    ],
+    strategicEdge:
+        '[Exemplo] Diferencial estratégico que $firstName traz para a startup — '
+        'campo livre no Firestore.',
+    responsibilities:
+        '[Exemplo] Responsabilidades atuais de $name na operação e governança '
+        '(lista ou texto em `responsabilidades`).',
+    highlights: [
+      '[Mock] Projeto ou conquista relevante 1.',
+      '[Mock] Projeto ou conquista relevante 2.',
+    ],
+    certifications: [
+      '[Mock] Certificação opcional 1.',
+      '[Mock] Certificação opcional 2.',
+    ],
+    languages: [
+      'Português (exemplo)',
+      'Inglês — nível a definir no Firestore',
+    ],
+  );
+}
 
 /// Monta o [StartupDetailViewData] final usando sempre o [CatalogStartup] do card tocado.
 StartupDetailViewData startupDetailFor(CatalogStartup c) {
