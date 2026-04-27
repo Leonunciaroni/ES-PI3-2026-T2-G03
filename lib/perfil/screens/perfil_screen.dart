@@ -208,14 +208,25 @@ class _PerfilScreenState extends State<PerfilScreen> {
   }
 
   Future<void> _executarSair() async {
-    await UserFirestoreService.signOut();
-    if (!mounted) {
-      return;
+    try {
+      await UserFirestoreService.signOut();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível sair da conta. Tente novamente.'),
+        ),
+      );
     }
-    Navigator.of(context).pushAndRemoveUntil<void>(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
   }
 
   @override

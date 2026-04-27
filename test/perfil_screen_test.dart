@@ -38,7 +38,7 @@ void main() {
 
     expect(find.text('Verificação em duas etapas (2FA)'), findsOneWidget);
     expect(find.byType(Switch), findsOneWidget);
-    expect(find.text('Recuperar senha por e-mail'), findsOneWidget);
+    expect(find.text('Trocar senha por e-mail'), findsOneWidget);
   });
 
   testWidgets('Sair da Conta abre diálogo de confirmação', (
