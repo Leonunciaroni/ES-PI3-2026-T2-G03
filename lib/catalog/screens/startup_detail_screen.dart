@@ -16,6 +16,7 @@ import '../services/startup_detail_service.dart';
 import '../widgets/detail_demo_video_section.dart';
 import '../widgets/mescla_detail_header.dart';
 import '../widgets/mescla_pdf_section_card.dart';
+import '../widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 
