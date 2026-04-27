@@ -8,6 +8,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 // Modelo que a UI já conhece (nome, setor, estágio, etc.).
 import 'package:pi_iii/catalog/models/catalog_startup.dart';
+import 'package:pi_iii/catalog/widgets/startup_logo_avatar.dart';
 
 import 'startup_firestore_mapper.dart';
 
@@ -38,6 +39,10 @@ class StartupCatalogService {
           (CatalogStartup a, CatalogStartup b) =>
               a.name.toLowerCase().compareTo(b.name.toLowerCase()),
         );
+        // Pré-aquece o cache de URLs do Storage para todos os logos da lista.
+        // Quando o utilizador navegar para Balcão, Detalhes, etc.,
+        // o Future já está resolvido e o logo aparece imediatamente.
+        prewarmLogoUrlCache(out.map((s) => s.logoPath));
         return out;
       },
     );
