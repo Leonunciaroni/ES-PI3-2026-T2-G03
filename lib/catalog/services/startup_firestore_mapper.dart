@@ -32,6 +32,7 @@ CatalogStartup? catalogStartupFromFirestoreMap(
     final StartupStage stage =
         parseFirestoreStage(readFirestoreString(d, kFieldEstagio));
     final String? sigla = readFirestoreOptionalString(d, kFieldSigla);
+    final String? logoPath = readFirestoreLogoStoragePath(d);
     final Color logoColor = firestoreColorForSector(setorRaw);
     final IconData logoIcon = firestoreIconForSector(setorRaw);
     final String yieldPercentLabel = yieldLabelFromFirestore(d);
@@ -49,6 +50,7 @@ CatalogStartup? catalogStartupFromFirestoreMap(
       logoIcon: logoIcon,
       sigla: sigla,
       firestoreId: documentId,
+      logoPath: logoPath,
     );
   } catch (_) {
     return null;
@@ -74,6 +76,12 @@ String? readFirestoreOptionalString(Map<String, dynamic> d, String key) {
     return null;
   }
   return s;
+}
+
+/// Caminho ou URL do logo: aceita [kFieldLogoPath] ou [kFieldLogoPathSnake].
+String? readFirestoreLogoStoragePath(Map<String, dynamic> d) {
+  return readFirestoreOptionalString(d, kFieldLogoPath) ??
+      readFirestoreOptionalString(d, kFieldLogoPathSnake);
 }
 
 double? readFirestoreOptionalDouble(Map<String, dynamic> d, String key) {

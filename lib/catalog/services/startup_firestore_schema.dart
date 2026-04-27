@@ -24,6 +24,12 @@ const String kFieldEstagio = 'estagio';
 /// Sigla ou ticker opcional.
 const String kFieldSigla = 'sigla';
 
+/// Caminho do logo no Firebase Storage (ex.: `logos/startups/nome.png`) — camelCase.
+const String kFieldLogoPath = 'logoPath';
+
+/// Mesmo significado que [kFieldLogoPath]; use no console se preferir snake_case.
+const String kFieldLogoPathSnake = 'logo_path';
+
 // --- Card do catálogo (opcional; fallback 0 ou N/D) ---
 
 /// Preço unitário do token em reais (número).
