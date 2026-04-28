@@ -211,8 +211,8 @@ class _BalcaoQuantidadeTokensScreenState
                             Navigator.of(dialogContext).pop(false),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          foregroundColor: AppColors.textSecondary,
-                          side: const BorderSide(color: AppColors.fieldBorder),
+                          foregroundColor: AppColors.secondaryLabel(theme),
+                          side: BorderSide(color: AppColors.cardDivider(theme)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -261,14 +261,21 @@ class _BalcaoQuantidadeTokensScreenState
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isVenda = widget.operacao == BalcaoOperacaoTipo.venda;
+    final bodyBg = theme.brightness == Brightness.light
+        ? AppColors.gradientBottom
+        : AppColors.gradientBottomDark;
+    final overlay = AppColors.shellOverlayStyle(theme.brightness);
+    final onSurface = scheme.onSurface;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppColors.systemUiLightAppBar,
+      value: overlay,
       child: Scaffold(
-        backgroundColor: AppColors.gradientBottom,
+        backgroundColor: bodyBg,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: scheme.onSurface,
+          backgroundColor: theme.colorScheme.surface,
+          foregroundColor: onSurface,
+          surfaceTintColor: Colors.transparent,
+          systemOverlayStyle: overlay,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -279,6 +286,7 @@ class _BalcaoQuantidadeTokensScreenState
             _tituloAppBar,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: onSurface,
             ),
           ),
           centerTitle: true,
@@ -292,13 +300,14 @@ class _BalcaoQuantidadeTokensScreenState
                 widget.startup.name,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: onSurface,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Preço unitário do token: ${formatBrl(widget.startup.tokenPrice)}',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
               ),
               if (isVenda) ...[
@@ -306,7 +315,7 @@ class _BalcaoQuantidadeTokensScreenState
                 Text(
                   'Disponível para venda: ${formatBrl(_saldoReaisMesaMock(widget.startup))} (${formatQuantidadeTokensBr(_saldoTokensMesaMock(widget.startup))} tokens)',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -347,7 +356,7 @@ class _BalcaoQuantidadeTokensScreenState
                       ? 'Informe o valor em reais da venda. Aceita vírgula ou ponto (ex.: 1.500,50).'
                       : 'Quanto deseja investir em reais? Aceita vírgula ou ponto (ex.: 1.500,50).',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                     fontSize: 12,
                   ),
                 ),
@@ -368,13 +377,13 @@ class _BalcaoQuantidadeTokensScreenState
                         : 'Quanto deseja investir (R\$)?',
                     hintText: 'Ex.: 150 ou 1.500,50',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppColors.searchFieldFillForTheme(theme),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.fieldBorder),
+                      borderSide: BorderSide(color: AppColors.cardDivider(theme)),
                     ),
                   ),
                 ),
@@ -382,7 +391,7 @@ class _BalcaoQuantidadeTokensScreenState
                 Text(
                   'Informe quantos tokens deseja vender. Use vírgula ou ponto para decimais.',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                     fontSize: 12,
                   ),
                 ),
@@ -401,13 +410,13 @@ class _BalcaoQuantidadeTokensScreenState
                     labelText: 'Quantidade de tokens',
                     hintText: 'Ex.: 10 ou 2,5',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppColors.searchFieldFillForTheme(theme),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.fieldBorder),
+                      borderSide: BorderSide(color: AppColors.cardDivider(theme)),
                     ),
                   ),
                 ),
