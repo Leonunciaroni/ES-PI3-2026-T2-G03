@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
+import 'verification_code_screen.dart';
 
 /// Tela de recuperação de senha com [FirebaseAuth.sendPasswordResetEmail].
 ///
@@ -59,11 +60,29 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
 
     setState(() => _isSending = true);
     try {
+      // Envia email de recuperação de senha usando o fluxo padrão do Firebase.
+      // O Firebase gera um código único automaticamente e invalida códigos anteriores.
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: email.trim().toLowerCase(),
       );
-      _showSnack(
-        'Se existir uma conta com este e-mail, receberá instruções em breve.',
+
+      if (!mounted) return;
+
+      // Após envio bem-sucedido, redireciona para a tela de verificação de código
+      // onde o usuário irá digitar o código de 6 dígitos recebido no email.
+      _showSnack('Código enviado! Verifique seu e-mail.');
+      
+      // Aguarda 1 segundo para o usuário ver a mensagem, depois navega
+      await Future.delayed(const Duration(seconds: 1));
+      
+      if (!mounted) return;
+      
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (context) => VerificationCodeScreen(
+            email: email.trim().toLowerCase(),
+          ),
+        ),
       );
     } on FirebaseAuthException catch (e) {
       _showSnack(AuthService.messageForPasswordResetError(e));
