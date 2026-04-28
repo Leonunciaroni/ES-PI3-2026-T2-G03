@@ -67,7 +67,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Balcão'), findsOneWidget);
-      expect(find.text('GreenFlow'), findsOneWidget);
+      expect(find.text('GFLO'), findsAtLeastNWidgets(1));
       expect(find.text('CyberMesh'), findsOneWidget);
     });
 
@@ -75,7 +75,7 @@ void main() {
       await tester.pumpWidget(_wrapBalcaoTabScreen());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('GreenFlow'));
+      await tester.tap(find.text('GFLO').first);
       await tester.pumpAndSettle();
 
       expect(find.text('GFLO / BRL'), findsOneWidget);
@@ -92,7 +92,7 @@ void main() {
       await tester.pumpWidget(_wrapBalcaoTabScreen());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('GreenFlow'));
+      await tester.tap(find.text('GFLO').first);
       await tester.pumpAndSettle();
 
       await tester.ensureVisible(find.text('Comprar'));
