@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
 
@@ -92,16 +93,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     Widget? suffixIcon,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final stroke = theme.brightness == Brightness.light
+        ? AppColors.fieldBorder
+        : colorScheme.outline;
     return InputDecoration(
       hintText: hintText,
       prefixIcon: Icon(icon, color: AppColors.textSecondary),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: Colors.white,
+      fillColor: colorScheme.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      enabledBorder: _stadiumBorder(AppColors.fieldBorder),
+      enabledBorder: _stadiumBorder(stroke),
       focusedBorder: _stadiumBorder(colorScheme.primary),
-      border: _stadiumBorder(AppColors.fieldBorder),
+      border: _stadiumBorder(stroke),
     );
   }
 
@@ -192,6 +197,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final gradientStops = AppColors.shellGradientColors(theme.brightness);
     final criteriaTextStyle = theme.textTheme.labelSmall?.copyWith(
       color: AppColors.textSecondary.withValues(alpha: 0.85),
       letterSpacing: 0.5,
@@ -199,18 +205,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [AppColors.gradientTop, AppColors.gradientBottom],
+              colors: gradientStops,
             ),
           ),
           child: SafeArea(
@@ -231,19 +235,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Center(
-                    child: Image.asset(
-                      'assets/images/mescla_logo.png',
-                      width: 170,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+                  const MesclaAuthHeaderLogo(),
                   const SizedBox(height: 20),
                   Text(
                     'Criar Conta',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -458,12 +456,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       backgroundColor: colorScheme.primary,
                     ),
                     child: _isSubmitting
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.2,
-                              color: Colors.white,
+                              color: colorScheme.onPrimary,
                             ),
                           )
                         : const Text(
