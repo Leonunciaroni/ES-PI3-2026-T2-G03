@@ -90,7 +90,9 @@ class UserFirestoreService {
   static Future<void> signOut() => _auth.signOut();
 
   /// Preferência de 2FA no login: `true` = envia OTP; `false` = entra direto.
+  ///
   /// Documento inexistente ou campo ausente [fieldTwoFactorEnabled]: `true` (comportamento atual).
+  /// Em falha de rede ou permissões Firestore, devolve `true` para não saltar 2FA por engano.
   static Future<bool> isTwoFactorLoginEnabled() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
@@ -105,7 +107,14 @@ class UserFirestoreService {
       if (v is bool) {
         return v;
       }
-    } catch (_) {}
+    } on FirebaseException {
+      // Rede / permissões: manter 2FA ativo por defeito (mais seguro que entrar sem OTP).
+      return true;
+    } catch (_) {
+      // Estado inesperado: mesmo default conservador que o fluxo histórico.
+      return true;
+    }
+    // Campo presente mas não é bool: tratar como ausente (default seguro).
     return true;
   }
 
