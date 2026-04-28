@@ -4,8 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../services/auth_service.dart';
+import '../services/password_reset_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 
@@ -22,12 +24,11 @@ import '../../theme/mescla_brand_logo.dart';
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({
     super.key,
-    required this.oobCode,
+    required this.sessionToken,
   });
 
-  /// Código de confirmação já validado pelo Firebase.
-  /// Este código será usado para confirmar a troca de senha.
-  final String oobCode;
+  /// Token de sessão obtido após validar o OTP de 6 dígitos.
+  final String sessionToken;
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
@@ -36,6 +37,7 @@ class ResetPasswordScreen extends StatefulWidget {
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _passwordResetService = PasswordResetService();
 
   /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
   bool _obscurePassword = true;
@@ -127,9 +129,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      // Confirma a nova senha com o Firebase usando o código já validado
-      await FirebaseAuth.instance.confirmPasswordReset(
-        code: widget.oobCode,
+      await _passwordResetService.confirmNewPassword(
+        sessionToken: widget.sessionToken,
         newPassword: password,
       );
 
@@ -140,29 +141,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
       // Volta para a tela de login (remove todas as telas intermediárias)
       Navigator.of(context).popUntil((route) => route.isFirst);
+    } on FirebaseFunctionsException catch (e) {
+      _showSnack(PasswordResetService.messageForError(e));
     } on FirebaseAuthException catch (e) {
-      // Trata erros específicos do Firebase
-      String errorMessage = 'Não foi possível alterar a senha.';
-      switch (e.code) {
-        case 'expired-action-code':
-          errorMessage = 'O código expirou. Solicite um novo.';
-          break;
-        case 'invalid-action-code':
-          errorMessage = 'O código é inválido. Solicite um novo.';
-          break;
-        case 'weak-password':
-          errorMessage = 'A senha é fraca demais. Tente outra mais forte.';
-          break;
-        case 'user-disabled':
-          errorMessage = 'Esta conta foi desabilitada.';
-          break;
-        case 'user-not-found':
-          errorMessage = 'Usuário não encontrado.';
-          break;
-        default:
-          errorMessage = AuthService.messageForError(e);
-      }
-      _showSnack(errorMessage);
+      _showSnack(AuthService.messageForError(e));
     } catch (e) {
       _showSnack('Erro inesperado. Tente novamente.');
     } finally {

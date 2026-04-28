@@ -3,9 +3,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../services/auth_service.dart';
+import '../services/password_reset_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'verification_code_screen.dart';
@@ -25,6 +28,7 @@ class RecoverPasswordScreen extends StatefulWidget {
 
 class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   final _emailController = TextEditingController();
+  final _passwordResetService = PasswordResetService();
   bool _isSending = false;
 
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
@@ -60,11 +64,8 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
 
     setState(() => _isSending = true);
     try {
-      // Envia email de recuperação de senha usando o fluxo padrão do Firebase.
-      // O Firebase gera um código único automaticamente e invalida códigos anteriores.
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: email.trim().toLowerCase(),
-      );
+      // Fluxo próprio via Firebase Functions: envia um OTP de 6 dígitos.
+      await _passwordResetService.sendCode(email.trim().toLowerCase());
 
       if (!mounted) return;
 
@@ -86,8 +87,16 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
       );
     } on FirebaseAuthException catch (e) {
       _showSnack(AuthService.messageForPasswordResetError(e));
+    } on FirebaseFunctionsException catch (e) {
+      _showSnack(PasswordResetService.messageForError(e));
     } catch (e) {
-      _showSnack(AuthService.messageForPasswordResetError(e));
+      if (kDebugMode) {
+        debugPrint('[RecoverPasswordScreen] sendCode error: $e');
+      }
+      _showSnack(
+        'Não foi possível enviar o código. Verifique se o emulador está a correr '
+        'e se a rede permite a ligação.',
+      );
     } finally {
       if (mounted) {
         setState(() => _isSending = false);

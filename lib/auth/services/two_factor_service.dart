@@ -12,7 +12,9 @@ class TwoFactorService {
 
   final FirebaseFunctions? _functions;
 
-  FirebaseFunctions get _instance => _functions ?? FirebaseFunctions.instance;
+  /// A callable `twoFactor` está em `us-central1`.
+  FirebaseFunctions get _instance =>
+      _functions ?? FirebaseFunctions.instanceFor(region: 'us-central1');
 
   /// Solicita o envio do código OTP para o e-mail do utilizador autenticado.
   ///
@@ -40,13 +42,14 @@ class TwoFactorService {
   /// Texto legível ao utilizador para erros comuns de 2FA.
   static String messageForError(Object error) {
     if (error is FirebaseFunctionsException) {
+      final code = error.code.toLowerCase().replaceAll('_', '-');
       final serverMsg = error.message?.trim();
       if (serverMsg != null &&
           serverMsg.isNotEmpty &&
-          (error.code == 'failed-precondition' || error.code == 'internal')) {
+          (code == 'failed-precondition' || code == 'internal')) {
         return serverMsg;
       }
-      switch (error.code) {
+      switch (code) {
         case 'not-found':
           return 'Código expirado ou não encontrado. Solicite um novo.';
         case 'invalid-argument':
