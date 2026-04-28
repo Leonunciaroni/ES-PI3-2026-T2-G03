@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/user_firestore_service.dart';
+import '../services/two_factor_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
@@ -31,6 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
   bool _obscurePassword = true;
   bool _isSubmitting = false;
+
+  final _twoFactorService = TwoFactorService();
 
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
@@ -78,10 +81,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) {
         return;
       }
+      // Solicita o envio do OTP via Function antes de navegar para a tela 2FA.
+      await _twoFactorService.sendCode();
+      if (!mounted) {
+        return;
+      }
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (_) => const TwoFactorVerificationScreen(
+          builder: (_) => TwoFactorVerificationScreen(
             replaceStackWithDashboard: true,
+            twoFactorService: _twoFactorService,
           ),
         ),
       );
@@ -89,7 +98,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) {
         return;
       }
-      _showSnack(AuthService.messageForError(error));
+      _showSnack(
+        AuthService.messageForError(error) == 'Não foi possível concluir a operação agora.'
+            ? TwoFactorService.messageForError(error)
+            : AuthService.messageForError(error),
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

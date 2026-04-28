@@ -1,10 +1,31 @@
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
+//
+// Testes do widget TwoFactorVerificationScreen.
+// Usa [_FakeTwoFactorService] para não depender do Firebase em testes.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pi_iii/auth/screens/two_factor_verification_screen.dart';
+import 'package:pi_iii/auth/services/two_factor_service.dart';
 
-/// Empilha a tela 2FA como no preview, para [Navigator.canPop] ser true após sucesso.
+/// Simula o backend: código "123456" é válido; qualquer outro lança Exception.
+class _FakeTwoFactorService extends TwoFactorService {
+  @override
+  Future<void> sendCode() async {}
+
+  @override
+  Future<bool> verifyCode(String code) async {
+    if (code == '123456') return true;
+    throw Exception('Código incorreto');
+  }
+}
+
+/// Empilha a tela 2FA como no fluxo de login real (para [Navigator.canPop] ser true).
 class _StubWithPushedTwoFactor extends StatefulWidget {
-  const _StubWithPushedTwoFactor();
+  const _StubWithPushedTwoFactor({required this.service});
+
+  final TwoFactorService service;
 
   @override
   State<_StubWithPushedTwoFactor> createState() =>
@@ -19,7 +40,9 @@ class _StubWithPushedTwoFactorState extends State<_StubWithPushedTwoFactor> {
       if (!mounted) return;
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (_) => const TwoFactorVerificationScreen(),
+          builder: (_) => TwoFactorVerificationScreen(
+            twoFactorService: widget.service,
+          ),
         ),
       );
     });
@@ -34,6 +57,10 @@ class _StubWithPushedTwoFactorState extends State<_StubWithPushedTwoFactor> {
 }
 
 void main() {
+  late _FakeTwoFactorService fakeService;
+
+  setUp(() => fakeService = _FakeTwoFactorService());
+
   Future<void> enterCode(WidgetTester tester, String sixDigits) async {
     expect(sixDigits.length, 6);
     final fields = find.byType(TextField);
@@ -43,10 +70,12 @@ void main() {
     }
   }
 
+  Widget buildScreen() => MaterialApp(
+        home: TwoFactorVerificationScreen(twoFactorService: fakeService),
+      );
+
   testWidgets('Mostra título e campos OTP', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: TwoFactorVerificationScreen()),
-    );
+    await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
     expect(find.text('Verificação de duas etapas'), findsOneWidget);
@@ -56,9 +85,7 @@ void main() {
   testWidgets('Validar sem 6 dígitos mostra SnackBar', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: TwoFactorVerificationScreen()),
-    );
+    await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Validar conta'));
@@ -71,9 +98,7 @@ void main() {
   });
 
   testWidgets('Código incorreto mostra falha', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: TwoFactorVerificationScreen()),
-    );
+    await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
     await enterCode(tester, '111111');
@@ -84,9 +109,7 @@ void main() {
   });
 
   testWidgets('Código 123456 mostra sucesso', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: TwoFactorVerificationScreen()),
-    );
+    await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
     await enterCode(tester, '123456');
@@ -96,16 +119,13 @@ void main() {
     expect(find.text('Verificação concluída!'), findsOneWidget);
     expect(find.text('Redirecionando para Dashboard...'), findsOneWidget);
 
-    // Liberta o Future.delayed do fluxo de sucesso (sem pop quando não há rota).
     await tester.pump(const Duration(milliseconds: 2500));
   });
 
   testWidgets('Colar 123456 no primeiro campo permite validar com sucesso', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: TwoFactorVerificationScreen()),
-    );
+    await tester.pumpWidget(buildScreen());
     await tester.pumpAndSettle();
 
     final first = find.byType(TextField).first;
@@ -123,7 +143,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(home: _StubWithPushedTwoFactor()),
+      MaterialApp(home: _StubWithPushedTwoFactor(service: fakeService)),
     );
     await tester.pumpAndSettle();
 
