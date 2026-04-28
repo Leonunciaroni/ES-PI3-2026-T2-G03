@@ -7,11 +7,12 @@ import 'package:flutter/services.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
+import '../services/two_factor_service.dart';
 
-/// Verificação em duas etapas: entrada do código, sucesso e falha (mesmo layout base).
+/// Verificação em duas etapas: entrada do código, sucesso e falha.
 ///
-/// Protótipo sem API — código **123456** resulta em sucesso; qualquer outro código de 6
-/// dígitos mostra falha. A validação real deve ser feita no backend (sem segredos no app).
+/// O código OTP é validado via Firebase Function `twoFactor` com `action: verify`.
+/// O envio (e reenvio) usa [TwoFactorService.sendCode].
 ///
 /// **Navegação após sucesso:** após ~2,4s, se [replaceStackWithDashboard] for true, limpa a
 /// pilha e abre [DashboardScreen]; senão, chama [onVerificationSuccess] se definido; senão,
@@ -21,13 +22,16 @@ class TwoFactorVerificationScreen extends StatefulWidget {
     super.key,
     this.replaceStackWithDashboard = false,
     this.onVerificationSuccess,
-  });
+    TwoFactorService? twoFactorService,
+  }) : _twoFactorService = twoFactorService;
 
-  /// Fluxo login → 2FA → dashboard (protótipo).
+  /// Fluxo login → 2FA → dashboard.
   final bool replaceStackWithDashboard;
 
   /// Opcional: ação extra após sucesso (não usada quando [replaceStackWithDashboard] é true).
   final VoidCallback? onVerificationSuccess;
+
+  final TwoFactorService? _twoFactorService;
 
   @override
   State<TwoFactorVerificationScreen> createState() =>
@@ -69,12 +73,15 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
   final List<FocusNode> _digitFocusNodes = List.generate(6, (_) => FocusNode());
 
   late final TapGestureRecognizer _resendRecognizer;
+  late final TwoFactorService _twoFactorService;
 
   _TwoFactorStep _step = _TwoFactorStep.input;
+  bool _isValidating = false;
 
   @override
   void initState() {
     super.initState();
+    _twoFactorService = widget._twoFactorService ?? TwoFactorService();
     _resendRecognizer = TapGestureRecognizer()..onTap = _onResendTap;
   }
 
@@ -114,19 +121,20 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
     }
   }
 
-  void _onValidate() {
+  Future<void> _onValidate() async {
     if (_code.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Informe os 6 dígitos do código.')),
       );
       return;
     }
+    if (_isValidating) return;
+    setState(() => _isValidating = true);
 
-    setState(() {
-      _step = _code == '123456' ? _TwoFactorStep.success : _TwoFactorStep.failure;
-    });
-
-    if (_step == _TwoFactorStep.success) {
+    try {
+      await _twoFactorService.verifyCode(_code);
+      if (!mounted) return;
+      setState(() => _step = _TwoFactorStep.success);
       Future<void>.delayed(const Duration(milliseconds: 2400), () {
         if (!mounted) return;
         if (widget.replaceStackWithDashboard) {
@@ -145,6 +153,14 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
           Navigator.of(context).pop();
         }
       });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _step = _TwoFactorStep.failure);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(TwoFactorService.messageForError(error))),
+      );
+    } finally {
+      if (mounted) setState(() => _isValidating = false);
     }
   }
 
@@ -156,12 +172,21 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
     _digitFocusNodes[0].requestFocus();
   }
 
-  void _onResendTap() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Protótipo: reenvio de código será feito no backend.'),
-      ),
-    );
+  Future<void> _onResendTap() async {
+    try {
+      await _twoFactorService.sendCode();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Código reenviado para o seu e-mail.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(TwoFactorService.messageForError(error)),
+        ),
+      );
+    }
   }
 
   OutlineInputBorder _digitBorder(Color color) {
@@ -270,7 +295,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
             _buildDigitRow(theme, colorScheme),
             const SizedBox(height: 28),
             FilledButton(
-              onPressed: _onValidate,
+              onPressed: _isValidating ? null : _onValidate,
               style: FilledButton.styleFrom(
                 elevation: 4,
                 shadowColor: AppColors.primaryShadow(colorScheme),
@@ -279,13 +304,22 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
               ),
-              child: const Text(
-                'Validar conta',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
+              child: _isValidating
+                  ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: colorScheme.onPrimary,
+                      ),
+                    )
+                  : const Text(
+                      'Validar conta',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
             ),
             const SizedBox(height: 20),
             Text.rich(

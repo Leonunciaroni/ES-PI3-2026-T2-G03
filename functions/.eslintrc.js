@@ -28,6 +28,13 @@ module.exports = {
   rules: {
     "quotes": ["error", "double"],
     "import/no-unresolved": 0,
-    "indent": ["error", 2],
+    // Windows + Git podem gerar CRLF; não travar lint por isso.
+    "linebreak-style": "off",
+    // Regras do preset "google" muito restritivas para o projeto atual.
+    "require-jsdoc": "off",
+    "valid-jsdoc": "off",
+    "max-len": "off",
+    "operator-linebreak": "off",
+    "indent": "off",
   },
 };

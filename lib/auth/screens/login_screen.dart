@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/user_firestore_service.dart';
+import '../services/two_factor_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
@@ -31,6 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
   bool _obscurePassword = true;
   bool _isSubmitting = false;
+
+  final _twoFactorService = TwoFactorService();
 
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
@@ -71,29 +74,36 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
+      // 1. Autenticação Firebase Auth.
       await UserFirestoreService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      if (!mounted) {
+      if (!mounted) return;
+
+      // 2. Dispara o envio do OTP — erro aqui não é de credencial, tem mensagem própria.
+      try {
+        await _twoFactorService.sendCode();
+      } catch (sendError) {
+        if (!mounted) return;
+        _showSnack(TwoFactorService.messageForError(sendError));
         return;
       }
+
+      if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
-          builder: (_) => const TwoFactorVerificationScreen(
+          builder: (_) => TwoFactorVerificationScreen(
             replaceStackWithDashboard: true,
+            twoFactorService: _twoFactorService,
           ),
         ),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       _showSnack(AuthService.messageForError(error));
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
