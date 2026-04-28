@@ -2,6 +2,7 @@ import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import * as nodemailer from "nodemailer";
 import {requireAuthenticatedUser} from "../shared/auth.js";
+import {buildMailTransportOptions, resolveSmtpFromEnv} from "../shared/smtpConfig.js";
 import {normalizeString} from "../shared/validation.js";
 import {saveCode, verifyCode} from "../repositories/twoFactorRepository.js";
 import {AuthenticatedUser} from "../types/index.js";
@@ -9,11 +10,14 @@ import {AuthenticatedUser} from "../types/index.js";
 /**
  * Uma única callable para 2FA (`action: "send"` ou `"verify"`).
  *
- * Reduz atualizações paralelas de duas Cloud Functions (v2/Cloud Run),
- * que costumam falhar intermitentemente no deploy.
+ * SMTP (produção): defina estas variáveis no **serviço Cloud Run** criado pela
+ * function (nome em minúsculas, ex.: `twofactor`):
+ * https://console.cloud.google.com/run?project=PROJECT_ID → editar revisão → Variáveis
  *
- * - `send`: gera OTP, grava Firestore, envia e-mail.
- * - `verify`: valida OTP (6 dígitos).
+ * Ou crie `functions/.env` (não commit) e rode `firebase deploy`; o CLI pode injetar
+ * variáveis conforme versão do Firebase CLI.
+ *
+ * Variáveis: SMTP_HOST, SMTP_PORT (587), SMTP_USER, SMTP_PASS, SMTP_FROM
  */
 export const twoFactor = onCall({region: "us-central1"}, async (request) => {
   const user = requireAuthenticatedUser(request);
@@ -95,38 +99,31 @@ function isFunctionsEmulator(): boolean {
 }
 
 async function sendEmail(to: string, code: string): Promise<void> {
-  const host = process.env.SMTP_HOST?.trim();
-  const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
-  const smtpUser = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS;
-  const from = (process.env.SMTP_FROM?.trim() ?? smtpUser ?? "").trim();
+  const cfg = resolveSmtpFromEnv();
 
-  if (!host || !smtpUser || !pass) {
+  if (!cfg) {
     if (isFunctionsEmulator()) {
       logger.warn("SMTP nao configurado (emulador). Codigo 2FA:", {code, to});
       return;
     }
     logger.error(
-      "SMTP nao configurado em producao. Defina SMTP_HOST, SMTP_USER, SMTP_PASS " +
-        "em functions/.env e faca deploy (veja functions/.env.example)."
+      "SMTP nao configurado. Defina SMTP_USER, SMTP_PASS e (se nao for Gmail) SMTP_HOST no Cloud Run."
     );
     throw new HttpsError(
       "failed-precondition",
-      "Envio de e-mail nao configurado no servidor (SMTP). " +
-        "Configure variaveis SMTP nas Cloud Functions e faça deploy."
+      "Servidor SMTP nao configurado. No Google Cloud: Cloud Run → servico twofactor "
+        + "→ Variaveis: SMTP_USER, SMTP_PASS (senha de aplicacao Gmail), opcional SMTP_FROM. "
+        + "Para Gmail basta user @gmail.com; o host smtp.gmail.com e aplicado automaticamente."
     );
   }
 
-  const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: {user: smtpUser, pass},
-  });
+  const transporter = nodemailer.createTransport(
+    buildMailTransportOptions(cfg)
+  );
 
   try {
     await transporter.sendMail({
-      from: `"MesclaInvest" <${from}>`,
+      from: `"MesclaInvest" <${cfg.from}>`,
       to,
       subject: "Seu código de verificação – MesclaInvest",
       text: `Seu código de verificação é: ${code}\n\nEle expira em 5 minutos.`,
@@ -139,8 +136,29 @@ async function sendEmail(to: string, code: string): Promise<void> {
         Se não foi você, ignore este e-mail.</p>
       </div>`,
     });
-  } catch (err) {
-    logger.error("Falha ao enviar e-mail (nodemailer).", err);
+  } catch (err: unknown) {
+    const e = err as {code?: string; responseCode?: number; message?: string};
+    logger.error("Falha ao enviar e-mail (nodemailer).", {
+      code: e.code,
+      responseCode: e.responseCode,
+      message: e.message,
+    });
+
+    const authFail =
+      e.code === "EAUTH" ||
+      e.responseCode === 535 ||
+      e.responseCode === 534 ||
+      /Invalid login|authentication failed|535/i.test(String(e.message));
+
+    if (authFail) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Gmail recusou o login SMTP: use uma senha de aplicacao (16 caracteres), " +
+          "sem espacos, com verificacao em 2 passos ativa na conta. " +
+          "Atualize SMTP_PASS no Cloud Run."
+      );
+    }
+
     throw new HttpsError(
       "internal",
       "Nao foi possivel enviar o e-mail agora. Tente reenviar em instantes."
