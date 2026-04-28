@@ -10,6 +10,7 @@ import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/screens/catalog_screen.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
 import '../../widgets/mescla_main_shell.dart';
 
 /// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
@@ -43,7 +44,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ],
   );
 
-  static const _summaryCardColor = Color(0xFFF3F4F6);
   static const _walletIconColor = Color(0xFF92400E);
 
   void _toggleVisibility() {
@@ -113,7 +113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _hideValues
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
                 tooltip: _hideValues
                     ? 'Mostrar valores'
@@ -131,7 +131,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: _sectionGap),
           _SummaryCard(
-            background: _summaryCardColor,
+            background: AppColors.themeMutedSurface(theme),
             icon: Icon(
               Icons.rocket_launch_outlined,
               color: colorScheme.primary,
@@ -142,7 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 12),
           _SummaryCard(
-            background: _summaryCardColor,
+            background: AppColors.themeMutedSurface(theme),
             icon: Icon(
               Icons.payments_outlined,
               color: _walletIconColor,
@@ -222,7 +222,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final onSurface = theme.colorScheme.onSurface;
 
     final labelCaps = theme.textTheme.labelSmall?.copyWith(
-      color: AppColors.textSecondary,
+      color: AppColors.secondaryLabel(theme),
       fontWeight: FontWeight.w600,
       letterSpacing: 1.2,
     );
@@ -233,6 +233,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
         CarteiraScreen(
+          // Força novo [State] após migração do período do gráfico para [ValuationPeriod]
+          // (evita crash de tipo com hot reload / estado preso no [IndexedStack]).
+          key: const ValueKey<String>('carteira_valuation_period'),
           wrapWithSafeArea: false,
           onCompraVendaTokens: () =>
               setState(() => _mainNavIndex = 2), // Balcão
@@ -250,38 +253,25 @@ class _HeaderRow extends StatelessWidget {
 
   final ColorScheme colorScheme;
 
-  static const _logoAsset = 'assets/images/mescla_logo.png';
-
-  /// Altura do wordmark no topo (próxima à área do sino ~48dp).
+  /// Altura do wordmark no topo (próxima à área do sino ~48dp); largura em caixa fixa.
   static const _logoHeight = 52.0;
+  static const _logoBoxWidth = 200.0;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Logo conforme o Figma (asset), alinhado à esquerda.
-        Image.asset(
-          _logoAsset,
-          height: _logoHeight,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Text(
-              'mescla',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: -0.5,
-              ),
-            );
-          },
+        // Tema claro/escuro: [MesclaBrandLogo] escolhe o PNG certo.
+        const MesclaBrandLogo(
+          boxWidth: _logoBoxWidth,
+          boxHeight: _logoHeight,
         ),
         const Spacer(),
         IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_none_outlined),
-          color: theme.colorScheme.onSurface,
+          color: colorScheme.onSurface,
           tooltip: 'Notificações',
         ),
       ],
@@ -455,7 +445,7 @@ class _SummaryCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                     ),
                   ),
                 ],
@@ -491,7 +481,7 @@ class _StartupCard extends StatelessWidget {
     final primary = theme.colorScheme.primary;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(18),
       elevation: 3,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -521,13 +511,14 @@ class _StartupCard extends StatelessWidget {
                         name,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         category,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
                         ),
@@ -570,7 +561,7 @@ class _StartupCard extends StatelessWidget {
                       Text(
                         'Total Investido',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -578,6 +569,7 @@ class _StartupCard extends StatelessWidget {
                         invested,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
