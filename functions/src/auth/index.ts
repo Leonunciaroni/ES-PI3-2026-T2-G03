@@ -1,2 +1,1 @@
-export {sendTwoFactorCode} from "./handlers/sendTwoFactorCode.js";
-export {verifyTwoFactorCode} from "./handlers/verifyTwoFactorCode.js";
+export {twoFactor} from "./handlers/twoFactor.js";
