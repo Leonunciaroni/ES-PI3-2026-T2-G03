@@ -31,7 +31,7 @@ CatalogStartup? catalogStartupFromFirestoreMap(
     final String description = readFirestoreString(d, kFieldDescricao);
     final StartupStage stage =
         parseFirestoreStage(readFirestoreString(d, kFieldEstagio));
-    final String? sigla = readFirestoreOptionalString(d, kFieldSigla);
+    final String? sigla = _siglaFromFirestore(d);
     final String? logoPath = readFirestoreLogoStoragePath(d);
     final Color logoColor = firestoreColorForSector(setorRaw);
     final IconData logoIcon = firestoreIconForSector(setorRaw);
@@ -55,6 +55,36 @@ CatalogStartup? catalogStartupFromFirestoreMap(
   } catch (_) {
     return null;
   }
+}
+
+String? _siglaFromFirestore(Map<String, dynamic> d) {
+  final String? direct = readFirestoreOptionalString(d, kFieldSigla);
+  if (direct != null && direct.isNotEmpty) {
+    return direct.trim().toUpperCase();
+  }
+
+  final Map<String, dynamic>? tokens = _asStringKeyMap(d[kFieldTokensEmitidos]);
+  if (tokens == null) return null;
+
+  // No console, o campo tem aparecido como map com "sigla" ou "nome".
+  final String raw = (readFirestoreString(tokens, 'sigla').trim().isNotEmpty
+          ? readFirestoreString(tokens, 'sigla')
+          : readFirestoreString(tokens, 'nome'))
+      .trim();
+  if (raw.isEmpty) return null;
+  return raw.toUpperCase();
+}
+
+Map<String, dynamic>? _asStringKeyMap(Object? v) {
+  if (v is Map<String, dynamic>) return v;
+  if (v is Map) {
+    final out = <String, dynamic>{};
+    v.forEach((k, value) {
+      if (k != null) out[k.toString()] = value;
+    });
+    return out;
+  }
+  return null;
 }
 
 /// Lê string; campo ausente ou tipo estranho vira string vazia ou [toString].
