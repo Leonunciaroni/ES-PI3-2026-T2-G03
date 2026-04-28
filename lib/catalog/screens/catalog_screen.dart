@@ -39,6 +39,7 @@ class CatalogScreen extends StatefulWidget {
     this.wrapWithSafeArea = true,
     this.startupsStreamForTesting,
     this.catalogService,
+    this.onInvestir,
   });
 
   /// Evita SafeArea duplicado quando a tela é filha de um [SafeArea] maior (dashboard shell).
@@ -49,6 +50,10 @@ class CatalogScreen extends StatefulWidget {
 
   /// Injecção opcional do serviço (testes / DI).
   final StartupCatalogService? catalogService;
+
+  /// Chamado quando o utilizador toca "Investir Agora" dentro do detalhe.
+  /// O [DashboardScreen] usa este callback para abrir o Balcão na startup certa.
+  final void Function(CatalogStartup)? onInvestir;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -281,6 +286,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                       startup: s,
                                       tokenPriceFormatted: _tokenPriceLabel(s),
                                       primary: colorScheme.primary,
+                                      onInvestir: widget.onInvestir,
                                     ),
                                   ),
                                 ),
@@ -389,11 +395,13 @@ class _CatalogStartupCard extends StatelessWidget {
     required this.startup,
     required this.tokenPriceFormatted,
     required this.primary,
+    this.onInvestir,
   });
 
   final CatalogStartup startup;
   final String tokenPriceFormatted;
   final Color primary;
+  final void Function(CatalogStartup)? onInvestir;
 
   /// Texto curto do badge conforme o estágio (para o utilizador ler rápido).
   String _stageBadgeLabel(StartupStage stage) {
@@ -419,12 +427,15 @@ class _CatalogStartupCard extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.08),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
+        onTap: () async {
+          final result = await Navigator.of(context).push<CatalogStartup>(
+            MaterialPageRoute<CatalogStartup>(
               builder: (context) => StartupDetailScreen(catalog: startup),
             ),
           );
+          if (result != null) {
+            onInvestir?.call(result);
+          }
         },
         child: Padding(
         padding: const EdgeInsets.all(16),

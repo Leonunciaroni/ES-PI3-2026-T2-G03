@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../balcao/screens/balcao_tab_screen.dart';
 import '../../carteira/screens/carteira_screen.dart';
+import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/screens/catalog_screen.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
@@ -31,6 +32,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// 3 Catálogo, 4 Perfil.
   int _mainNavIndex = 0;
 
+  /// Startup a abrir na mesa do Balcão (via "Investir Agora" no detalhe).
+  CatalogStartup? _balcaoStartup;
+
+  /// Incrementado a cada chamada de [_abrirBalcaoParaStartup], garantindo que
+  /// a key do [BalcaoTabScreen] mude sempre — mesmo que a startup seja a mesma —
+  /// e o [initState] seja re-executado com [initialMesaStartup] correto.
+  int _balcaoNavCount = 0;
+
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
@@ -45,6 +54,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   );
 
   static const _walletIconColor = Color(0xFF92400E);
+
+  /// Chamado pelo [CatalogScreen] quando o utilizador toca "Investir Agora".
+  /// Troca para o Balcão e abre a mesa da [startup] diretamente.
+  void _abrirBalcaoParaStartup(CatalogStartup startup) {
+    setState(() {
+      _balcaoStartup = startup;
+      _balcaoNavCount++;
+      _mainNavIndex = 2;
+    });
+  }
 
   void _toggleVisibility() {
     setState(() => _hideValues = !_hideValues);
@@ -247,8 +266,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           onCompraVendaTokens: () =>
               setState(() => _mainNavIndex = 2), // Balcão
         ),
-        const BalcaoTabScreen(wrapWithSafeArea: false),
-        const CatalogScreen(wrapWithSafeArea: false),
+        BalcaoTabScreen(
+          key: ValueKey<int>(_balcaoNavCount),
+          wrapWithSafeArea: false,
+          initialMesaStartup: _balcaoStartup,
+        ),
+        CatalogScreen(
+          wrapWithSafeArea: false,
+          onInvestir: _abrirBalcaoParaStartup,
+        ),
         const PerfilScreen(wrapWithSafeArea: false),
       ],
     );
