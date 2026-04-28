@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
 
 /// Verificação em duas etapas: entrada do código, sucesso e falha (mesmo layout base).
 ///
@@ -170,16 +171,6 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
     );
   }
 
-  Widget _buildLogo() {
-    return Center(
-      child: Image.asset(
-        'assets/images/mescla_logo.png',
-        height: 88,
-        fit: BoxFit.contain,
-      ),
-    );
-  }
-
   Widget _buildDigitRow(ThemeData theme, ColorScheme colorScheme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -215,6 +206,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: colorScheme.onSurface,
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -224,11 +216,11 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               decoration: InputDecoration(
                 counterText: '',
                 filled: true,
-                fillColor: AppColors.searchFieldFill,
+                fillColor: AppColors.searchFieldFillForTheme(theme),
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                enabledBorder: _digitBorder(AppColors.fieldBorder),
+                enabledBorder: _digitBorder(AppColors.cardDivider(theme)),
                 focusedBorder: _digitBorder(colorScheme.primary),
-                border: _digitBorder(AppColors.fieldBorder),
+                border: _digitBorder(AppColors.cardDivider(theme)),
               ),
               onChanged: (v) => _onDigitChanged(index, v),
               onSubmitted: (_) {
@@ -246,11 +238,12 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
   }
 
   Widget _buildInputCard(ThemeData theme, ColorScheme colorScheme) {
+    final shadowA = theme.brightness == Brightness.dark ? 0.35 : 0.08;
     return Material(
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      elevation: theme.brightness == Brightness.dark ? 8 : 6,
+      shadowColor: Colors.black.withValues(alpha: shadowA),
       borderRadius: BorderRadius.circular(30),
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 32, 22, 28),
         child: Column(
@@ -261,6 +254,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 12),
@@ -268,7 +262,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               'Para garantir sua segurança você deve validar primeiro o seu acesso antes de utilizar o sistema',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
                 height: 1.45,
               ),
             ),
@@ -283,6 +277,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: const StadiumBorder(),
                 backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
               ),
               child: const Text(
                 'Validar conta',
@@ -296,14 +291,14 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
             Text.rich(
               TextSpan(
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
                 children: [
                   const TextSpan(text: 'Não recebeu seu código? '),
                   TextSpan(
                     text: 'Clique aqui para enviar novamente',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.linkAccent,
+                    style: TextStyle(
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.w700,
                     ),
                     recognizer: _resendRecognizer,
@@ -320,11 +315,13 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
   }
 
   Widget _buildSuccessCard(ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    final shadowA = theme.brightness == Brightness.dark ? 0.35 : 0.08;
     return Material(
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      elevation: theme.brightness == Brightness.dark ? 8 : 6,
+      shadowColor: Colors.black.withValues(alpha: shadowA),
       borderRadius: BorderRadius.circular(30),
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
         child: Column(
@@ -332,14 +329,16 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
             Container(
               width: 96,
               height: 96,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8E9ED),
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.dark
+                    ? colorScheme.surfaceContainerHighest
+                    : const Color(0xFFE8E9ED),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.check_rounded,
                 size: 56,
-                color: theme.colorScheme.primary,
+                color: colorScheme.primary,
               ),
             ),
             const SizedBox(height: 28),
@@ -348,6 +347,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 12),
@@ -355,7 +355,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               'Redirecionando para Dashboard...',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: AppColors.linkAccent,
+                color: colorScheme.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -366,11 +366,13 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
   }
 
   Widget _buildFailureCard(ThemeData theme) {
+    final colorScheme = theme.colorScheme;
+    final shadowA = theme.brightness == Brightness.dark ? 0.35 : 0.08;
     return Material(
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
+      elevation: theme.brightness == Brightness.dark ? 8 : 6,
+      shadowColor: Colors.black.withValues(alpha: shadowA),
       borderRadius: BorderRadius.circular(30),
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
         child: Column(
@@ -394,6 +396,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -406,7 +409,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                   'Solicitar código novamente',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: AppColors.linkAccent,
+                    color: colorScheme.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -422,23 +425,19 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final gradientStops = AppColors.shellGradientColors(theme.brightness);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: gradientStops,
             ),
           ),
           child: SafeArea(
@@ -454,7 +453,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 8),
-                        _buildLogo(),
+                        const MesclaAuthHeaderLogo(),
                         const SizedBox(height: 28),
                         switch (_step) {
                           _TwoFactorStep.input =>
@@ -467,7 +466,8 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                           _footerTrust,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary.withValues(alpha: 0.85),
+                            color: AppColors.secondaryLabel(theme)
+                                .withValues(alpha: 0.9),
                             letterSpacing: 0.6,
                             height: 1.4,
                           ),

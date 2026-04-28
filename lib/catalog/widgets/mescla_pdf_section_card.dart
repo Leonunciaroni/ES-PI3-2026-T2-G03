@@ -6,6 +6,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_colors.dart';
+
 /// Raio dos cantos dos cards grandes nas telas de detalhe (Figma ~18–22 dp).
 const double kMesclaDetailCardRadius = 22;
 
@@ -28,7 +30,7 @@ class MesclaPdfSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: elevation,
       child: Padding(
@@ -40,6 +42,7 @@ class MesclaPdfSectionCard extends StatelessWidget {
               title,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 12),

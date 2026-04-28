@@ -15,6 +15,8 @@ import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_service.dart';
 import '../../catalog/widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
+import '../../widgets/mescla_header_row.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../models/balcao_operacao_tipo.dart';
 import '../models/balcao_transacao.dart';
@@ -205,6 +207,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final onSurface = scheme.onSurface;
+    final searchFill = AppColors.searchFieldFillForTheme(theme);
 
     final scroll = SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -230,7 +233,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
             Text(
               'Escolha uma startup para ver saldo em tokens e negociar.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
               ),
             ),
             const SizedBox(height: 16),
@@ -245,14 +248,14 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                   color: onSurface.withValues(alpha: 0.75),
                 ),
                 filled: true,
-                fillColor: AppColors.searchFieldFill,
+                fillColor: searchFill,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 16,
                 ),
-                enabledBorder: _searchBorder(AppColors.searchFieldFill),
+                enabledBorder: _searchBorder(searchFill),
                 focusedBorder: _searchBorder(scheme.primary),
-                border: _searchBorder(AppColors.searchFieldFill),
+                border: _searchBorder(searchFill),
               ),
             ),
             const SizedBox(height: 20),
@@ -266,7 +269,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                       'Não foi possível carregar as startups. Verifique a rede e o Firebase.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondaryLabel(theme),
                       ),
                     ),
                   );
@@ -285,7 +288,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                       'Nenhuma startup disponível.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondaryLabel(theme),
                       ),
                     ),
                   );
@@ -298,7 +301,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                       'Nenhuma startup encontrada.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondaryLabel(theme),
                       ),
                     ),
                   );
@@ -401,6 +404,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: scheme.primary,
+                              backgroundColor: theme.colorScheme.surface,
                               side: BorderSide(
                                 color: scheme.primary,
                                 width: 1.5,
@@ -456,22 +460,17 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: _wrapBody(
         Material(
           color: Colors.transparent,
           child: Container(
             width: double.infinity,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.gradientTop,
-                  AppColors.gradientBottom,
-                ],
+                colors: AppColors.shellGradientColors(theme.brightness),
               ),
             ),
             child: scroll,
@@ -503,20 +502,9 @@ class _BalcaoMesaTopRow extends StatelessWidget {
           tooltip: 'Trocar startup',
           color: onSurface,
         ),
-        Image.asset(
-          AppColors.mesclaLogoAsset,
-          height: _logoHeight,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Text(
-              'mescla invest',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: onSurface,
-                letterSpacing: -0.3,
-              ),
-            );
-          },
+        MesclaBrandLogo(
+          boxWidth: 200,
+          boxHeight: _logoHeight,
         ),
       ],
     );
@@ -527,30 +515,9 @@ class _BalcaoMesaTopRow extends StatelessWidget {
 class _BalcaoLogoHeader extends StatelessWidget {
   const _BalcaoLogoHeader();
 
-  static const _logoHeight = 52.0;
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Image.asset(
-          AppColors.mesclaLogoAsset,
-          height: _logoHeight,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Text(
-              'mescla invest',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: -0.3,
-              ),
-            );
-          },
-        ),
-      ],
-    );
+    return const MesclaHeaderRow();
   }
 }
 
@@ -572,7 +539,7 @@ class _BalcaoStartupRowCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(18),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.06),
@@ -599,13 +566,14 @@ class _BalcaoStartupRowCard extends StatelessWidget {
                       startup.name,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       startup.category,
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondaryLabel(theme),
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.6,
                       ),
@@ -688,7 +656,7 @@ class _MesaTokenCard extends StatelessWidget {
     final onSurface = colorScheme.onSurface;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(_radius),
@@ -731,7 +699,7 @@ class _MesaTokenCard extends StatelessWidget {
                   Text(
                     categoria,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.55,
                     ),
@@ -739,13 +707,13 @@ class _MesaTokenCard extends StatelessWidget {
                   const SizedBox(height: 14),
                   Container(
                     height: 1,
-                    color: AppColors.fieldBorder,
+                    color: AppColors.cardDivider(theme),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'COTAÇÃO ATUAL (BRL / TOKEN)',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.6,
                     ),
@@ -788,7 +756,7 @@ class _MesaTokenCard extends StatelessWidget {
                         child: Text(
                           'Máx. 24h  $max24h',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.secondaryLabel(theme),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -799,7 +767,7 @@ class _MesaTokenCard extends StatelessWidget {
                           'Mín. 24h  $min24h',
                           textAlign: TextAlign.end,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.secondaryLabel(theme),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -810,13 +778,13 @@ class _MesaTokenCard extends StatelessWidget {
                   const SizedBox(height: 14),
                   Container(
                     height: 1,
-                    color: AppColors.fieldBorder,
+                    color: AppColors.cardDivider(theme),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Saldo (quantidade)',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -832,7 +800,7 @@ class _MesaTokenCard extends StatelessWidget {
                   Text(
                     'Saldo em reais',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -870,7 +838,7 @@ class _TransacaoDiaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final tipoLabel = item.tipo == BalcaoOperacaoTipo.compra ? 'Compra' : 'Venda';
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(16),
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.05),
@@ -886,13 +854,14 @@ class _TransacaoDiaTile extends StatelessWidget {
                     tipoLabel,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     item.resumo,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                     ),
                   ),
                 ],

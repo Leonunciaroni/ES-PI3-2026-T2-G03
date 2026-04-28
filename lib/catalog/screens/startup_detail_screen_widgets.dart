@@ -21,7 +21,7 @@ class _MainInfoCard extends StatelessWidget {
     final c = data.catalog;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.06),
@@ -58,6 +58,7 @@ class _MainInfoCard extends StatelessWidget {
                         c.name,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -69,7 +70,7 @@ class _MainInfoCard extends StatelessWidget {
             Text(
               data.longDescription,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
                 height: 1.4,
               ),
             ),
@@ -96,7 +97,7 @@ class _MainInfoCard extends StatelessWidget {
                     onPressed: onToggleWishlist,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      backgroundColor: const Color(0xFFF3F4F6),
+                      backgroundColor: AppColors.themeMutedSurface(theme),
                       foregroundColor: theme.colorScheme.onSurface,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(999),
@@ -215,7 +216,7 @@ class _ValuationCard extends StatelessWidget {
     final theme = Theme.of(context);
     const green = Color(0xFF16A34A);
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.05),
@@ -227,7 +228,7 @@ class _ValuationCard extends StatelessWidget {
             Text(
               roundLabel,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.8,
               ),
@@ -237,6 +238,7 @@ class _ValuationCard extends StatelessWidget {
               headline,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -270,7 +272,7 @@ class _PerformanceMetricsCard extends StatelessWidget {
     final theme = Theme.of(context);
     if (metrics.isEmpty) return const SizedBox.shrink();
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 1,
       child: Padding(
@@ -282,6 +284,7 @@ class _PerformanceMetricsCard extends StatelessWidget {
               'Métricas de Performance',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -324,7 +327,7 @@ class _MetricRow extends StatelessWidget {
               Text(
                 m.labelCaps,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.4,
                 ),
@@ -334,6 +337,7 @@ class _MetricRow extends StatelessWidget {
                 m.value,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
             ],
@@ -355,7 +359,7 @@ class _CompanyInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: const Color(0xFFF3F4F6),
+      color: AppColors.themeMutedSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -366,6 +370,7 @@ class _CompanyInfoCard extends StatelessWidget {
               'Informações da Empresa',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 14),
@@ -387,7 +392,7 @@ class _CompanyInfoCard extends StatelessWidget {
               'MISSÃO',
               style: theme.textTheme.labelSmall?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
               ),
             ),
             const SizedBox(height: 4),
@@ -395,7 +400,7 @@ class _CompanyInfoCard extends StatelessWidget {
               '"${data.missionQuote}"',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontStyle: FontStyle.italic,
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
                 height: 1.4,
               ),
             ),
@@ -435,13 +440,14 @@ class _InfoLine extends StatelessWidget {
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
               ),
               Text(
                 value,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
             ],
@@ -470,7 +476,7 @@ class _TeamCard extends StatelessWidget {
     final theme = Theme.of(context);
     if (members.isEmpty) return const SizedBox.shrink();
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 1,
       child: Padding(
@@ -482,6 +488,7 @@ class _TeamCard extends StatelessWidget {
               'Membros-Chave',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 14),
@@ -548,7 +555,7 @@ class _TeamMemberTile extends StatelessWidget {
               Text(
                 member.role,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
               ),
             ],

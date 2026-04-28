@@ -12,6 +12,8 @@ import 'package:flutter/material.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../auth/services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
+import '../../theme/theme_mode_controller.dart';
 import 'ajuda_suporte_screen.dart';
 import 'modo_aparencia_screen.dart';
 import 'seguranca_privacidade_screen.dart';
@@ -168,7 +170,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         color: primary.withValues(alpha: 0.65),
                         width: 1.5,
                       ),
-                      backgroundColor: Colors.white,
+                      backgroundColor: theme.colorScheme.surface,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -234,6 +236,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
     final primary = theme.colorScheme.primary;
+    // Bloco CONTA: cinza claro no light; no dark usamos o tom de superfície do Material 3.
+    final fundoConta = theme.brightness == Brightness.light
+        ? _cinzaConta
+        : theme.colorScheme.surfaceContainerHighest;
 
     final conteudo = FutureBuilder<_PerfilDados>(
       future: _carga,
@@ -255,19 +261,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
             children: [
               Row(
                 children: [
-                  Image.asset(
-                    AppColors.mesclaLogoAsset,
-                    height: _logoHeight,
-                    fit: BoxFit.contain,
-                    errorBuilder: (c, e, s) {
-                      return Text(
-                        'mescla invest',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: onSurface,
-                        ),
-                      );
-                    },
+                  MesclaBrandLogo(
+                    boxHeight: _logoHeight,
+                    boxWidth: 200,
                   ),
                 ],
               ),
@@ -286,6 +282,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 email: email,
                 primary: primary,
                 theme: theme,
+                cardColor: theme.colorScheme.surface,
               ),
               const SizedBox(height: 20),
               Text(
@@ -299,7 +296,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: _cinzaConta,
+                  color: fundoConta,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
@@ -317,15 +314,22 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       },
                     ),
                     const Divider(height: 1, indent: 72),
-                    _PerfilConfigRow(
-                      icon: Icons.dark_mode_outlined,
-                      titulo: 'Modo de Aparência',
-                      subtitulo: 'Claro',
-                      onTap: () {
-                        Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const ModoAparenciaScreen(),
+                    ListenableBuilder(
+                      listenable: themeModeController,
+                      builder: (context, _) {
+                        return _PerfilConfigRow(
+                          icon: Icons.dark_mode_outlined,
+                          titulo: 'Modo de Aparência',
+                          subtitulo: mesclaThemeModeLabel(
+                            themeModeController.themeMode,
                           ),
+                          onTap: () {
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const ModoAparenciaScreen(),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),
@@ -390,6 +394,7 @@ class _PerfilUserCard extends StatelessWidget {
     required this.email,
     required this.primary,
     required this.theme,
+    required this.cardColor,
   });
 
   final String iniciais;
@@ -397,11 +402,12 @@ class _PerfilUserCard extends StatelessWidget {
   final String email;
   final Color primary;
   final ThemeData theme;
+  final Color cardColor;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: cardColor,
       borderRadius: BorderRadius.circular(28),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -492,6 +498,9 @@ class _PerfilConfigRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final iconCircle = theme.brightness == Brightness.light
+        ? const Color(0xFFE5E7EB)
+        : theme.colorScheme.surfaceContainerHigh;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -504,8 +513,8 @@ class _PerfilConfigRow extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE5E7EB),
+                decoration: BoxDecoration(
+                  color: iconCircle,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

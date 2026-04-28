@@ -9,101 +9,51 @@
 
 import 'package:flutter/material.dart';
 
+import '../../catalog/data/startup_detail_mock.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/chart_scrubbing.dart';
-import '../../widgets/mescla_chart_reading_card.dart';
+import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
+import '../../widgets/valuation_evolution_chart_card.dart';
 import '../format/carteira_brl.dart';
 import 'adicionar_fundos_screen.dart';
 
-/// Altura normalizada (0..1) na posição horizontal **t** (0 = esquerda, 1 = direita),
-/// interpolando linearmente entre os pontos mock (o mesmo critério do desenho da linha).
-double _alturaNormalizadaInterpolada(double t, List<double> pontos) {
-  if (pontos.isEmpty) return 0;
-  if (pontos.length == 1) return pontos[0].clamp(0.0, 1.0);
-  final n = pontos.length;
-  final tf = (t * (n - 1)).clamp(0.0, n - 1.0);
-  final i0 = tf.floor();
-  final i1 = (i0 + 1).clamp(0, n - 1);
-  final l = tf - i0;
-  final y0 = pontos[i0].clamp(0.0, 1.0);
-  final y1 = pontos[i1].clamp(0.0, 1.0);
-  if (i0 == i1) return y0;
-  return y0 * (1 - l) + y1 * l;
-}
+// --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
 
-/// Ponto (x, y) na área do gráfico correspondente à fração [t] no eixo horizontal.
-Offset _offsetGraficoEmT(double t, List<double> pontos, Size size) {
-  final w = size.width;
-  final h = size.height;
-  final yn = _alturaNormalizadaInterpolada(t, pontos);
-  final x = t.clamp(0.0, 1.0) * w;
-  final y = h - yn * h;
-  return Offset(x, y);
-}
-
-// --- Período do gráfico “Evolução de Saldo” ----------------------------------
-
-/// Qual opção do seletor horizontal está ativa (cada uma muda a curva mock).
-enum _PeriodoSaldo {
-  diario,
-  semanal,
-  mensal,
-  seisMeses,
-  ytd,
-}
-
-extension _PeriodoSaldoLabel on _PeriodoSaldo {
-  /// Mesmos rótulos que [ValuationPeriod.chipLabel] no detalhe da startup (§5.4).
-  String get label {
-    switch (this) {
-      case _PeriodoSaldo.diario:
-        return 'DIÁRIO';
-      case _PeriodoSaldo.semanal:
-        return 'SEMANAL';
-      case _PeriodoSaldo.mensal:
-        return 'MENSAL';
-      case _PeriodoSaldo.seisMeses:
-        return '6 MESES';
-      case _PeriodoSaldo.ytd:
-        return 'YTD';
-    }
-  }
-}
-
-/// Valores normalizados 0..1 (altura do gráfico: 0 em baixo, 1 no topo).
-///
-/// O Figma mostrava eixos em “$600M”; na app usamos **escala em reais** para
-/// fazer sentido com a carteira (comentário pedagógico: design vs. domínio).
-List<double> _pontosParaPeriodo(_PeriodoSaldo p) {
+List<DateTime> _carteiraSampleTimes(ValuationPeriod p) {
   switch (p) {
-    case _PeriodoSaldo.diario:
-      return const [0.45, 0.5, 0.48, 0.55, 0.52, 0.58, 0.6];
-    case _PeriodoSaldo.semanal:
-      return const [0.35, 0.42, 0.4, 0.5, 0.48, 0.58, 0.65];
-    case _PeriodoSaldo.mensal:
-      return const [0.3, 0.38, 0.36, 0.45, 0.5, 0.55, 0.62];
-    case _PeriodoSaldo.seisMeses:
-      return const [0.22, 0.28, 0.32, 0.38, 0.45, 0.52, 0.68];
-    case _PeriodoSaldo.ytd:
-      return const [0.18, 0.25, 0.3, 0.4, 0.48, 0.58, 0.72];
+    case ValuationPeriod.diario:
+      return _temposCarteiraDiario;
+    case ValuationPeriod.semanal:
+      return _temposCarteiraSemanal;
+    case ValuationPeriod.mensal:
+      return _temposCarteiraMensal;
+    case ValuationPeriod.seisMeses:
+      return _temposCarteira6m;
+    case ValuationPeriod.ytd:
+      return _temposCarteiraYtd;
   }
 }
 
-/// Teto do eixo Y em reais (só para legenda mock; a curva é normalizada).
-double _valorMaxLegenda(_PeriodoSaldo p) {
+/// Série de saldo (valores em **reais**; campo reutiliza o mock [ValuationChartSeries]).
+ValuationChartSeries carteiraSaldoSeries(ValuationPeriod p) {
+  // Curvas suaves e monótonas (evita “dentes” de segmentos retos com ruído).
+  List<double> brl;
   switch (p) {
-    case _PeriodoSaldo.diario:
-      return 15000;
-    case _PeriodoSaldo.semanal:
-      return 16000;
-    case _PeriodoSaldo.mensal:
-      return 18000;
-    case _PeriodoSaldo.seisMeses:
-      return 20000;
-    case _PeriodoSaldo.ytd:
-      return 22000;
+    case ValuationPeriod.diario:
+      brl = [10200, 10350, 10500, 10800, 11050, 11600, 12050];
+    case ValuationPeriod.semanal:
+      brl = [9200, 9600, 10100, 10500, 11000, 11500, 12000];
+    case ValuationPeriod.mensal:
+      brl = [8500, 9000, 9600, 10200, 10800, 11500, 12450];
+    case ValuationPeriod.seisMeses:
+      brl = [6500, 7200, 8000, 9000, 10000, 11000, 12050];
+    case ValuationPeriod.ytd:
+      brl = [6200, 7000, 8000, 9000, 10000, 11000, 12050];
   }
+  return ValuationChartSeries(
+    valuationMillions: brl.map((e) => e.toDouble()).toList(),
+    sampleTimes: _carteiraSampleTimes(p),
+  );
 }
 
 final _temposCarteiraDiario = <DateTime>[
@@ -156,21 +106,6 @@ final _temposCarteiraYtd = <DateTime>[
   DateTime(2026, 4, 19, 18, 15),
 ];
 
-List<DateTime> _temposParaPeriodo(_PeriodoSaldo p) {
-  switch (p) {
-    case _PeriodoSaldo.diario:
-      return _temposCarteiraDiario;
-    case _PeriodoSaldo.semanal:
-      return _temposCarteiraSemanal;
-    case _PeriodoSaldo.mensal:
-      return _temposCarteiraMensal;
-    case _PeriodoSaldo.seisMeses:
-      return _temposCarteira6m;
-    case _PeriodoSaldo.ytd:
-      return _temposCarteiraYtd;
-  }
-}
-
 // --- Modelos simples (mock) ---------------------------------------------------
 
 /// Uma linha da lista “Minhas Movimentações”.
@@ -222,7 +157,7 @@ class _StartupMock {
 
 /// Ecrã **Carteira** com scroll vertical: resumo, gráfico, startups e extrato.
 ///
-/// O estado local gere o **período do gráfico** ([_PeriodoSaldo]) e se os
+/// O estado local gere o **período do gráfico** ([ValuationPeriod]) e se os
 /// valores sensíveis estão **ocultos** (ícone de olho ao lado do título).
 class CarteiraScreen extends StatefulWidget {
   const CarteiraScreen({
@@ -245,7 +180,7 @@ class CarteiraScreen extends StatefulWidget {
 
 class _CarteiraScreenState extends State<CarteiraScreen> {
   /// Período inicial alinhado ao gráfico de valuation do detalhe ([ValuationPeriod.mensal]).
-  _PeriodoSaldo _periodo = _PeriodoSaldo.mensal;
+  ValuationPeriod _periodo = ValuationPeriod.mensal;
 
   /// Quando `true`, valores em reais, percentagens e o gráfico são mascarados
   /// (privacidade em demo, igual à ideia do dashboard com o ícone de olho).
@@ -359,6 +294,88 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     setState(() => _hideValues = !_hideValues);
   }
 
+  /// Mesmo componente de gráfico que o catálogo/detalhe da startup ([ValuationEvolutionChartCard]).
+  Widget _evolucaoSaldoBlock({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    if (_hideValues) {
+      return Material(
+        color: AppColors.themeCardSurface(theme),
+        borderRadius: BorderRadius.circular(22),
+        elevation: 3,
+        shadowColor: Colors.black.withValues(alpha: 0.08),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Evolução de Saldo',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final ValuationPeriod o in ValuationPeriod.values) ...[
+                      MesclaPeriodPillChip(
+                        label: o.chipLabel,
+                        selected: _periodo == o,
+                        primary: colorScheme.primary,
+                        onTap: () => setState(() => _periodo = o),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                height: 200,
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.visibility_off_outlined,
+                        color: AppColors.secondaryLabel(theme),
+                        size: 40,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        '• • • • • •',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                          letterSpacing: 4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return ValuationEvolutionChartCard(
+      selected: _periodo,
+      onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
+      series: carteiraSaldoSeries(_periodo),
+      primary: colorScheme.primary,
+      title: 'Evolução de Saldo',
+      footnote: '',
+      formatYAxis: formatBrl,
+      formatTooltip: formatBrl,
+      touchListenerKey: const ValueKey<String>('carteira_saldo_chart_touch'),
+    );
+  }
+
   /// Valor em reais para a UI: mascarado ou formatado com [formatBrl].
   String _brlParaExibicao(double value) {
     if (_hideValues) return 'R\$ ••••••';
@@ -390,7 +407,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _CarteiraLogoHeader(),
+          const MesclaHeaderRow(),
           const SizedBox(height: 20),
           // Título + olho: o utilizador alterna privacidade sem sair da Carteira.
           Row(
@@ -411,7 +428,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                   _hideValues
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
                 tooltip: _hideValues
                     ? 'Mostrar valores'
@@ -430,14 +447,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                 () => _emBreve('Compra / Venda de tokens'),
           ),
           const SizedBox(height: _sectionGap),
-          _EvolucaoSaldoCard(
-            periodo: _periodo,
-            onPeriodoChanged: (p) => setState(() => _periodo = p),
-            pontos: _pontosParaPeriodo(_periodo),
-            sampleTimes: _temposParaPeriodo(_periodo),
-            valorMaxLegenda: _valorMaxLegenda(_periodo),
-            lineColor: colorScheme.primary,
-            hideValues: _hideValues,
+          _evolucaoSaldoBlock(
+            theme: theme,
+            colorScheme: colorScheme,
           ),
           KeyedSubtree(
             key: _startupsSecaoKey,
@@ -495,39 +507,6 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     }
 
     return SafeArea(child: content);
-  }
-}
-
-// --- Cabeçalho com logo -------------------------------------------------------
-
-/// Faixa superior só com o logo (sem sino — Figma da Carteira).
-class _CarteiraLogoHeader extends StatelessWidget {
-  const _CarteiraLogoHeader();
-
-  static const _logoHeight = 52.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Image.asset(
-          AppColors.mesclaLogoAsset,
-          height: _logoHeight,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Text(
-              'mescla invest',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: -0.3,
-              ),
-            );
-          },
-        ),
-      ],
-    );
   }
 }
 
@@ -678,16 +657,18 @@ class _PillActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final button = FilledButton(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        // Superfície clara nos botões do card roxo (lê-se bem em claro e escuro).
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         shape: const StadiumBorder(),
         minimumSize: expandWidth ? const Size.fromHeight(44) : null,
-        textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+        textStyle: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 12,
               height: 1.2,
@@ -716,344 +697,6 @@ class _PillActionButton extends StatelessWidget {
     if (!expandWidth) return button;
 
     return SizedBox(width: double.infinity, child: button);
-  }
-}
-
-// --- Evolução de saldo + gráfico ----------------------------------------------
-
-/// Cartão branco com seletor de período e área do gráfico.
-class _EvolucaoSaldoCard extends StatelessWidget {
-  const _EvolucaoSaldoCard({
-    required this.periodo,
-    required this.onPeriodoChanged,
-    required this.pontos,
-    required this.sampleTimes,
-    required this.valorMaxLegenda,
-    required this.lineColor,
-    required this.hideValues,
-  });
-
-  final _PeriodoSaldo periodo;
-  final ValueChanged<_PeriodoSaldo> onPeriodoChanged;
-  final List<double> pontos;
-  final List<DateTime> sampleTimes;
-  final double valorMaxLegenda;
-  final Color lineColor;
-
-  /// Se `true`, esconde eixo Y e curva (só forma do cartão + seletor).
-  final bool hideValues;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      elevation: 3,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Evolução de Saldo',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 14),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final o in _PeriodoSaldo.values) ...[
-                    MesclaPeriodPillChip(
-                      label: o.label,
-                      selected: periodo == o,
-                      primary: theme.colorScheme.primary,
-                      onTap: () => onPeriodoChanged(o),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              height: 200,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _YAxisLabels(
-                    maxReais: valorMaxLegenda,
-                    hideValues: hideValues,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: hideValues
-                        ? CustomPaint(
-                            painter: _SaldoEvolutionPainter(
-                              pointsNormalized: pontos,
-                              lineColor: lineColor,
-                              hideValues: true,
-                              highlightT: null,
-                            ),
-                            child: const SizedBox.expand(),
-                          )
-                        : _SaldoChartComToque(
-                            pontos: pontos,
-                            sampleTimes: sampleTimes,
-                            valorMaxLegenda: valorMaxLegenda,
-                            lineColor: lineColor,
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Rótulos do eixo Y em reais (4 degraus + zero).
-class _YAxisLabels extends StatelessWidget {
-  const _YAxisLabels({
-    required this.maxReais,
-    required this.hideValues,
-  });
-
-  final double maxReais;
-
-  /// Quando o utilizador ocultou valores, não revelamos a escala do eixo.
-  final bool hideValues;
-
-  String _shortLabel(double v) {
-    if (v >= 1000) {
-      final k = (v / 1000).toStringAsFixed(v % 1000 == 0 ? 0 : 1);
-      return 'R\$ ${k}k';
-    }
-    return formatBrl(v);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final style = theme.textTheme.labelSmall?.copyWith(
-      color: AppColors.textSecondary,
-      fontSize: 10,
-    );
-    // Do topo para a base: máximo → 0 (como um gráfico “financeiro” comum).
-    final steps = <double>[
-      maxReais,
-      maxReais * 0.75,
-      maxReais * 0.5,
-      maxReais * 0.25,
-      0,
-    ];
-    return SizedBox(
-      width: 56,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          for (final v in steps)
-            Text(
-              hideValues ? '•••' : _shortLabel(v),
-              style: style,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Gráfico de evolução com **toque / arrastar**: mostra o valor em R$ num cartão
-/// acima da linha (comportamento semelhante a gráficos com tooltip no detalhe).
-class _SaldoChartComToque extends StatefulWidget {
-  const _SaldoChartComToque({
-    required this.pontos,
-    required this.sampleTimes,
-    required this.valorMaxLegenda,
-    required this.lineColor,
-  });
-
-  final List<double> pontos;
-  final List<DateTime> sampleTimes;
-  final double valorMaxLegenda;
-  final Color lineColor;
-
-  @override
-  State<_SaldoChartComToque> createState() => _SaldoChartComToqueState();
-}
-
-class _SaldoChartComToqueState extends State<_SaldoChartComToque> {
-  /// `true` enquanto o dedo está premido em cima da área do gráfico.
-  bool _dedoEmCima = false;
-
-  /// Posição horizontal normalizada 0..1 (esquerda → direita do gráfico).
-  double _t = 0.5;
-
-  void _atualizaComDx(double dx, double largura) {
-    if (largura <= 0) return;
-    setState(() {
-      _dedoEmCima = true;
-      _t = (dx / largura).clamp(0.0, 1.0);
-    });
-  }
-
-  void _soltaDedo() {
-    if (!_dedoEmCima) return;
-    setState(() => _dedoEmCima = false);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        final yn = _alturaNormalizadaInterpolada(_t, widget.pontos);
-        final valorReais = yn * widget.valorMaxLegenda;
-        final tempos = widget.sampleTimes;
-        final mesmoComprimento =
-            tempos.length == widget.pontos.length && tempos.isNotEmpty;
-
-        return Listener(
-          key: const ValueKey<String>('carteira_saldo_chart_touch'),
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (e) => _atualizaComDx(e.localPosition.dx, w),
-          onPointerMove: (e) => _atualizaComDx(e.localPosition.dx, w),
-          onPointerUp: (_) => _soltaDedo(),
-          onPointerCancel: (_) => _soltaDedo(),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              CustomPaint(
-                size: Size(w, h),
-                painter: _SaldoEvolutionPainter(
-                  pointsNormalized: widget.pontos,
-                  lineColor: widget.lineColor,
-                  hideValues: false,
-                  highlightT: _dedoEmCima ? _t : null,
-                ),
-              ),
-              if (_dedoEmCima && mesmoComprimento)
-                Positioned(
-                  left: (_t * w - 72).clamp(4.0, w - 158.0),
-                  top: 2,
-                  child: MesclaChartReadingCard(
-                    dateTimeLine:
-                        formatChartSampleDateTime(dateTimeAtT(_t, tempos)),
-                    valueLine: formatBrl(valorReais),
-                    minWidth: 145,
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Desenha a linha suave + preenchimento com gradiente claro por baixo.
-class _SaldoEvolutionPainter extends CustomPainter {
-  _SaldoEvolutionPainter({
-    required this.pointsNormalized,
-    required this.lineColor,
-    required this.hideValues,
-    this.highlightT,
-  });
-
-  /// Lista de alturas normalizadas 0..1 (índice 0 = esquerda do gráfico).
-  final List<double> pointsNormalized;
-  final Color lineColor;
-
-  /// Não desenha a curva nem o preenchimento quando o modo privado está ativo.
-  final bool hideValues;
-
-  /// Fração 0..1 no eixo X onde desenhar linha vertical + ponto (toque ativo).
-  final double? highlightT;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (hideValues || pointsNormalized.length < 2) return;
-
-    final w = size.width;
-    final h = size.height;
-    final n = pointsNormalized.length;
-
-    // Converte cada ponto normalizado em coordenadas (dx, dy).
-    Offset pAt(int i) {
-      final t = n == 1 ? 0.0 : i / (n - 1);
-      final x = t * w;
-      final yn = pointsNormalized[i].clamp(0.0, 1.0);
-      final y = h - yn * h;
-      return Offset(x, y);
-    }
-
-    // Liga os pontos com segmentos retos — fácil de ler e de depurar no PI.
-    final linePath = Path()..moveTo(pAt(0).dx, pAt(0).dy);
-    for (var i = 1; i < n; i++) {
-      final o = pAt(i);
-      linePath.lineTo(o.dx, o.dy);
-    }
-
-    final fillPath = Path.from(linePath)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          lineColor.withValues(alpha: 0.22),
-          lineColor.withValues(alpha: 0.02),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-
-    canvas.drawPath(fillPath, fillPaint);
-
-    final linePaint = Paint()
-      ..color = lineColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    canvas.drawPath(linePath, linePaint);
-
-    // Indicador de leitura (arrastar o dedo): linha vertical + círculo no ponto.
-    final ht = highlightT;
-    if (ht != null) {
-      final t = ht.clamp(0.0, 1.0);
-      final alvo = _offsetGraficoEmT(t, pointsNormalized, size);
-      final guia = Paint()
-        ..color = lineColor.withValues(alpha: 0.35)
-        ..strokeWidth = 1;
-      canvas.drawLine(Offset(alvo.dx, 0), Offset(alvo.dx, h), guia);
-
-      final fill = Paint()..color = Colors.white;
-      canvas.drawCircle(alvo, 7, fill);
-      final borda = Paint()
-        ..color = lineColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5;
-      canvas.drawCircle(alvo, 7, borda);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SaldoEvolutionPainter oldDelegate) {
-    return oldDelegate.pointsNormalized != pointsNormalized ||
-        oldDelegate.lineColor != lineColor ||
-        oldDelegate.hideValues != hideValues ||
-        oldDelegate.highlightT != highlightT;
   }
 }
 
@@ -1135,7 +778,7 @@ class _StartupInvestidaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(18),
       elevation: 3,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -1165,13 +808,14 @@ class _StartupInvestidaCard extends StatelessWidget {
                         startup.nome,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         startup.categoria,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
                         ),
@@ -1214,7 +858,7 @@ class _StartupInvestidaCard extends StatelessWidget {
                       Text(
                         'Total Investido',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1222,6 +866,7 @@ class _StartupInvestidaCard extends StatelessWidget {
                         investidoExibicao,
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -1289,7 +934,7 @@ class _MovimentacaoCard extends StatelessWidget {
     final simbolo = mov.entrada ? '+' : '−';
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(20),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.06),
@@ -1302,7 +947,7 @@ class _MovimentacaoCard extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
+                color: AppColors.themeMutedSurface(theme),
                 borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
@@ -1324,13 +969,14 @@ class _MovimentacaoCard extends StatelessWidget {
                     mov.tipoLinha1,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     mov.detalheCaps,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.6,
                     ),
@@ -1339,7 +985,7 @@ class _MovimentacaoCard extends StatelessWidget {
                   Text(
                     mov.data,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                     ),
                   ),
                 ],

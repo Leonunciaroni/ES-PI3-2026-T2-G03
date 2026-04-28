@@ -11,6 +11,7 @@ import '../models/catalog_startup.dart';
 import '../services/startup_catalog_service.dart';
 import '../widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
 import 'startup_detail_screen.dart';
 
 /// Qual chip está ativo na barra horizontal (filtro por estágio).
@@ -39,9 +40,6 @@ class CatalogScreen extends StatefulWidget {
     this.startupsStreamForTesting,
     this.catalogService,
   });
-
-  /// Caminho do PNG registado em `pubspec.yaml` → `flutter: assets:`.
-  static const String logoAsset = 'assets/images/mescla_logo.png';
 
   /// Evita SafeArea duplicado quando a tela é filha de um [SafeArea] maior (dashboard shell).
   final bool wrapWithSafeArea;
@@ -141,24 +139,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final onSurface = colorScheme.onSurface;
+    final gradientStops = AppColors.shellGradientColors(theme.brightness);
+    final searchFill = AppColors.searchFieldFillForTheme(theme);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      // Ícones da barra de estado escuros — combinam com fundo claro em gradiente.
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: gradientStops,
             ),
           ),
           child: _maybeSafeArea(
@@ -201,14 +195,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               color: onSurface.withValues(alpha: 0.75),
                             ),
                             filled: true,
-                            fillColor: AppColors.searchFieldFill,
+                            fillColor: searchFill,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 16,
                             ),
-                            enabledBorder: _searchBorder(AppColors.searchFieldFill),
+                            enabledBorder: _searchBorder(searchFill),
                             focusedBorder: _searchBorder(colorScheme.primary),
-                            border: _searchBorder(AppColors.searchFieldFill),
+                            border: _searchBorder(searchFill),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -328,33 +322,21 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
 // --- Peças visuais privadas (só usadas neste ficheiro) -----------------------
 
-/// Faixa superior com o logo Mescla Invest (asset ou texto de fallback).
+/// Faixa superior com o logo Mescla Invest (tema claro/escuro).
 class _CatalogHeader extends StatelessWidget {
   const _CatalogHeader();
 
   static const _logoHeight = 52.0;
+  static const _logoBoxWidth = 200.0;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
+    return const Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Image.asset(
-          CatalogScreen.logoAsset,
-          height: _logoHeight,
-          fit: BoxFit.contain,
-          // Se o PNG faltar no build, mostramos texto em vez de crash.
-          errorBuilder: (context, error, stackTrace) {
-            return Text(
-              'mescla invest',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-                letterSpacing: -0.3,
-              ),
-            );
-          },
+        MesclaBrandLogo(
+          boxWidth: _logoBoxWidth,
+          boxHeight: _logoHeight,
         ),
       ],
     );
@@ -373,14 +355,13 @@ class _FilterChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onSelected;
 
-  static const _unselectedBg = Color(0xFFF3F4F6);
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    final unselected = AppColors.themeMutedSurface(theme);
     return Material(
-      color: selected ? primary : _unselectedBg,
+      color: selected ? primary : unselected,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onSelected,
@@ -390,7 +371,9 @@ class _FilterChip extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.labelLarge?.copyWith(
-              color: selected ? Colors.white : theme.colorScheme.onSurface,
+              color: selected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -400,7 +383,7 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// Card branco com informações da startup (layout próximo ao Figma).
+/// Card com informações da startup (superfície alinhada ao Perfil no tema escuro).
 class _CatalogStartupCard extends StatelessWidget {
   const _CatalogStartupCard({
     required this.startup,
@@ -430,7 +413,7 @@ class _CatalogStartupCard extends StatelessWidget {
     final pct = (startup.captureProgress * 100).round();
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(18),
       elevation: 3,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -471,6 +454,7 @@ class _CatalogStartupCard extends StatelessWidget {
                               startup.name,
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                           ),
@@ -500,7 +484,7 @@ class _CatalogStartupCard extends StatelessWidget {
                       Text(
                         startup.category,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.8,
                         ),
@@ -516,7 +500,7 @@ class _CatalogStartupCard extends StatelessWidget {
                     Text(
                       'RENDIMENTO',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondaryLabel(theme),
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                         fontSize: 9,
@@ -534,7 +518,7 @@ class _CatalogStartupCard extends StatelessWidget {
                     Text(
                       'VALOR DO TOKEN',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.textSecondary,
+                        color: AppColors.secondaryLabel(theme),
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                         fontSize: 9,
@@ -545,6 +529,7 @@ class _CatalogStartupCard extends StatelessWidget {
                       tokenPriceFormatted,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   ],
@@ -555,7 +540,7 @@ class _CatalogStartupCard extends StatelessWidget {
             Text(
               startup.description,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
                 height: 1.35,
               ),
             ),
@@ -566,7 +551,7 @@ class _CatalogStartupCard extends StatelessWidget {
                   child: Text(
                     'Progresso da captação',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -574,7 +559,7 @@ class _CatalogStartupCard extends StatelessWidget {
                 Text(
                   '$pct%',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -587,7 +572,7 @@ class _CatalogStartupCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: startup.captureProgress,
                 minHeight: 8,
-                backgroundColor: AppColors.gradientTop,
+                backgroundColor: AppColors.progressTrack(theme),
                 color: primary,
               ),
             ),

@@ -29,14 +29,19 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Material(
-            color: Colors.white,
+            color: AppColors.themeCardSurface(theme),
             borderRadius: BorderRadius.circular(16),
             child: SwitchListTile(
-              title: const Text('Verificação em duas etapas (2FA)'),
+              title: Text(
+                'Verificação em duas etapas (2FA)',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
               subtitle: Text(
                 _doisFatoresAtivo ? 'Ativado' : 'Desativado',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
               ),
               value: _doisFatoresAtivo,
@@ -50,7 +55,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
             'Senha',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textSecondary,
+              color: AppColors.secondaryLabel(theme),
             ),
           ),
           const SizedBox(height: 12),

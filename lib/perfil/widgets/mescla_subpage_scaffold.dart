@@ -24,24 +24,21 @@ class MesclaSubpageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
+    final gradientColors = AppColors.shellGradientColors(theme.brightness);
+    final base = gradientColors.last;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
-        backgroundColor: AppColors.gradientBottom,
+        backgroundColor: base,
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: gradientColors,
             ),
           ),
           child: SafeArea(

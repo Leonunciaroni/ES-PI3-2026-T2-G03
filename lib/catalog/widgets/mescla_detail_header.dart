@@ -19,6 +19,9 @@ class MesclaDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final logoAsset = theme.brightness == Brightness.dark
+        ? AppColors.mesclaLogoDarkAsset
+        : AppColors.mesclaLogoAsset;
     return Row(
       children: [
         IconButton(
@@ -30,7 +33,7 @@ class MesclaDetailHeader extends StatelessWidget {
         Expanded(
           child: Center(
             child: Image.asset(
-              AppColors.mesclaLogoAsset,
+              logoAsset,
               height: kMesclaDetailLogoHeight,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => Text(

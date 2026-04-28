@@ -14,7 +14,7 @@
 // 2. Opcional: faixa âmbar se `isMockPlaceholder` — avisa que só nome/papel
 //    são “reais” da lista; o resto é exemplo.
 // 3. [_IdentityCard] — foto/iniciais, nome, cargo, startup, participação.
-// 4. Vários [MesclaPdfSectionCard] — um cartão branco por tema (bio, LinkedIn,
+// 4. Vários [MesclaPdfSectionCard] — superfície por tema (bio, LinkedIn,
 //    formação, …). Cada `if` no [build] só acrescenta a secção se o campo
 //    correspondente tiver conteúdo (lista não vazia ou `String` não nula).
 //
@@ -161,11 +161,11 @@ class SocioDetailScreen extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: () => _openLinkedIn(context, data.linkedinUrl),
-                icon: Icon(Icons.link_rounded, color: AppColors.linkAccent),
+                icon: Icon(Icons.link_rounded, color: primary),
                 label: Text(
                   'Abrir LinkedIn',
                   style: TextStyle(
-                    color: AppColors.linkAccent,
+                    color: primary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -272,18 +272,16 @@ class SocioDetailScreen extends StatelessWidget {
     }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [AppColors.gradientTop, AppColors.gradientBottom],
+              colors: AppColors.shellGradientColors(theme.brightness),
             ),
           ),
           child: SafeArea(
@@ -301,10 +299,10 @@ class SocioDetailScreen extends StatelessWidget {
   }
 }
 
-/// Estilo de corpo reutilizado nos parágrafos das secções (cinza + entrelinha).
+/// Estilo de corpo reutilizado nos parágrafos das secções.
 TextStyle? _bodyStyle(ThemeData theme) {
   return theme.textTheme.bodyMedium?.copyWith(
-    color: AppColors.textSecondary,
+    color: AppColors.secondaryLabel(theme),
     height: 1.4,
   );
 }
@@ -317,8 +315,14 @@ class _MockDataNoticeBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    // Âmbar legível no claro e no escuro (evita faixa amarela em cima de fundo preto).
+    final bg = isDark ? const Color(0xFF3D2E0A) : const Color(0xFFFFFBEB);
+    final fg = isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E);
+    final iconColor =
+        isDark ? const Color(0xFFFBBF24) : theme.colorScheme.primary;
     return Material(
-      color: const Color(0xFFFFFBEB),
+      color: bg,
       borderRadius: BorderRadius.circular(12),
       elevation: 0,
       child: Padding(
@@ -329,7 +333,7 @@ class _MockDataNoticeBanner extends StatelessWidget {
             Icon(
               Icons.info_outline_rounded,
               size: 22,
-              color: theme.colorScheme.primary.withValues(alpha: 0.85),
+              color: iconColor.withValues(alpha: isDark ? 0.95 : 0.85),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -338,7 +342,7 @@ class _MockDataNoticeBanner extends StatelessWidget {
                 'lista da startup; os dados restantes usam texto de exemplo até '
                 'a integração com o Firestore.',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF92400E),
+                  color: fg,
                   height: 1.35,
                 ),
               ),
@@ -365,7 +369,7 @@ class _Subheading extends StatelessWidget {
         label,
         style: theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w800,
-          color: AppColors.textSecondary,
+          color: AppColors.secondaryLabel(theme),
           letterSpacing: 0.2,
         ),
       ),
@@ -373,7 +377,7 @@ class _Subheading extends StatelessWidget {
   }
 }
 
-/// Primeiro cartão branco: resume **quem** é a pessoa no contexto da startup.
+/// Primeiro cartão de identidade: resume **quem** é a pessoa no contexto da startup.
 /// O LinkedIn fica numa secção à parte para não competir visualmente com o nome.
 class _IdentityCard extends StatelessWidget {
   const _IdentityCard({
@@ -394,7 +398,7 @@ class _IdentityCard extends StatelessWidget {
     final url = data.photoUrl?.trim();
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.06),
@@ -433,6 +437,7 @@ class _IdentityCard extends StatelessWidget {
                         data.fullName,
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -447,7 +452,7 @@ class _IdentityCard extends StatelessWidget {
                       Text(
                         startupDisplayName,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -455,7 +460,7 @@ class _IdentityCard extends StatelessWidget {
                       Text(
                         data.participationLabel,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                           height: 1.35,
                           fontWeight: FontWeight.w500,
                         ),
@@ -518,7 +523,7 @@ class _BulletList extends StatelessWidget {
               child: Text(
                 '• ${line.trim()}',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                   height: 1.35,
                 ),
               ),
