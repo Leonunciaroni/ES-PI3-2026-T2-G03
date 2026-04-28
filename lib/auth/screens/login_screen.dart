@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../services/user_firestore_service.dart';
 import '../services/two_factor_service.dart';
+import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
@@ -81,7 +82,20 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (!mounted) return;
 
-      // 2. Dispara o envio do OTP — erro aqui não é de credencial, tem mensagem própria.
+      // 2. Conforme preferência em `users/{uid}.twoFactorEnabled`, envia OTP ou entra direto.
+      final twoFaOn = await UserFirestoreService.isTwoFactorLoginEnabled();
+      if (!mounted) return;
+
+      if (!twoFaOn) {
+        await Navigator.of(context).pushAndRemoveUntil<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const DashboardScreen(),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+
       try {
         await _twoFactorService.sendCode();
       } catch (sendError) {
