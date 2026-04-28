@@ -143,18 +143,16 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     final primary = theme.colorScheme.primary;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [AppColors.gradientTop, AppColors.gradientBottom],
+              colors: AppColors.shellGradientColors(theme.brightness),
             ),
           ),
           child: SafeArea(
@@ -170,7 +168,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         'Não foi possível carregar os detalhes. Tente novamente.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                         ),
                       ),
                     ),
@@ -189,7 +187,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         'Startup não encontrada.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                         ),
                       ),
                     ),
@@ -260,7 +258,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         child: Text(
                           detail.executiveSummary,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.secondaryLabel(theme),
                             height: 1.4,
                           ),
                         ),
@@ -277,7 +275,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                                   child: Text(
                                     '• $line',
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.secondaryLabel(theme),
                                       height: 1.35,
                                     ),
                                   ),
@@ -296,7 +294,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                                   Text(
                                     'Ainda não há perguntas públicas.',
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.textSecondary,
+                                      color: AppColors.secondaryLabel(theme),
                                     ),
                                   ),
                                 ]
@@ -319,7 +317,9 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                                           'R: ${qa.answer}',
                                           style: theme.textTheme.bodySmall
                                               ?.copyWith(
-                                                color: AppColors.textSecondary,
+                                                color: AppColors.secondaryLabel(
+                                                  theme,
+                                                ),
                                                 height: 1.35,
                                               ),
                                         ),
