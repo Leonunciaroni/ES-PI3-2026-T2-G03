@@ -15,6 +15,14 @@ import 'theme/theme_mode_controller.dart';
 // Troque por um IP real se rodar em dispositivo físico na mesma rede.
 const _emulatorHost = '10.0.2.2';
 
+/// Por defeito `flutter run` usa **Firebase em produção** (igual à branch do 2FA).
+/// Para apontar as **Functions** ao emulador local, rode por exemplo:
+/// `flutter run --dart-define=USE_FIREBASE_EMULATOR=true`
+const _useFirebaseEmulator = bool.fromEnvironment(
+  'USE_FIREBASE_EMULATOR',
+  defaultValue: false,
+);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -37,16 +45,12 @@ Future<void> main() async {
       );
     }
 
-    // Em debug, aponta o Functions para o emulador local.
-    // Rode: firebase emulators:start --only functions,firestore
-    //
-    // Nota: useAuthEmulator foi removido intencionalmente pois o emulador de
-    // Auth não está sendo utilizado. Adicioná-lo sem o emulador de Auth rodando
-    // interfere com a chamada das callables mesmo para usuários não autenticados.
+    // Só aponta ao emulador de Functions quando explicitamente pedido (ver
+    // [_useFirebaseEmulator]). Caso contrário, `flutter run` fala com produção.
     //
     // try/catch: em hot-restart o main() é reexecutado mas o singleton nativo
     // do Firebase persiste; sem o catch um erro aqui bloquearia o restante do init.
-    if (kDebugMode) {
+    if (kDebugMode && _useFirebaseEmulator) {
       try {
         FirebaseFunctions.instanceFor(region: 'us-central1')
             .useFunctionsEmulator(_emulatorHost, 5001);
