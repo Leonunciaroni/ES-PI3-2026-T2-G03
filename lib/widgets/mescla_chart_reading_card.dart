@@ -18,10 +18,16 @@ class MesclaChartReadingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final onSurface = theme.colorScheme.onSurface;
+    final subtle = AppColors.secondaryLabel(theme);
+    final surface = AppColors.themeCardSurface(theme);
     return Material(
-      elevation: 4,
+      elevation: theme.brightness == Brightness.dark ? 6 : 4,
+      shadowColor: Colors.black.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.45 : 0.12,
+      ),
       borderRadius: BorderRadius.circular(10),
-      color: Colors.white,
+      color: surface,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: ConstrainedBox(
@@ -34,13 +40,17 @@ class MesclaChartReadingCard extends StatelessWidget {
                 dateTimeLine,
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: onSurface,
+                  height: 1.2,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 valueLine,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: subtle,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
                 ),
               ),
             ],
