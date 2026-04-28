@@ -1,48 +1,55 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import 'auth/screens/login_screen.dart';
 import 'firebase_options.dart';
+import 'theme/app_scroll_behavior.dart';
+import 'theme/app_theme.dart';
+import 'theme/theme_mode_controller.dart';
 
-import 'theme/app_colors.dart';
-import 'screens/login_screen.dart';
-
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (_supportsFirebaseCurrentPlatform()) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  // Lê o tema guardado no cache (shared_preferences) antes do primeiro frame.
+  await themeModeController.load();
 
   runApp(const MyApp());
 }
 
+bool _supportsFirebaseCurrentPlatform() {
+  if (kIsWeb) {
+    return true;
+  }
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+}
+
+/// Raiz do app: [ListenableBuilder] reconstrói quando [themeModeController] muda.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // fromSeed ajusta o primary para tons “Material”; fixamos a marca em #6234EA.
-    final colorScheme =
-        ColorScheme.fromSeed(
-          seedColor: AppColors.seedPurple,
-          brightness: Brightness.light,
-        ).copyWith(
-          primary: AppColors.seedPurple,
-          onPrimary: const Color(0xFFFFFFFF),
+    return ListenableBuilder(
+      listenable: themeModeController,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'Mescla Invest',
+          debugShowCheckedModeBanner: false,
+          scrollBehavior: const AppScrollBehavior(),
+          theme: buildMesclaLightTheme(),
+          darkTheme: buildMesclaDarkTheme(),
+          themeMode: themeModeController.themeMode,
+          home: const LoginScreen(),
         );
-
-    return MaterialApp(
-      title: 'Mescla Invest',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: colorScheme,
-        scaffoldBackgroundColor: AppColors.gradientBottom,
-        inputDecorationTheme: InputDecorationTheme(
-          hintStyle: TextStyle(
-            color: AppColors.textSecondary.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
-      home: const LoginScreen(),
+      },
     );
   }
 }

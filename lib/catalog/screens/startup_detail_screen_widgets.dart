@@ -1,0 +1,578 @@
+﻿part of 'startup_detail_screen.dart';
+
+class _MainInfoCard extends StatelessWidget {
+  const _MainInfoCard({
+    required this.data,
+    required this.primary,
+    required this.onWishlist,
+    required this.onToggleWishlist,
+    required this.onInvest,
+  });
+
+  final StartupDetailViewData data;
+  final Color primary;
+  final bool onWishlist;
+  final VoidCallback onToggleWishlist;
+  final VoidCallback onInvest;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = data.catalog;
+
+    return Material(
+      color: AppColors.themeCardSurface(theme),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
+      elevation: 2,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                StartupLogoAvatar(
+                  logoPath: c.logoPath,
+                  fallbackColor: c.logoColor,
+                  fallbackIcon: c.logoIcon,
+                  size: 52,
+                  borderRadius: 14,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data.categoryDisplay,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: primary,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        c.name,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              data.longDescription,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(theme),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: onInvest,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      elevation: 2,
+                      shadowColor: AppColors.primaryShadow(theme.colorScheme),
+                    ),
+                    child: const Text('Investir Agora'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: onToggleWishlist,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: AppColors.themeMutedSurface(theme),
+                      foregroundColor: theme.colorScheme.onSurface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          onWishlist
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Lista de Desejos'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card roxo de captação atual.
+class _CaptureCard extends StatelessWidget {
+  const _CaptureCard({
+    required this.headline,
+    required this.progress,
+    required this.caption,
+    required this.primary,
+  });
+
+  final String headline;
+  final double progress;
+  final String caption;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: primary,
+        borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withValues(alpha: 0.35),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'CAPTAÇÃO ATUAL',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.75),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            headline,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress.clamp(0.0, 1.0),
+              minHeight: 10,
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            caption,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValuationCard extends StatelessWidget {
+  const _ValuationCard({
+    required this.roundLabel,
+    required this.headline,
+    required this.trend,
+  });
+
+  final String roundLabel;
+  final String headline;
+  final String trend;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const green = Color(0xFF16A34A);
+    return Material(
+      color: AppColors.themeCardSurface(theme),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.05),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              roundLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AppColors.secondaryLabel(theme),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              headline,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.trending_up_rounded, color: green, size: 22),
+                const SizedBox(width: 6),
+                Text(
+                  trend,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: green,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PerformanceMetricsCard extends StatelessWidget {
+  const _PerformanceMetricsCard({required this.metrics});
+
+  final List<StartupPerformanceMetric> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (metrics.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: AppColors.themeCardSurface(theme),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Métricas de Performance',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (var i = 0; i < metrics.length; i++) ...[
+              if (i > 0) const SizedBox(height: 16),
+              _MetricRow(m: metrics[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricRow extends StatelessWidget {
+  const _MetricRow({required this.m});
+
+  final StartupPerformanceMetric m;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: m.iconBackground,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(m.icon, color: m.iconColor, size: 22),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                m.labelCaps,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AppColors.secondaryLabel(theme),
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                m.value,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Card cinza claro: sede, fundação, missão.
+class _CompanyInfoCard extends StatelessWidget {
+  const _CompanyInfoCard({required this.data, required this.primary});
+
+  final StartupDetailViewData data;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: AppColors.themeMutedSurface(theme),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Informações da Empresa',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 14),
+            _InfoLine(
+              icon: Icons.place_outlined,
+              label: 'SEDE',
+              value: data.headquarters,
+              iconColor: primary,
+            ),
+            const SizedBox(height: 12),
+            _InfoLine(
+              icon: Icons.calendar_today_outlined,
+              label: 'FUNDADA EM',
+              value: data.foundedLabel,
+              iconColor: primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'MISSÃO',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.secondaryLabel(theme),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '"${data.missionQuote}"',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: AppColors.secondaryLabel(theme),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoLine extends StatelessWidget {
+  const _InfoLine({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: iconColor),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.secondaryLabel(theme),
+                ),
+              ),
+              Text(
+                value,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TeamCard extends StatelessWidget {
+  const _TeamCard({
+    required this.members,
+    required this.initialsFor,
+    this.onMemberTap,
+  });
+
+  final List<StartupTeamMember> members;
+  final String Function(String) initialsFor;
+
+  /// Abre a ficha do membro (mock rico ou resumo a partir do Firestore).
+  final void Function(StartupTeamMember member)? onMemberTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (members.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: AppColors.themeCardSurface(theme),
+      borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Membros-Chave',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 14),
+            for (final m in members)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _TeamMemberTile(
+                  member: m,
+                  initialsFor: initialsFor,
+                  theme: theme,
+                  onSaberMais:
+                      onMemberTap != null ? () => onMemberTap!(m) : null,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Uma linha da lista com CTA **Saber mais** à direita (design alinhado ao Figma).
+class _TeamMemberTile extends StatelessWidget {
+  const _TeamMemberTile({
+    required this.member,
+    required this.initialsFor,
+    required this.theme,
+    this.onSaberMais,
+  });
+
+  final StartupTeamMember member;
+  final String Function(String) initialsFor;
+  final ThemeData theme;
+  final VoidCallback? onSaberMais;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: member.avatarColor,
+          child: Text(
+            initialsFor(member.name),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                member.name,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                member.role,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.secondaryLabel(theme),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (onSaberMais != null)
+          TextButton(
+            onPressed: onSaberMais,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.linkAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('Saber mais'),
+          ),
+      ],
+    );
+  }
+}
