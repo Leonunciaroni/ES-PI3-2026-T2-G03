@@ -13,9 +13,10 @@
 // - SMTP_PORT: opcional (padrão 587)
 // - SMTP_FROM: opcional (padrão SMTP_USER)
 //
-// Comportamento no emulador:
-// - Se não houver SMTP configurado, a função apenas loga o código e retorna,
-//   evitando falhar o fluxo de UI local durante desenvolvimento.
+// Comportamento:
+// - Emulador sem SMTP: apenas loga o OTP (não falha o fluxo de UI local).
+// - Produção sem SMTP nesta callable: `HttpsError failed-precondition` com
+//   instrução para copiar variáveis do serviço Cloud Run do `twofactor`.
 
 import {HttpsError} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
@@ -75,14 +76,25 @@ export async function sendVerificationEmail(
   const cfg = resolveSmtpFromEnv();
 
   if (!cfg) {
-    // Sem SMTP configurado: exibe o código nos logs para que o desenvolvedor
-    // possa testá-lo manualmente (emulador ou Cloud Run sem SMTP).
-    // Em produção, configure SMTP_USER e SMTP_PASS no Cloud Run para envio real.
-    logger.warn(
-      "SMTP nao configurado. Codigo de verificacao disponivel nos logs apenas.",
-      {code, to, template, emulator: isFunctionsEmulator()}
+    // Emulador: sem .env/SMTP — só loga o OTP para testes locais.
+    if (isFunctionsEmulator()) {
+      logger.warn(
+        "SMTP nao configurado (emulador). Codigo de verificacao nos logs apenas.",
+        {code, to, template}
+      );
+      return;
+    }
+
+    // Produção: cada callable v2 vira um **serviço Cloud Run** com env próprio.
+    // Se o 2FA envia e-mail mas esta function nao, copie SMTP_* do servico
+    // `twofactor` para o servico desta function (ex.: `passwordreset`).
+    logger.error("SMTP nao configurado neste servico Cloud Run.", {to, template});
+    throw new HttpsError(
+      "failed-precondition",
+      "Envio de e-mail nao configurado nesta function. No Google Cloud: Cloud Run → "
+        + "servico desta callable (ex.: passwordreset) → Variaveis: SMTP_USER, SMTP_PASS, "
+        + "opcional SMTP_FROM. Copie as mesmas variaveis do servico `twofactor`."
     );
-    return;
   }
 
   const transporter = nodemailer.createTransport(buildMailTransportOptions(cfg));

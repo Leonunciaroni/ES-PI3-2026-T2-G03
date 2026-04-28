@@ -80,11 +80,28 @@ async function handleSend(email?: string): Promise<SendResponse> {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Não revelar se usuário existe. Se não existir, respondemos OK sem enviar.
+  // Não revelar se utilizador existe: só omitimos envio em `auth/user-not-found`.
+  // Outros erros do Admin (rede, permissões) propagam para não mascarar falhas.
   try {
     await getAuth().getUserByEmail(normalizedEmail);
-  } catch {
-    return {sent: true};
+  } catch (e: unknown) {
+    const err = e as {code?: string; message?: string};
+    if (err.code === "auth/user-not-found") {
+      logger.info("passwordReset send: conta inexistente (resposta neutra).", {
+        domain: normalizedEmail.includes("@")
+          ? normalizedEmail.split("@")[1]
+          : "",
+      });
+      return {sent: true};
+    }
+    logger.error("passwordReset send: getUserByEmail falhou.", {
+      code: err.code,
+      message: err.message,
+    });
+    throw new HttpsError(
+      "internal",
+      "Nao foi possivel validar o e-mail agora. Tente novamente em instantes."
+    );
   }
 
   const code = generateCode();
