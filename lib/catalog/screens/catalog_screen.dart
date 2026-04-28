@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../models/catalog_startup.dart';
 import '../services/startup_catalog_service.dart';
+import '../widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'startup_detail_screen.dart';
@@ -433,15 +434,12 @@ class _CatalogStartupCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // "Avatar" quadrado com ícone representando o setor.
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: startup.logoColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(startup.logoIcon, color: Colors.white, size: 26),
+                StartupLogoAvatar(
+                  logoPath: startup.logoPath,
+                  fallbackColor: startup.logoColor,
+                  fallbackIcon: startup.logoIcon,
+                  size: 48,
+                  borderRadius: 12,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

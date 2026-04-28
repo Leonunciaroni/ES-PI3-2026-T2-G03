@@ -33,14 +33,12 @@ class _MainInfoCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: c.logoColor,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(c.logoIcon, color: Colors.white, size: 28),
+                StartupLogoAvatar(
+                  logoPath: c.logoPath,
+                  fallbackColor: c.logoColor,
+                  fallbackIcon: c.logoIcon,
+                  size: 52,
+                  borderRadius: 14,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

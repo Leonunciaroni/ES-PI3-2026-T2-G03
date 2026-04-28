@@ -13,6 +13,7 @@ import '../../catalog/data/startup_detail_mock.dart';
 import '../balcao_format.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_service.dart';
+import '../../catalog/widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../../widgets/mescla_header_row.dart';
@@ -372,6 +373,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                       ),
                       corLogo: s.logoColor,
                       icone: s.logoIcon,
+                      logoPath: s.logoPath,
                     ),
                     const SizedBox(height: 20),
                     Row(
@@ -548,14 +550,12 @@ class _BalcaoStartupRowCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: startup.logoColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(startup.logoIcon, color: Colors.white, size: 26),
+              StartupLogoAvatar(
+                logoPath: startup.logoPath,
+                fallbackColor: startup.logoColor,
+                fallbackIcon: startup.logoIcon,
+                size: 48,
+                borderRadius: 12,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -627,6 +627,7 @@ class _MesaTokenCard extends StatelessWidget {
     required this.saldoReaisTexto,
     required this.corLogo,
     required this.icone,
+    this.logoPath,
   });
 
   static const _radius = 22.0;
@@ -646,6 +647,7 @@ class _MesaTokenCard extends StatelessWidget {
   final String saldoReaisTexto;
   final Color corLogo;
   final IconData icone;
+  final String? logoPath;
 
   @override
   Widget build(BuildContext context) {
@@ -663,14 +665,12 @@ class _MesaTokenCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: corLogo,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icone, color: Colors.white, size: 28),
+            StartupLogoAvatar(
+              logoPath: logoPath,
+              fallbackColor: corLogo,
+              fallbackIcon: icone,
+              size: 52,
+              borderRadius: 14,
             ),
             const SizedBox(width: 14),
             Expanded(

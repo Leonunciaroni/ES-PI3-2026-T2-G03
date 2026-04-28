@@ -36,6 +36,7 @@ class CatalogStartup {
     required this.logoIcon,
     this.sigla,
     this.firestoreId,
+    this.logoPath,
   });
 
   /// Nome comercial exibido no card e no cabeçalho do detalhe.
@@ -70,4 +71,7 @@ class CatalogStartup {
 
   /// ID do documento na coleção Firestore `startups`; null só em mock/preview local.
   final String? firestoreId;
+
+  /// Caminho no Firebase Storage ou URL https; null usa ícone de setor.
+  final String? logoPath;
 }
