@@ -114,11 +114,13 @@ class BalcaoTabScreen extends StatefulWidget {
   const BalcaoTabScreen({
     super.key,
     this.wrapWithSafeArea = true,
+    this.initialMesaStartup,
     this.startupsStreamForTesting,
     this.catalogService,
   });
 
   final bool wrapWithSafeArea;
+  final CatalogStartup? initialMesaStartup;
   final Stream<List<CatalogStartup>>? startupsStreamForTesting;
   final StartupCatalogService? catalogService;
 
@@ -146,6 +148,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     super.initState();
     _startupStream = widget.startupsStreamForTesting ??
         (widget.catalogService ?? StartupCatalogService()).watchStartups();
+    _mesaStartup = widget.initialMesaStartup;
   }
 
   @override

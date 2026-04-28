@@ -101,6 +101,12 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  void _redirectToBalcao(CatalogStartup startup) {
+    // Retorna a startup para quem fez o push (CatalogScreen).
+    // O CatalogScreen repassa via callback até o DashboardScreen trocar para o Balcão.
+    Navigator.of(context).pop<CatalogStartup>(startup);
+  }
+
   Future<void> _openDemoVideo(String? url) async {
     if (url == null || url.trim().isEmpty) {
       _snack('Vídeo não disponível neste build.');
@@ -211,8 +217,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
                         onWishlist: _onWishlist,
                         onToggleWishlist: () =>
                             setState(() => _onWishlist = !_onWishlist),
-                        onInvest: () =>
-                            _snack('Investimento simulado — em integração.'),
+                          onInvest: () => _redirectToBalcao(detail.catalog),
                       ),
                       const SizedBox(height: 14),
                       _CaptureCard(
