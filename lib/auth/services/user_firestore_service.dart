@@ -9,6 +9,9 @@ class UserFirestoreService {
   static final CollectionReference<Map<String, dynamic>> _usersCollection =
       _firestore.collection('users');
 
+  /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
+  static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
+
   static Future<void> _removeLegacyPasswordFieldForEmail(
     String normalizedEmail,
   ) async {
@@ -53,6 +56,7 @@ class UserFirestoreService {
         'phone': phone.trim(),
         'cpf': cpf.trim(),
         'createdAt': FieldValue.serverTimestamp(),
+        fieldTwoFactorEnabled: true,
       }, SetOptions(merge: true));
 
       await _removeLegacyPasswordFieldForEmail(normalizedEmail);
@@ -84,6 +88,68 @@ class UserFirestoreService {
 
   /// Encerra a sessão no Firebase Auth (ex.: botão Sair do Perfil).
   static Future<void> signOut() => _auth.signOut();
+
+  /// Preferência de 2FA no login: `true` = envia OTP; `false` = entra direto.
+  ///
+  /// Documento inexistente ou campo ausente [fieldTwoFactorEnabled]: `true` (comportamento atual).
+  /// Em falha de rede ou permissões Firestore, devolve `true` para não saltar 2FA por engano.
+  static Future<bool> isTwoFactorLoginEnabled() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return true;
+    }
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) {
+        return true;
+      }
+      final v = snap.data()?[fieldTwoFactorEnabled];
+      if (v is bool) {
+        return v;
+      }
+    } on FirebaseException {
+      // Rede / permissões: manter 2FA ativo por defeito (mais seguro que entrar sem OTP).
+      return true;
+    } catch (_) {
+      // Estado inesperado: mesmo default conservador que o fluxo histórico.
+      return true;
+    }
+    // Campo presente mas não é bool: tratar como ausente (default seguro).
+    return true;
+  }
+
+  /// Atualiza preferência de 2FA do utilizador autenticado em `users/{uid}`.
+  static Future<void> setTwoFactorLoginEnabled(bool enabled) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    await _usersCollection.doc(uid).set(
+      {fieldTwoFactorEnabled: enabled},
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Emite o valor atualizado de [fieldTwoFactorEnabled] (default `true`).
+  static Stream<bool> watchTwoFactorLoginEnabled() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return Stream<bool>.value(true);
+    }
+    return _usersCollection.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) {
+        return true;
+      }
+      final v = snap.data()?[fieldTwoFactorEnabled];
+      if (v is bool) {
+        return v;
+      }
+      return true;
+    });
+  }
 
   /// Nome do cadastro em `users/{uid}`; `null` se não houver documento ou em erro
   /// (testes sem Firebase, rede, etc.).
