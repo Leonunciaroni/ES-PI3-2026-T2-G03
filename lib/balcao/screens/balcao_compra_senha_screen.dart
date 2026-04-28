@@ -142,18 +142,25 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final onSurface = scheme.onSurface;
+    final bodyBg = theme.brightness == Brightness.light
+        ? AppColors.gradientBottom
+        : AppColors.gradientBottomDark;
+    final overlay = AppColors.shellOverlayStyle(theme.brightness);
 
     final tituloAppBar = widget.operacao == BalcaoOperacaoTipo.compra
         ? 'Confirmar compra'
         : 'Confirmar venda';
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppColors.systemUiLightAppBar,
+      value: overlay,
       child: Scaffold(
-        backgroundColor: AppColors.gradientBottom,
+        backgroundColor: bodyBg,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: scheme.onSurface,
+          backgroundColor: theme.colorScheme.surface,
+          foregroundColor: onSurface,
+          surfaceTintColor: Colors.transparent,
+          systemOverlayStyle: overlay,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -164,6 +171,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
             tituloAppBar,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: onSurface,
             ),
           ),
           centerTitle: true,
@@ -177,13 +185,14 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
                 'Token $_nomeToken · ${widget.startup.name}',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: onSurface,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '${formatBrl(widget.valorReaisOperacao)} ≈ ${formatQuantidadeTokensBr(_quantidadeTokens)} tokens',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
               ),
               const SizedBox(height: 28),
@@ -199,13 +208,13 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
                   labelText: 'Senha do login',
                   hintText: 'Sua senha de acesso',
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: AppColors.searchFieldFillForTheme(theme),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.fieldBorder),
+                    borderSide: BorderSide(color: AppColors.cardDivider(theme)),
                   ),
                   suffixIcon: IconButton(
                     onPressed: _enviando
@@ -258,7 +267,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
                 'Usamos a mesma senha com que você entra no app.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                 ),
               ),
             ],
