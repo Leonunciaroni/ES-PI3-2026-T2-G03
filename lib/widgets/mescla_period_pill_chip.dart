@@ -25,10 +25,11 @@ class MesclaPeriodPillChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bgNaoSel = AppColors.themeMutedSurface(theme);
     return Material(
       color: selected
-          ? primary.withValues(alpha: 0.12)
-          : const Color(0xFFF3F4F6),
+          ? primary.withValues(alpha: theme.brightness == Brightness.dark ? 0.22 : 0.12)
+          : bgNaoSel,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
@@ -38,7 +39,7 @@ class MesclaPeriodPillChip extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: selected ? primary : AppColors.textSecondary,
+              color: selected ? primary : AppColors.secondaryLabel(theme),
               fontWeight: FontWeight.w700,
             ),
           ),
