@@ -11,7 +11,7 @@ import '../services/two_factor_service.dart';
 
 /// Verificação em duas etapas: entrada do código, sucesso e falha.
 ///
-/// O código OTP é validado via Firebase Function [verifyTwoFactorCode].
+/// O código OTP é validado via Firebase Function `twoFactor` com `action: verify`.
 /// O envio (e reenvio) usa [TwoFactorService.sendCode].
 ///
 /// **Navegação após sucesso:** após ~2,4s, se [replaceStackWithDashboard] for true, limpa a

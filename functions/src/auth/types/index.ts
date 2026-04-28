@@ -17,7 +17,13 @@ export type AuthenticatedUser = {
  * - `createdAt`: servidor — serve de auditoria.
  */
 export type TwoFactorCodeDocument = {
-  code: string;
+  /**
+   * (Compat) Primeiro formato: OTP em claro.
+   * Preferir `codeHash` em novas gravações.
+   */
+  code?: string;
+  /** OTP hash (SHA-256 hex) do código gerado. */
+  codeHash?: string;
   expiresAt: Timestamp;
   attempts: number;
   createdAt: FieldValue;

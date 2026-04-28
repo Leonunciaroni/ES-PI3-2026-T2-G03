@@ -1,4 +1,5 @@
 import {FieldValue, Timestamp} from "firebase-admin/firestore";
+import crypto from "node:crypto";
 import {db} from "../shared/firebase.js";
 import {TwoFactorCodeDocument} from "../types/index.js";
 
@@ -7,11 +8,15 @@ const collection = db.collection("two_factor_codes");
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 const MAX_ATTEMPTS = 5;
 
+function hashCode(code: string): string {
+  return crypto.createHash("sha256").update(code).digest("hex");
+}
+
 /** Salva (ou substitui) um código 2FA para o uid informado. */
 export async function saveCode(uid: string, code: string): Promise<void> {
   const expiresAt = Timestamp.fromMillis(Date.now() + CODE_TTL_MS);
   const doc: TwoFactorCodeDocument = {
-    code,
+    codeHash: hashCode(code),
     expiresAt,
     attempts: 0,
     createdAt: FieldValue.serverTimestamp(),
@@ -49,8 +54,12 @@ export async function verifyCode(
     return {ok: false, reason: "max_attempts"};
   }
 
-  if (data.code !== code) {
-    await ref.update({attempts: data.attempts + 1});
+  const matches =
+    (typeof data.code === "string" && data.code === code) ||
+    (typeof data.codeHash === "string" && data.codeHash === hashCode(code));
+
+  if (!matches) {
+    await ref.update({attempts: FieldValue.increment(1)});
     return {ok: false, reason: "invalid"};
   }
 
