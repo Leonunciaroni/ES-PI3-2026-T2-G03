@@ -10,7 +10,7 @@ import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/screens/catalog_screen.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/mescla_brand_logo.dart';
+import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_main_shell.dart';
 
 /// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
@@ -88,7 +88,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _HeaderRow(colorScheme: colorScheme),
+          MesclaHeaderRow(
+            trailing: IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.notifications_none_outlined),
+              color: colorScheme.onSurface,
+              tooltip: 'Notificações',
+            ),
+          ),
           const SizedBox(height: 20),
           Text(
             'BOM DIA, RICARDO',
@@ -243,37 +250,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const BalcaoTabScreen(wrapWithSafeArea: false),
         const CatalogScreen(wrapWithSafeArea: false),
         const PerfilScreen(wrapWithSafeArea: false),
-      ],
-    );
-  }
-}
-
-class _HeaderRow extends StatelessWidget {
-  const _HeaderRow({required this.colorScheme});
-
-  final ColorScheme colorScheme;
-
-  /// Altura do wordmark no topo (próxima à área do sino ~48dp); largura em caixa fixa.
-  static const _logoHeight = 52.0;
-  static const _logoBoxWidth = 200.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Tema claro/escuro: [MesclaBrandLogo] escolhe o PNG certo.
-        const MesclaBrandLogo(
-          boxWidth: _logoBoxWidth,
-          boxHeight: _logoHeight,
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.notifications_none_outlined),
-          color: colorScheme.onSurface,
-          tooltip: 'Notificações',
-        ),
       ],
     );
   }

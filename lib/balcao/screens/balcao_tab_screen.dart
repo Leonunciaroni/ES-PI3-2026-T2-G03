@@ -15,6 +15,7 @@ import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
+import '../../widgets/mescla_header_row.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../models/balcao_operacao_tipo.dart';
 import '../models/balcao_transacao.dart';
@@ -512,19 +513,9 @@ class _BalcaoMesaTopRow extends StatelessWidget {
 class _BalcaoLogoHeader extends StatelessWidget {
   const _BalcaoLogoHeader();
 
-  static const _logoHeight = 52.0;
-  static const _logoW = 200.0;
-
   @override
   Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        MesclaBrandLogo(
-          boxWidth: _logoW,
-          boxHeight: _logoHeight,
-        ),
-      ],
-    );
+    return const MesclaHeaderRow();
   }
 }
 

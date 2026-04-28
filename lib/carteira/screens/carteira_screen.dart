@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../catalog/data/startup_detail_mock.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/mescla_brand_logo.dart';
+import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../format/carteira_brl.dart';
@@ -407,10 +407,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const MesclaBrandLogo(
-            boxWidth: 200,
-            boxHeight: 52,
-          ),
+          const MesclaHeaderRow(),
           const SizedBox(height: 20),
           // Título + olho: o utilizador alterna privacidade sem sair da Carteira.
           Row(
