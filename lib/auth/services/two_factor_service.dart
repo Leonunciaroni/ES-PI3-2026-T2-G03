@@ -40,6 +40,12 @@ class TwoFactorService {
   /// Texto legível ao utilizador para erros comuns de 2FA.
   static String messageForError(Object error) {
     if (error is FirebaseFunctionsException) {
+      final serverMsg = error.message?.trim();
+      if (serverMsg != null &&
+          serverMsg.isNotEmpty &&
+          (error.code == 'failed-precondition' || error.code == 'internal')) {
+        return serverMsg;
+      }
       switch (error.code) {
         case 'not-found':
           return 'Código expirado ou não encontrado. Solicite um novo.';

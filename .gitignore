@@ -46,3 +46,6 @@ app.*.map.json
 
 # Firebase Functions
 /functions/node_modules/
+/functions/.env
+/functions/.env.*
+!/functions/.env.example

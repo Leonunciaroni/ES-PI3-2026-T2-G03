@@ -90,16 +90,31 @@ function generateCode(): string {
   return n.toString().padStart(6, "0");
 }
 
+function isFunctionsEmulator(): boolean {
+  return process.env.FUNCTIONS_EMULATOR === "true";
+}
+
 async function sendEmail(to: string, code: string): Promise<void> {
-  const host = process.env.SMTP_HOST;
+  const host = process.env.SMTP_HOST?.trim();
   const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
-  const smtpUser = process.env.SMTP_USER;
+  const smtpUser = process.env.SMTP_USER?.trim();
   const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM ?? smtpUser;
+  const from = (process.env.SMTP_FROM?.trim() ?? smtpUser ?? "").trim();
 
   if (!host || !smtpUser || !pass) {
-    logger.warn("SMTP nao configurado. Codigo 2FA (dev only):", {code, to});
-    return;
+    if (isFunctionsEmulator()) {
+      logger.warn("SMTP nao configurado (emulador). Codigo 2FA:", {code, to});
+      return;
+    }
+    logger.error(
+      "SMTP nao configurado em producao. Defina SMTP_HOST, SMTP_USER, SMTP_PASS " +
+        "em functions/.env e faca deploy (veja functions/.env.example)."
+    );
+    throw new HttpsError(
+      "failed-precondition",
+      "Envio de e-mail nao configurado no servidor (SMTP). " +
+        "Configure variaveis SMTP nas Cloud Functions e faça deploy."
+    );
   }
 
   const transporter = nodemailer.createTransport({
@@ -109,12 +124,13 @@ async function sendEmail(to: string, code: string): Promise<void> {
     auth: {user: smtpUser, pass},
   });
 
-  await transporter.sendMail({
-    from: `"MesclaInvest" <${from}>`,
-    to,
-    subject: "Seu código de verificação – MesclaInvest",
-    text: `Seu código de verificação é: ${code}\n\nEle expira em 5 minutos.`,
-    html: `
+  try {
+    await transporter.sendMail({
+      from: `"MesclaInvest" <${from}>`,
+      to,
+      subject: "Seu código de verificação – MesclaInvest",
+      text: `Seu código de verificação é: ${code}\n\nEle expira em 5 minutos.`,
+      html: `
       <div style="font-family:sans-serif;max-width:400px;margin:auto">
         <h2 style="color:#6234EA">MesclaInvest</h2>
         <p>Seu código de verificação em duas etapas é:</p>
@@ -122,5 +138,12 @@ async function sendEmail(to: string, code: string): Promise<void> {
         <p style="color:#6B7280;font-size:14px">Expira em 5 minutos.<br>
         Se não foi você, ignore este e-mail.</p>
       </div>`,
-  });
+    });
+  } catch (err) {
+    logger.error("Falha ao enviar e-mail (nodemailer).", err);
+    throw new HttpsError(
+      "internal",
+      "Nao foi possivel enviar o e-mail agora. Tente reenviar em instantes."
+    );
+  }
 }
