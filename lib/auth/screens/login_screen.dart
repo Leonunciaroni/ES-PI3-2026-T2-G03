@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
 import 'create_account_screen.dart';
 import 'recover_password_screen.dart';
@@ -107,26 +108,29 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    // Bordas de campo: Figma claro; no escuro usamos o contorno do [ColorScheme].
+    final fieldStroke = theme.brightness == Brightness.light
+        ? AppColors.fieldBorder
+        : colorScheme.outline;
     final labelStyle = theme.textTheme.labelSmall?.copyWith(
       color: AppColors.textSecondary,
       fontWeight: FontWeight.w600,
       letterSpacing: 1.2,
     );
+    final gradientStops = AppColors.shellGradientColors(theme.brightness);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      // Barras de estado claras combinam com o fundo em gradiente claro.
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      // Ícones da status bar: escuros em fundo claro, claros em fundo escuro.
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [AppColors.gradientTop, AppColors.gradientBottom],
+              colors: gradientStops,
             ),
           ),
           child: SafeArea(
@@ -147,13 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const SizedBox(height: 8),
-                        Center(
-                          child: Image.asset(
-                            'assets/images/mescla_logo.png',
-                            width: 190,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
+                        const MesclaAuthHeaderLogo(),
                         const SizedBox(height: 24),
                         Text(
                           'Invista nas melhores startups da PUC-Campinas.',
@@ -167,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           elevation: 6,
                           shadowColor: Colors.black.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(30),
-                          color: Colors.white,
+                          color: colorScheme.surface,
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                             child: Column(
@@ -200,19 +198,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: AppColors.textSecondary,
                                     ),
                                     filled: true,
-                                    fillColor: Colors.white,
+                                    fillColor: colorScheme.surface,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
                                     enabledBorder: _stadiumBorder(
-                                      AppColors.fieldBorder,
+                                      fieldStroke,
                                     ),
                                     focusedBorder: _stadiumBorder(
                                       colorScheme.primary,
                                     ),
                                     border: _stadiumBorder(
-                                      AppColors.fieldBorder,
+                                      fieldStroke,
                                     ),
                                   ),
                                 ),
@@ -281,19 +279,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     ),
                                     filled: true,
-                                    fillColor: Colors.white,
+                                    fillColor: colorScheme.surface,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
                                     enabledBorder: _stadiumBorder(
-                                      AppColors.fieldBorder,
+                                      fieldStroke,
                                     ),
                                     focusedBorder: _stadiumBorder(
                                       colorScheme.primary,
                                     ),
                                     border: _stadiumBorder(
-                                      AppColors.fieldBorder,
+                                      fieldStroke,
                                     ),
                                   ),
                                 ),
@@ -312,12 +310,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     backgroundColor: colorScheme.primary,
                                   ),
                                   child: _isSubmitting
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           width: 20,
                                           height: 20,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.2,
-                                            color: Colors.white,
+                                            color: colorScheme.onPrimary,
                                           ),
                                         )
                                       : const Text(

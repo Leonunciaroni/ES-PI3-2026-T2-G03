@@ -41,14 +41,21 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final onSurface = scheme.onSurface;
+    final bodyBg = theme.brightness == Brightness.light
+        ? AppColors.gradientBottom
+        : AppColors.gradientBottomDark;
+    final overlay = AppColors.shellOverlayStyle(theme.brightness);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppColors.systemUiLightAppBar,
+      value: overlay,
       child: Scaffold(
-        backgroundColor: AppColors.gradientBottom,
+        backgroundColor: bodyBg,
         appBar: AppBar(
-          backgroundColor: Colors.white,
-          foregroundColor: scheme.onSurface,
+          backgroundColor: theme.colorScheme.surface,
+          foregroundColor: onSurface,
+          surfaceTintColor: Colors.transparent,
+          systemOverlayStyle: overlay,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
@@ -59,6 +66,7 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
             'Detalhe da transação',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: onSurface,
             ),
           ),
           centerTitle: true,
@@ -81,7 +89,7 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
               Text(
                 'Token ${detalhe.nomeToken}',
                 style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.secondaryLabel(theme),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -103,7 +111,7 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Material(
-                color: Colors.white,
+                color: AppColors.themeCardSurface(theme),
                 borderRadius: BorderRadius.circular(20),
                 elevation: 2,
                 shadowColor: Colors.black.withValues(alpha: 0.06),
@@ -116,6 +124,7 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
                         'Informações',
                         style: theme.textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          color: onSurface,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -161,7 +170,7 @@ class _LinhaDetalhe extends StatelessWidget {
         Text(
           rotulo,
           style: theme.textTheme.labelSmall?.copyWith(
-            color: AppColors.textSecondary,
+            color: AppColors.secondaryLabel(theme),
             fontWeight: FontWeight.w600,
             letterSpacing: 0.4,
           ),
@@ -171,6 +180,7 @@ class _LinhaDetalhe extends StatelessWidget {
           valor,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface,
           ),
           maxLines: 3,
           overflow: TextOverflow.ellipsis,

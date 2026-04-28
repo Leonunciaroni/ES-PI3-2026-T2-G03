@@ -60,25 +60,31 @@ class MesclaBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     // A cor primária vem do Theme (no main.dart já pusemos o roxo da marca).
     // Uso a mesma no fundo ativo e na sombra, para tudo bater certo.
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final shell = AppColors.bottomNavBarShell(theme);
+    final isDark = theme.brightness == Brightness.dark;
+    // No escuro a cápsula usa [AppColors.gradientBottomDark] (igual ao shell);
+    // sombra neutra e leve — evita “glow” roxo e halo forte no mesmo preto.
+    final sombra = isDark
+        ? Colors.black.withValues(alpha: 0.24)
+        : primary.withValues(alpha: 0.2);
 
     // Padding fora: afasta a barra das laterais do telemóvel e deixa espaço
     // embaixo (senão a cápsula colava na borda da tela).
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Container(
-        // O "miolo" branco: uma única peça com sombra. Não usei só Material
-        // com elevation porque queria a sombra com um bocadinho de roxo, mais
-        // parecida com o Figma.
+        // Miolo do mesmo material que o resto dos cartões (light = branco Figma).
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: shell,
           // borderRadius bem grande = forma de cápsula/estádio (parece um
           // comprimido). Se fosse 8 ou 12, ficava um retângulo só ligeiramente
           // redondo, não a barra "redondinha" do desenho.
           borderRadius: BorderRadius.circular(100),
           boxShadow: [
             BoxShadow(
-              color: primary.withValues(alpha: 0.2),
+              color: sombra,
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -106,7 +112,7 @@ class MesclaBottomNavBar extends StatelessWidget {
                       trackHeight: _faixaItensAltura,
                       chipVertMargin: _margemChipVertical,
                       activeColor: primary,
-                      inactiveColor: AppColors.navBarInactive,
+                      inactiveColor: AppColors.bottomNavInactive(theme),
                       onTap: () => onItemTap(i),
                     ),
                   ),

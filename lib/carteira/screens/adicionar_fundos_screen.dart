@@ -162,7 +162,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                         'Confirma o investimento de',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           height: 1.45,
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -171,7 +171,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                         '${formatBrl(valor)}?',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           height: 1.45,
-                          color: AppColors.textSecondary,
+                          color: AppColors.secondaryLabel(theme),
                           fontWeight: FontWeight.w600,
                         ),
                         textAlign: TextAlign.center,
@@ -188,7 +188,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                       color: primary.withValues(alpha: 0.65),
                       width: 1.5,
                     ),
-                    backgroundColor: Colors.white,
+                    backgroundColor: theme.colorScheme.surface,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -211,7 +211,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: theme.colorScheme.onPrimary,
                     elevation: 2,
                     shadowColor: AppColors.primaryShadow(theme.colorScheme),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -234,26 +234,27 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     final onSurface = theme.colorScheme.onSurface;
-    const appBarFg = Colors.black;
-
-    // Fundo claro contínuo (mockup: cinza muito suave por detrás do modal / formulário).
-    const bodyBg = Color(0xFFF3F4F6);
+    // Mesma lógica do shell: fundo claro suave no light; no escuro alinha ao gradiente.
+    final bodyBg = theme.brightness == Brightness.light
+        ? const Color(0xFFF3F4F6)
+        : AppColors.gradientBottomDark;
+    final overlay = AppColors.shellOverlayStyle(theme.brightness);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppColors.systemUiLightAppBar,
+      value: overlay,
       child: Scaffold(
         backgroundColor: bodyBg,
         appBar: AppBar(
           title: const CarteiraAppBarLogo(),
           centerTitle: true,
-          backgroundColor: Colors.white,
-          foregroundColor: appBarFg,
+          backgroundColor: theme.colorScheme.surface,
+          foregroundColor: onSurface,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           shadowColor: Colors.transparent,
           scrolledUnderElevation: 0,
-          systemOverlayStyle: AppColors.systemUiLightAppBar,
-          iconTheme: const IconThemeData(color: appBarFg),
+          systemOverlayStyle: overlay,
+          iconTheme: IconThemeData(color: onSurface),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => Navigator.of(context).pop(),
@@ -271,7 +272,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                 Text(
                   'ADICIONAR SALDO',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.4,
                   ),
@@ -290,14 +291,14 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                   'Digite só números: os dois últimos dígitos são centavos '
                   '(ex.: 100000 → 1.000,00). A formatação atualiza ao digitar.',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 22),
-                // Cartão branco: rótulo + ícone + R$ + campo (como no Figma).
+                // Cartão de superfície (não forçar branco no tema escuro).
                 Material(
-                  color: Colors.white,
+                  color: AppColors.themeCardSurface(theme),
                   elevation: 2,
                   shadowColor: Colors.black.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(_radiusCard),
@@ -309,7 +310,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                         Text(
                           'Valor em reais',
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.secondaryLabel(theme),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -342,7 +343,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                                 onChanged: (_) => setState(() {}),
                                 style: theme.textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondary,
+                                  color: onSurface,
                                 ),
                                 decoration: InputDecoration(
                                   hintText: '0,00',
@@ -350,8 +351,9 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                                   border: InputBorder.none,
                                   hintStyle: theme.textTheme.headlineSmall
                                       ?.copyWith(
-                                        color: AppColors.textSecondary
-                                            .withValues(alpha: 0.45),
+                                        color: onSurface.withValues(
+                                          alpha: 0.4,
+                                        ),
                                         fontWeight: FontWeight.w500,
                                       ),
                                   contentPadding: EdgeInsets.zero,
@@ -373,6 +375,13 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
                     elevation: _podeInvestir ? 4 : 0,
                     shadowColor: AppColors.primaryShadow(theme.colorScheme),
                     shape: const StadiumBorder(),
+                    backgroundColor: primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    disabledBackgroundColor: theme.brightness == Brightness.dark
+                        ? theme.colorScheme.surfaceContainerHigh
+                        : theme.colorScheme.surfaceContainerHighest,
+                    disabledForegroundColor: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.38),
                   ),
                   child: const Text(
                     'Investir agora',

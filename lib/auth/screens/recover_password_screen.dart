@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/mescla_brand_logo.dart';
 
 /// Tela de recuperação de senha com [FirebaseAuth.sendPasswordResetEmail].
 ///
@@ -24,9 +25,6 @@ class RecoverPasswordScreen extends StatefulWidget {
 class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   final _emailController = TextEditingController();
   bool _isSending = false;
-
-  /// Caminho registado no [pubspec.yaml] em `flutter: assets:`.
-  static const _logoAsset = 'assets/images/mescla_logo.png';
 
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
@@ -89,25 +87,27 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final fieldStroke = theme.brightness == Brightness.light
+        ? AppColors.fieldBorder
+        : colorScheme.outline;
     final labelStyle = theme.textTheme.labelSmall?.copyWith(
       color: AppColors.textSecondary,
       fontWeight: FontWeight.w600,
       letterSpacing: 1.2,
     );
+    final gradientStops = AppColors.shellGradientColors(theme.brightness);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: AppColors.shellOverlayStyle(theme.brightness),
       child: Scaffold(
         body: Container(
           width: double.infinity,
           height: double.infinity,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [AppColors.gradientTop, AppColors.gradientBottom],
+              colors: gradientStops,
             ),
           ),
           child: SafeArea(
@@ -140,21 +140,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        // Logo da marca, centrado no topo conforme identidade visual.
-                        Center(
-                          child: Image.asset(
-                            _logoAsset,
-                            height: 88,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                Icons.show_chart_rounded,
-                                size: 72,
-                                color: colorScheme.primary,
-                              );
-                            },
-                          ),
-                        ),
+                        const MesclaAuthHeaderLogo(),
                         const SizedBox(height: 24),
                         Text(
                           'Recuperar senha',
@@ -177,7 +163,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                           elevation: 6,
                           shadowColor: Colors.black.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(30),
-                          color: Colors.white,
+                          color: colorScheme.surface,
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                             child: Column(
@@ -211,19 +197,19 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                                       color: AppColors.textSecondary,
                                     ),
                                     filled: true,
-                                    fillColor: Colors.white,
+                                    fillColor: colorScheme.surface,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
                                     enabledBorder: _stadiumBorder(
-                                      AppColors.fieldBorder,
+                                      fieldStroke,
                                     ),
                                     focusedBorder: _stadiumBorder(
                                       colorScheme.primary,
                                     ),
                                     border: _stadiumBorder(
-                                      AppColors.fieldBorder,
+                                      fieldStroke,
                                     ),
                                   ),
                                 ),
@@ -244,12 +230,12 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                                     backgroundColor: colorScheme.primary,
                                   ),
                                   child: _isSending
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           width: 18,
                                           height: 18,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2.2,
-                                            color: Colors.white,
+                                            color: colorScheme.onPrimary,
                                           ),
                                         )
                                       : const Text(

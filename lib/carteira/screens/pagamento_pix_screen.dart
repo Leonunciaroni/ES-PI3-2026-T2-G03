@@ -103,27 +103,27 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     final onSurface = theme.colorScheme.onSurface;
-    const appBarFg = Colors.black;
     final esgotado = _segundosRestantes <= 0;
-
-    // Mesmo tom de fundo do ecrã anterior (lista única de fluxo “Carteira”).
-    const bodyBg = Color(0xFFF3F4F6);
+    final bodyBg = theme.brightness == Brightness.light
+        ? const Color(0xFFF3F4F6)
+        : AppColors.gradientBottomDark;
+    final overlay = AppColors.shellOverlayStyle(theme.brightness);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppColors.systemUiLightAppBar,
+      value: overlay,
       child: Scaffold(
         backgroundColor: bodyBg,
         appBar: AppBar(
           title: const CarteiraAppBarLogo(),
           centerTitle: true,
-          backgroundColor: Colors.white,
-          foregroundColor: appBarFg,
+          backgroundColor: theme.colorScheme.surface,
+          foregroundColor: onSurface,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           shadowColor: Colors.transparent,
           scrolledUnderElevation: 0,
-          systemOverlayStyle: AppColors.systemUiLightAppBar,
-          iconTheme: const IconThemeData(color: appBarFg),
+          systemOverlayStyle: overlay,
+          iconTheme: IconThemeData(color: onSurface),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
             onPressed: () => Navigator.of(context).pop(),
@@ -140,7 +140,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                 Text(
                   'PAGAMENTO PIX',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.secondaryLabel(theme),
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.4,
                   ),
@@ -148,7 +148,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                 const SizedBox(height: 14),
                 // Valor total (wireframe: só rótulo + montante, centrados).
                 Material(
-                  color: Colors.white,
+                  color: AppColors.themeCardSurface(theme),
                   elevation: 2,
                   shadowColor: Colors.black.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(_radiusCard),
@@ -160,7 +160,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                           'Total a pagar',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.secondaryLabel(theme),
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.3,
                           ),
@@ -190,7 +190,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                 const SizedBox(height: 12),
                 Center(
                   child: Material(
-                    color: Colors.white,
+                    color: AppColors.themeCardSurface(theme),
                     elevation: 4,
                     shadowColor: Colors.black.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(24),
@@ -198,7 +198,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.fieldBorder),
+                        border: Border.all(color: AppColors.cardDivider(theme)),
                       ),
                       child: QrImageView(
                         data: kQrPayloadMock,
@@ -223,13 +223,13 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                     'Tempo restante para pagar',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.labelLarge?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Material(
-                    color: Colors.white,
+                    color: AppColors.themeCardSurface(theme),
                     elevation: 2,
                     shadowColor: Colors.black.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(_radiusCard),
@@ -272,7 +272,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                             child: Text(
                               'Tempo esgotado. Volte à carteira e tente de novo.',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
+                                color: AppColors.secondaryLabel(theme),
                                 height: 1.35,
                               ),
                             ),
@@ -284,7 +284,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                 ],
                 const SizedBox(height: 22),
                 Material(
-                  color: Colors.white,
+                  color: AppColors.themeCardSurface(theme),
                   elevation: 1,
                   borderRadius: BorderRadius.circular(_radiusCard),
                   child: Padding(
@@ -304,6 +304,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                               'Como pagar',
                               style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
+                                color: onSurface,
                               ),
                             ),
                           ],
@@ -330,7 +331,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                 ),
                 const SizedBox(height: 16),
                 Material(
-                  color: primary.withValues(alpha: 0.05),
+                  color: primary.withValues(alpha: theme.brightness == Brightness.dark ? 0.12 : 0.05),
                   borderRadius: BorderRadius.circular(_radiusCard),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -343,7 +344,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                               Text(
                                 'Chave PIX',
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: AppColors.textSecondary,
+                                  color: AppColors.secondaryLabel(theme),
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.5,
                                 ),
@@ -354,6 +355,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   height: 1.25,
+                                  color: onSurface,
                                 ),
                               ),
                             ],
@@ -440,7 +442,7 @@ class _PassoLinha extends StatelessWidget {
             child: Text(
               texto,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.secondaryLabel(theme),
                 height: 1.4,
               ),
             ),
