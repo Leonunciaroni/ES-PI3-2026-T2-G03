@@ -2,8 +2,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 
 /// Serviço que chama as Firebase Functions de 2FA.
 ///
-/// Usa [FirebaseFunctions.instance] para invocar as callable functions
-/// `sendTwoFactorCode` e `verifyTwoFactorCode` definidas no backend.
+/// Usa [FirebaseFunctions.instance] para invocar a callable única `twoFactor`
+/// com `action: send` ou `action: verify`.
 ///
 /// Para testes, subclasse e sobrescreva [sendCode] e [verifyCode]
 /// sem precisar de Firebase inicializado.
@@ -18,7 +18,9 @@ class TwoFactorService {
   ///
   /// Lança [FirebaseFunctionsException] em caso de erro no backend.
   Future<void> sendCode() async {
-    await _instance.httpsCallable('sendTwoFactorCode').call<void>(null);
+    await _instance
+        .httpsCallable('twoFactor')
+        .call<void>(<String, dynamic>{'action': 'send'});
   }
 
   /// Verifica o [code] de 6 dígitos informado pelo utilizador.
@@ -27,8 +29,11 @@ class TwoFactorService {
   /// Lança [FirebaseFunctionsException] em caso de erro (expirado, inválido, etc.).
   Future<bool> verifyCode(String code) async {
     final result = await _instance
-        .httpsCallable('verifyTwoFactorCode')
-        .call<Map<Object?, Object?>>({'code': code});
+        .httpsCallable('twoFactor')
+        .call<Map<Object?, Object?>>({
+          'action': 'verify',
+          'code': code,
+        });
     return result.data['verified'] == true;
   }
 
@@ -46,6 +51,8 @@ class TwoFactorService {
           return 'Sessão expirada. Faça login novamente.';
         case 'failed-precondition':
           return 'Conta sem e-mail — não é possível enviar o código.';
+        case 'internal':
+          return 'Erro no servidor. Tente novamente em instantes.';
         default:
           return 'Erro na verificação. Tente novamente.';
       }

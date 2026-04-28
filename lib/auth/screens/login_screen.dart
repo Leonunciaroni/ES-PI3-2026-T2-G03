@@ -74,18 +74,23 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
+      // 1. Autenticação Firebase Auth.
       await UserFirestoreService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      if (!mounted) {
+      if (!mounted) return;
+
+      // 2. Dispara o envio do OTP — erro aqui não é de credencial, tem mensagem própria.
+      try {
+        await _twoFactorService.sendCode();
+      } catch (sendError) {
+        if (!mounted) return;
+        _showSnack(TwoFactorService.messageForError(sendError));
         return;
       }
-      // Solicita o envio do OTP via Function antes de navegar para a tela 2FA.
-      await _twoFactorService.sendCode();
-      if (!mounted) {
-        return;
-      }
+
+      if (!mounted) return;
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (_) => TwoFactorVerificationScreen(
@@ -95,18 +100,10 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      _showSnack(
-        AuthService.messageForError(error) == 'Não foi possível concluir a operação agora.'
-            ? TwoFactorService.messageForError(error)
-            : AuthService.messageForError(error),
-      );
+      if (!mounted) return;
+      _showSnack(AuthService.messageForError(error));
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
