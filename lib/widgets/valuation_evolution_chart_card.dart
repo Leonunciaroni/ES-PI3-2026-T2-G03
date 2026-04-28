@@ -99,8 +99,12 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
     final rawMax = values.reduce(math.max);
     final span = (rawMax - rawMin).abs() < 1e-6 ? 1.0 : (rawMax - rawMin);
     final pad = span * 0.12 + 0.25;
-    final vmin = rawMin - pad;
+    var vmin = rawMin - pad;
     final vmax = rawMax + pad;
+    // Cotações e saldos reais não devem forçar rótulos negativos no eixo.
+    if (rawMin >= 0) {
+      vmin = math.max(0, vmin);
+    }
 
     String fY(double v) =>
         widget.formatYAxis?.call(v) ?? _defaultYAxisMillion(v);
@@ -111,7 +115,7 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
     const axisWidth = 52.0;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kValuationChartCardRadius),
       elevation: 1,
       child: Padding(
@@ -123,6 +127,7 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
               widget.title,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 12),
@@ -170,9 +175,8 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
                                 maxLines: 1,
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   fontSize: 9,
-                                  color: AppColors.textSecondary.withValues(
-                                    alpha: 0.85,
-                                  ),
+                                  color: AppColors.secondaryLabel(theme)
+                                      .withValues(alpha: 0.9),
                                 ),
                               ),
                             );
@@ -205,18 +209,18 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
                                     vmax: vmax,
                                     highlightT: _fingerOnChart ? _t : null,
                                     lineColor: const Color(0xFF4F6AF0),
-                                    gridColor: AppColors.fieldBorder.withValues(
-                                      alpha: 0.9,
-                                    ),
+                                    gridColor: AppColors.cardDivider(theme),
+                                    highlightFill: theme.colorScheme.surface,
                                   ),
                                 ),
                                 if (_fingerOnChart &&
                                     n > 0 &&
                                     times.length == n)
                                   Positioned(
-                                    left: (_t * plotW - 72).clamp(
-                                      0.0,
-                                      math.max(0.0, plotW - 158),
+                                    left: AppColors.readingCardStackLeft(
+                                      plotWidth: plotW,
+                                      t: _t,
+                                      minLeft: 0,
                                     ),
                                     top: 4,
                                     child: MesclaChartReadingCard(
@@ -244,7 +248,7 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
               Text(
                 widget.footnote,
                 style: theme.textTheme.labelSmall?.copyWith(
-                  color: AppColors.textSecondary.withValues(alpha: 0.85),
+                  color: AppColors.secondaryLabel(theme).withValues(alpha: 0.9),
                 ),
               ),
             ],
@@ -263,6 +267,7 @@ class _ValuationAreaChartPainter extends CustomPainter {
     required this.highlightT,
     required this.lineColor,
     required this.gridColor,
+    required this.highlightFill,
   });
 
   final List<double> values;
@@ -271,6 +276,7 @@ class _ValuationAreaChartPainter extends CustomPainter {
   final double? highlightT;
   final Color lineColor;
   final Color gridColor;
+  final Color highlightFill;
 
   List<Offset> _points(Size size) {
     final n = values.length;
@@ -363,7 +369,7 @@ class _ValuationAreaChartPainter extends CustomPainter {
         ..strokeWidth = 1;
       canvas.drawLine(Offset(x, 0), Offset(x, h), guia);
 
-      final fill = Paint()..color = Colors.white;
+      final fill = Paint()..color = highlightFill;
       canvas.drawCircle(Offset(x, y), 7, fill);
       final borda = Paint()
         ..color = lineColor
@@ -378,7 +384,8 @@ class _ValuationAreaChartPainter extends CustomPainter {
     return !identical(oldDelegate.values, values) ||
         oldDelegate.vmin != vmin ||
         oldDelegate.vmax != vmax ||
-        oldDelegate.highlightT != highlightT;
+        oldDelegate.highlightT != highlightT ||
+        oldDelegate.highlightFill != highlightFill;
   }
 }
 
@@ -401,7 +408,7 @@ class _PeriodChip extends StatelessWidget {
     return Material(
       color: selected
           ? primary.withValues(alpha: 0.12)
-          : const Color(0xFFF3F4F6),
+          : AppColors.themeMutedSurface(theme),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
@@ -411,7 +418,7 @@ class _PeriodChip extends StatelessWidget {
           child: Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: selected ? primary : AppColors.textSecondary,
+              color: selected ? primary : AppColors.secondaryLabel(theme),
               fontWeight: FontWeight.w700,
             ),
           ),
