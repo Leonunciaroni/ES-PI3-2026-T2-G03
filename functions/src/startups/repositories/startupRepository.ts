@@ -52,6 +52,7 @@ const kDescricao = "descricao";
 const kSetor = "setor";
 const kEstagio = "estagio";
 const kSigla = "sigla";
+const kTokensEmitidos = "tokens_emitidos";
 const kLogoPath = "logoPath";
 const kLogoPathSnake = "logo_path";
 const kPrecoToken = "preco_token";
@@ -143,6 +144,22 @@ function logoPathFrom(d: Record<string, unknown>): string | undefined {
   return readOptionalString(d, kLogoPath) ?? readOptionalString(d, kLogoPathSnake);
 }
 
+/**
+ * Sigla do token: campo raiz [kSigla] ou, se vazio, `tokens_emitidos.sigla` (não usa `nome`,
+ * que costuma ser o nome longo do token).
+ */
+function readSiglaFromDoc(data: Record<string, unknown>): string | undefined {
+  const fromRoot = readOptionalString(data, kSigla);
+  if (fromRoot != null) {
+    return fromRoot;
+  }
+  const raw = data[kTokensEmitidos];
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
+  return readOptionalString(raw as Record<string, unknown>, kSigla);
+}
+
 function buildTags(setor: string, sigla: string | undefined, stage: StartupStage): string[] {
   const tags: string[] = [];
   if (setor.trim().length > 0) {
@@ -227,7 +244,7 @@ function mapDocToItem(
   if (shortDescription.trim().length === 0) {
     shortDescription = readString(data, "description");
   }
-  const sigla = readOptionalString(data, kSigla);
+  const sigla = readSiglaFromDoc(data);
 
   const item: StartupListItem = {
     id,
