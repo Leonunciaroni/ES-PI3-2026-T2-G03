@@ -50,3 +50,5 @@ app.*.map.json
 /functions/.env
 /functions/.env.*
 !/functions/.env.example
+
+node_modules/

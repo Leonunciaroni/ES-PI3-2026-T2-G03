@@ -6,9 +6,9 @@ import 'dart:math' show min;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
-import '../services/auth_service.dart';
+import '../services/password_reset_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'reset_password_screen.dart';
@@ -66,6 +66,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
 
   bool _isVerifying = false;
   bool _isResending = false;
+  final _passwordResetService = PasswordResetService();
 
   // Timer para o botão "Solicitar novamente"
   int _resendCountdown = 60;
@@ -152,38 +153,21 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
 
     setState(() => _isVerifying = true);
     try {
-
-      // Verifica se o código é válido tentando verificar com o Firebase
-      // O Firebase valida o código através do método verifyPasswordResetCode
-      await FirebaseAuth.instance.verifyPasswordResetCode(code);
+      final sessionToken = await _passwordResetService.verifyCode(
+        email: widget.email.trim().toLowerCase(),
+        code: code,
+      );
 
       if (!mounted) return;
 
       // Código válido! Navega para a tela de definir senha
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (context) => ResetPasswordScreen(oobCode: code),
+          builder: (context) => ResetPasswordScreen(sessionToken: sessionToken),
         ),
       );
-    } on FirebaseAuthException catch (e) {
-      String errorMessage = 'Código inválido ou expirado.';
-      switch (e.code) {
-        case 'expired-action-code':
-          errorMessage = 'O código expirou. Solicite um novo.';
-          break;
-        case 'invalid-action-code':
-          errorMessage = 'O código é inválido. Verifique e tente novamente.';
-          break;
-        case 'user-disabled':
-          errorMessage = 'Esta conta foi desabilitada.';
-          break;
-        case 'user-not-found':
-          errorMessage = 'Usuário não encontrado.';
-          break;
-        default:
-          errorMessage = AuthService.messageForError(e);
-      }
-      _showSnack(errorMessage);
+    } on FirebaseFunctionsException catch (e) {
+      _showSnack(PasswordResetService.messageForError(e));
     } catch (e) {
       _showSnack('Erro ao verificar código. Tente novamente.');
     } finally {
@@ -199,9 +183,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
 
     setState(() => _isResending = true);
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: widget.email.trim().toLowerCase(),
-      );
+      await _passwordResetService.sendCode(widget.email.trim().toLowerCase());
 
       if (!mounted) return;
 
@@ -213,8 +195,8 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
         c.clear();
       }
       _digitFocusNodes[0].requestFocus();
-    } on FirebaseAuthException catch (e) {
-      _showSnack(AuthService.messageForPasswordResetError(e));
+    } on FirebaseFunctionsException catch (e) {
+      _showSnack(PasswordResetService.messageForError(e));
     } catch (e) {
       _showSnack('Erro ao reenviar código. Tente novamente.');
     } finally {

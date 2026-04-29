@@ -14,6 +14,9 @@ module.exports = {
   ],
   parser: "@typescript-eslint/parser",
   parserOptions: {
+    // Garante que o ESLint (incluindo extensão do VSCode/Cursor) resolva os
+    // tsconfigs relativos a esta pasta, e não ao workspace root.
+    tsconfigRootDir: __dirname,
     project: ["tsconfig.json", "tsconfig.dev.json"],
     sourceType: "module",
   },
