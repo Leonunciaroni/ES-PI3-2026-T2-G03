@@ -1,4 +1,4 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 
-export {listStartups} from "./handlers/listStartups.js";
+export type StartupStage = "nova" | "em_operacao" | "em_expansao";
