@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../services/user_firestore_service.dart';
 import '../services/two_factor_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -87,6 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (!twoFaOn) {
+        StartupCatalogListCache.instance.clear();
         await Navigator.of(context).pushAndRemoveUntil<void>(
           MaterialPageRoute<void>(
             builder: (_) => const DashboardScreen(),

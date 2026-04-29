@@ -1,8 +1,8 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Aba **Balcão** (índice 2 do [MesclaMainShell]): listagem de startups do mesmo
-// stream do catálogo, depois “mesa” com saldo mock, compra/venda, lista do dia
+// Aba **Balcão** (índice 2 do [MesclaMainShell]): lista de startups pela callable
+// `listStartups` (como o Explorar), depois “mesa” com saldo mock, compra/venda, lista do dia
 // e fluxo quantidade → modal → senha → detalhe (§5.3 MesclaInvest).
 
 import 'package:flutter/material.dart';
@@ -12,7 +12,8 @@ import '../../carteira/format/carteira_brl.dart';
 import '../../catalog/data/startup_detail_mock.dart';
 import '../balcao_format.dart';
 import '../../catalog/models/catalog_startup.dart';
-import '../../catalog/services/startup_catalog_service.dart';
+import '../../catalog/services/startup_catalog_functions_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../catalog/widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -109,28 +110,33 @@ List<BalcaoTransacaoDia> balcaoTransacoesHojeMock(CatalogStartup s) {
 /// Tela principal do separador Balcão: primeiro escolhe startup, depois negocia.
 ///
 /// [wrapWithSafeArea]: `false` quando o pai já é o [MesclaMainShell] com insets.
-/// [startupsStreamForTesting] e [catalogService] seguem o mesmo padrão do [CatalogScreen].
+/// [startupsFutureForTesting] e [catalogFunctionsService] seguem o mesmo padrão do [CatalogScreen].
 class BalcaoTabScreen extends StatefulWidget {
   const BalcaoTabScreen({
     super.key,
     this.wrapWithSafeArea = true,
     this.initialMesaStartup,
-    this.startupsStreamForTesting,
-    this.catalogService,
+    this.startupsFutureForTesting,
+    this.catalogFunctionsService,
   });
 
   final bool wrapWithSafeArea;
   final CatalogStartup? initialMesaStartup;
-  final Stream<List<CatalogStartup>>? startupsStreamForTesting;
-  final StartupCatalogService? catalogService;
+  final Future<List<CatalogStartup>>? startupsFutureForTesting;
+  final StartupCatalogFunctionsService? catalogFunctionsService;
 
   @override
   State<BalcaoTabScreen> createState() => _BalcaoTabScreenState();
 }
 
 class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
-  /// Stream único no ciclo de vida — evita re-subscrever a cada [build].
-  late final Stream<List<CatalogStartup>> _startupStream;
+  late final StartupCatalogFunctionsService _functionsService;
+
+  /// Lista inicial (callable ou future de teste).
+  late final Future<List<CatalogStartup>> _listFuture;
+
+  /// Opcional: detalhe enriquecido para o gráfico da mesa quando há `firestoreId`.
+  Future<StartupDetailViewData?>? _mesaDetailFuture;
 
   /// Igual ao [CatalogScreen] — filtra a lista, sem barra de chips de estágio.
   final TextEditingController _searchController = TextEditingController();
@@ -146,9 +152,16 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
   @override
   void initState() {
     super.initState();
-    _startupStream = widget.startupsStreamForTesting ??
-        (widget.catalogService ?? StartupCatalogService()).watchStartups();
+    _functionsService =
+        widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
+    _listFuture = widget.startupsFutureForTesting ??
+        StartupCatalogListCache.instance.fullList(_functionsService);
     _mesaStartup = widget.initialMesaStartup;
+    final CatalogStartup? mesa = _mesaStartup;
+    if (mesa?.firestoreId != null) {
+      _mesaDetailFuture =
+          _functionsService.fetchStartupDetail(mesa!.firestoreId!);
+    }
   }
 
   @override
@@ -173,6 +186,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     setState(() {
       _mesaStartup = null;
       _periodoCotacao = ValuationPeriod.mensal;
+      _mesaDetailFuture = null;
     });
   }
 
@@ -262,14 +276,16 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            StreamBuilder<List<CatalogStartup>>(
-              stream: _startupStream,
+            FutureBuilder<List<CatalogStartup>>(
+              future: _listFuture,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 24),
                     child: Text(
-                      'Não foi possível carregar as startups. Verifique a rede e o Firebase.',
+                      StartupCatalogFunctionsService.messageForError(
+                        snapshot.error!,
+                      ),
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: AppColors.secondaryLabel(theme),
@@ -277,7 +293,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                     ),
                   );
                 }
-                if (!snapshot.hasData) {
+                if (snapshot.connectionState != ConnectionState.done ||
+                    !snapshot.hasData) {
                   return const Padding(
                     padding: EdgeInsets.only(top: 48),
                     child: Center(child: CircularProgressIndicator()),
@@ -320,6 +337,11 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                         onTap: () => setState(() {
                           _mesaStartup = s;
                           _periodoCotacao = ValuationPeriod.mensal;
+                          _mesaDetailFuture = s.firestoreId != null
+                              ? _functionsService.fetchStartupDetail(
+                                  s.firestoreId!,
+                                )
+                              : null;
                         }),
                       ),
                       const SizedBox(height: 12),
@@ -334,109 +356,40 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
             Builder(
               builder: (context) {
                 final s = _mesaStartup!;
-                final detail = startupDetailFor(s);
-                final cotacao = _serieCotacaoTokenBrl(
-                  detail.chartSeriesByPeriod[_periodoCotacao]!,
-                  s.tokenPrice,
-                );
-                final diarioBrl = _serieCotacaoTokenBrl(
-                  detail.chartSeriesByPeriod[ValuationPeriod.diario]!,
-                  s.tokenPrice,
-                );
-                final p24 = diarioBrl.valuationMillions;
-                final precoConhecido = s.tokenPrice > 1e-9;
-                final saldoTok = balcaoSaldoTokensMock(s);
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _MesaTokenCard(
-                      pairLabel:
-                          '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
-                      nomeStartup: s.name,
-                      categoria: s.category,
-                      cotacaoFormatada: precoConhecido
-                          ? formatBrl(s.tokenPrice)
-                          : '—',
-                      variacao24hPct: balcaoVariacao24hPercentual(p24),
-                      min24h: p24.isEmpty
-                          ? '—'
-                          : formatBrl(
-                              p24.reduce((a, b) => a < b ? a : b),
-                            ),
-                      max24h: p24.isEmpty
-                          ? '—'
-                          : formatBrl(
-                              p24.reduce((a, b) => a > b ? a : b),
-                            ),
-                      saldoTokens: saldoTok,
-                      saldoReaisTexto: balcaoBrlDisponivel(
-                        saldoTok * s.tokenPrice,
-                        precoConhecido,
-                      ),
-                      corLogo: s.logoColor,
-                      icone: s.logoIcon,
-                      logoPath: s.logoPath,
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => _iniciarFluxoOperacao(
-                              BalcaoOperacaoTipo.compra,
-                            ),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: scheme.primary,
-                              foregroundColor: scheme.onPrimary,
-                              elevation: 2,
-                              shadowColor: AppColors.primaryShadow(scheme),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text('Comprar'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => _iniciarFluxoOperacao(
-                              BalcaoOperacaoTipo.venda,
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: scheme.primary,
-                              backgroundColor: theme.colorScheme.surface,
-                              side: BorderSide(
-                                color: scheme.primary,
-                                width: 1.5,
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: const Text('Vender'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    ValuationEvolutionChartCard(
-                      selected: _periodoCotacao,
-                      onSelect: (p) => setState(() => _periodoCotacao = p),
-                      series: cotacao,
-                      primary: scheme.primary,
-                      title: 'Histórico de cotação',
-                      footnote: '',
-                      formatYAxis: (v) => formatBrl(v),
-                      formatTooltip: (v) => formatBrl(v),
-                      touchListenerKey: const ValueKey<String>(
-                        'balcao_cotacao_chart_touch',
-                      ),
-                    ),
-                  ],
+                final fut = _mesaDetailFuture;
+                if (fut == null) {
+                  return _balcaoMesaTradingColumn(
+                    theme: theme,
+                    scheme: scheme,
+                    s: s,
+                    detail: startupDetailFor(s),
+                    onPeriodo: (p) => setState(() => _periodoCotacao = p),
+                    comprar: () =>
+                        _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
+                    vender: () =>
+                        _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+                  );
+                }
+                return FutureBuilder<StartupDetailViewData?>(
+                  future: fut,
+                  builder: (context, snapshot) {
+                    final StartupDetailViewData detail =
+                        snapshot.hasData && snapshot.data != null
+                            ? snapshot.data!
+                            : startupDetailFor(s);
+                    return _balcaoMesaTradingColumn(
+                      theme: theme,
+                      scheme: scheme,
+                      s: s,
+                      detail: detail,
+                      onPeriodo: (p) =>
+                          setState(() => _periodoCotacao = p),
+                      comprar: () =>
+                          _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
+                      vender: () =>
+                          _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+                    );
+                  },
                 );
               },
             ),
@@ -480,6 +433,111 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// Cartões de cotação, botões e gráfico da mesa (usa séries reais se a callable devolveu detalhe).
+  Widget _balcaoMesaTradingColumn({
+    required ThemeData theme,
+    required ColorScheme scheme,
+    required CatalogStartup s,
+    required StartupDetailViewData detail,
+    required ValueChanged<ValuationPeriod> onPeriodo,
+    required VoidCallback comprar,
+    required VoidCallback vender,
+  }) {
+    final cotacao = _serieCotacaoTokenBrl(
+      detail.chartSeriesByPeriod[_periodoCotacao]!,
+      s.tokenPrice,
+    );
+    final diarioBrl = _serieCotacaoTokenBrl(
+      detail.chartSeriesByPeriod[ValuationPeriod.diario]!,
+      s.tokenPrice,
+    );
+    final p24 = diarioBrl.valuationMillions;
+    final precoConhecido = s.tokenPrice > 1e-9;
+    final saldoTok = balcaoSaldoTokensMock(s);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MesaTokenCard(
+          pairLabel: '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
+          nomeStartup: s.name,
+          categoria: s.category,
+          cotacaoFormatada:
+              precoConhecido ? formatBrl(s.tokenPrice) : '—',
+          variacao24hPct: balcaoVariacao24hPercentual(p24),
+          min24h: p24.isEmpty
+              ? '—'
+              : formatBrl(p24.reduce((a, b) => a < b ? a : b)),
+          max24h: p24.isEmpty
+              ? '—'
+              : formatBrl(p24.reduce((a, b) => a > b ? a : b)),
+          saldoTokens: saldoTok,
+          saldoReaisTexto: balcaoBrlDisponivel(
+            saldoTok * s.tokenPrice,
+            precoConhecido,
+          ),
+          corLogo: s.logoColor,
+          icone: s.logoIcon,
+          logoPath: s.logoPath,
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton(
+                onPressed: comprar,
+                style: FilledButton.styleFrom(
+                  backgroundColor: scheme.primary,
+                  foregroundColor: scheme.onPrimary,
+                  elevation: 2,
+                  shadowColor: AppColors.primaryShadow(scheme),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Comprar'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: vender,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: scheme.primary,
+                  backgroundColor: theme.colorScheme.surface,
+                  side: BorderSide(
+                    color: scheme.primary,
+                    width: 1.5,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Vender'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        ValuationEvolutionChartCard(
+          selected: _periodoCotacao,
+          onSelect: onPeriodo,
+          series: cotacao,
+          primary: scheme.primary,
+          title: 'Histórico de cotação',
+          footnote: '',
+          formatYAxis: (v) => formatBrl(v),
+          formatTooltip: (v) => formatBrl(v),
+          touchListenerKey: const ValueKey<String>(
+            'balcao_cotacao_chart_touch',
+          ),
+        ),
+      ],
     );
   }
 }
