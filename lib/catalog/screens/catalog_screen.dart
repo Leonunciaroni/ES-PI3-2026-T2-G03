@@ -2,13 +2,15 @@
 // RA: 25005592
 //
 // Tela Explorar (catálogo de startups) — protótipo visual alinhado ao Figma.
-// A lista vem do Firestore via [StartupCatalogService]; em testes injeta-se um [Stream] fixo.
+// A lista vem da callable `listStartups` via [StartupCatalogFunctionsService];
+// em testes injeta-se [startupsFutureForTesting].
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/catalog_startup.dart';
-import '../services/startup_catalog_service.dart';
+import '../services/startup_catalog_functions_service.dart';
+import '../services/startup_catalog_list_cache.dart';
 import '../widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -37,19 +39,20 @@ class CatalogScreen extends StatefulWidget {
   const CatalogScreen({
     super.key,
     this.wrapWithSafeArea = true,
-    this.startupsStreamForTesting,
-    this.catalogService,
+    this.startupsFutureForTesting,
+    this.catalogFunctionsService,
     this.onInvestir,
   });
 
   /// Evita SafeArea duplicado quando a tela é filha de um [SafeArea] maior (dashboard shell).
   final bool wrapWithSafeArea;
 
-  /// Quando não é null, a tela usa este stream em vez do Firestore (útil em `flutter test`).
-  final Stream<List<CatalogStartup>>? startupsStreamForTesting;
+  /// Quando não é null, a tela usa esta Future em vez da callable (útil em `flutter test`).
+  /// Chips e busca filtram **localmente** sobre esta lista.
+  final Future<List<CatalogStartup>>? startupsFutureForTesting;
 
-  /// Injecção opcional do serviço (testes / DI).
-  final StartupCatalogService? catalogService;
+  /// Injecção opcional da callable (testes / DI).
+  final StartupCatalogFunctionsService? catalogFunctionsService;
 
   /// Chamado quando o utilizador toca "Investir Agora" dentro do detalhe.
   /// O [DashboardScreen] usa este callback para abrir o Balcão na startup certa.
@@ -68,15 +71,63 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   static const _horizontalPadding = 20.0;
 
-  /// Stream único por ciclo de vida do State: evita nova subscrição a cada [build].
-  late final Stream<List<CatalogStartup>> _startupStream;
+  late final StartupCatalogFunctionsService _functionsService;
+
+  /// Pedido atual à callable (ou future de teste); novo objeto quando mudam chip/busca em produção.
+  Future<List<CatalogStartup>>? _loadFuture;
 
   @override
   void initState() {
     super.initState();
-    // Se o teste injetou dados, usa-os; senão abre o canal com o Firestore.
-    _startupStream = widget.startupsStreamForTesting ??
-        (widget.catalogService ?? StartupCatalogService()).watchStartups();
+    _functionsService =
+        widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
+    _loadFuture = _createLoadFuture();
+  }
+
+  /// Monta o [Future] conforme modo teste vs produção.
+  Future<List<CatalogStartup>> _createLoadFuture() {
+    if (widget.startupsFutureForTesting != null) {
+      return widget.startupsFutureForTesting!;
+    }
+    final bool useSharedFullList = _chipFilter == _ChipFilter.todas &&
+        _searchController.text.trim().isEmpty;
+    if (useSharedFullList) {
+      return StartupCatalogListCache.instance.fullList(_functionsService);
+    }
+    return _functionsService.listStartups(
+      stage: _stageForChip(_chipFilter),
+      search: _searchQueryForApi,
+    );
+  }
+
+  /// Texto da busca ou null se vazio (enviado à Function).
+  String? get _searchQueryForApi {
+    final t = _searchController.text.trim();
+    return t.isEmpty ? null : t;
+  }
+
+  /// Converte o chip da UI no estágio esperado pela API (`null` = todas).
+  StartupStage? _stageForChip(_ChipFilter f) {
+    switch (f) {
+      case _ChipFilter.todas:
+        return null;
+      case _ChipFilter.novas:
+        return StartupStage.nova;
+      case _ChipFilter.emOperacao:
+        return StartupStage.emOperacao;
+      case _ChipFilter.emExpansao:
+        return StartupStage.emExpansao;
+    }
+  }
+
+  /// Em produção, novo pedido ao mudar chip ou texto; em teste só [setState] local.
+  void _reloadFromBackendIfNeeded() {
+    if (widget.startupsFutureForTesting != null) {
+      return;
+    }
+    setState(() {
+      _loadFuture = _createLoadFuture();
+    });
   }
 
   @override
@@ -190,8 +241,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         // Campo de busca: cor de fundo #E2E2E2 definida em [AppColors.searchFieldFill].
                         TextField(
                           controller: _searchController,
-                          // Cada tecla dispara setState para atualizar a lista filtrada.
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) {
+                            if (widget.startupsFutureForTesting != null) {
+                              setState(() {});
+                            } else {
+                              _reloadFromBackendIfNeeded();
+                            }
+                          },
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             hintText: 'Buscar startups, setores...',
@@ -220,45 +276,66 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               _FilterChip(
                                 label: 'Todas',
                                 selected: _chipFilter == _ChipFilter.todas,
-                                onSelected: () =>
-                                    setState(() => _chipFilter = _ChipFilter.todas),
+                                onSelected: () => setState(() {
+                                  _chipFilter = _ChipFilter.todas;
+                                  if (widget.startupsFutureForTesting != null) {
+                                    return;
+                                  }
+                                  _loadFuture = _createLoadFuture();
+                                }),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Novas',
                                 selected: _chipFilter == _ChipFilter.novas,
-                                onSelected: () =>
-                                    setState(() => _chipFilter = _ChipFilter.novas),
+                                onSelected: () => setState(() {
+                                  _chipFilter = _ChipFilter.novas;
+                                  if (widget.startupsFutureForTesting != null) {
+                                    return;
+                                  }
+                                  _loadFuture = _createLoadFuture();
+                                }),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Em operação',
                                 selected: _chipFilter == _ChipFilter.emOperacao,
-                                onSelected: () => setState(
-                                  () => _chipFilter = _ChipFilter.emOperacao,
-                                ),
+                                onSelected: () => setState(() {
+                                  _chipFilter = _ChipFilter.emOperacao;
+                                  if (widget.startupsFutureForTesting != null) {
+                                    return;
+                                  }
+                                  _loadFuture = _createLoadFuture();
+                                }),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Em expansão',
                                 selected: _chipFilter == _ChipFilter.emExpansao,
-                                onSelected: () => setState(
-                                  () => _chipFilter = _ChipFilter.emExpansao,
-                                ),
+                                onSelected: () => setState(() {
+                                  _chipFilter = _ChipFilter.emExpansao;
+                                  if (widget.startupsFutureForTesting != null) {
+                                    return;
+                                  }
+                                  _loadFuture = _createLoadFuture();
+                                }),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // O StreamBuilder reage ao Firestore: loading, erro ou lista.
-                        StreamBuilder<List<CatalogStartup>>(
-                          stream: _startupStream,
+                        FutureBuilder<List<CatalogStartup>>(
+                          future: _loadFuture,
                           builder: (context, snapshot) {
                             if (snapshot.hasError) {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 24),
                                 child: Text(
-                                  'Não foi possível carregar o catálogo. Verifique a rede e o Firebase.',
+                                  widget.startupsFutureForTesting != null
+                                      ? 'Erro ao carregar dados de teste.'
+                                      : StartupCatalogFunctionsService.messageForError(
+                                          snapshot.error!,
+                                        ),
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: AppColors.textSecondary,
@@ -266,7 +343,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 ),
                               );
                             }
-                            if (!snapshot.hasData) {
+                            if (snapshot.connectionState !=
+                                    ConnectionState.done ||
+                                !snapshot.hasData) {
                               return const Padding(
                                 padding: EdgeInsets.only(top: 48),
                                 child: Center(
@@ -274,8 +353,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 ),
                               );
                             }
+                            final List<CatalogStartup> raw = snapshot.data!;
                             final List<CatalogStartup> visible =
-                                _visibleFrom(snapshot.data!);
+                                widget.startupsFutureForTesting != null
+                                    ? _visibleFrom(raw)
+                                    : raw;
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
