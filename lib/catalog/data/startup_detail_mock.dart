@@ -363,6 +363,7 @@ class StartupTeamMember {
     required this.role,
     required this.avatarColor,
     this.detailPreview,
+    this.firestoreFields,
   });
 
   final String name;
@@ -373,6 +374,9 @@ class StartupTeamMember {
 
   /// Quando não é null (só no mock), a linha abre a [SocioDetailScreen].
   final SocioDetailViewData? detailPreview;
+
+  /// Objeto bruto do array `socios` no Firestore (todos os campos da print).
+  final Map<String, dynamic>? firestoreFields;
 }
 
 /// Linha de pergunta e resposta pública (§5.2).
@@ -423,6 +427,7 @@ class StartupDetailViewData {
     required this.publicQa,
     required this.demoVideoTitle,
     this.demoVideoUrl,
+    this.fullFirestoreDocument,
   });
 
   /// Dados já mostrados no catálogo (ícone, cor, nome curto, etc.).
@@ -475,6 +480,9 @@ class StartupDetailViewData {
 
   /// URL do vídeo (ex.: YouTube) quando existir no Firestore.
   final String? demoVideoUrl;
+
+  /// Snapshot normalizado do documento `startups/{id}` — todos os campos para outras telas.
+  final Map<String, dynamic>? fullFirestoreDocument;
 }
 
 /// Curvas fictícias 0–1 (7 pontos) — escalamos para milhões de R$ no fallback.
@@ -891,7 +899,9 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
 ///    as secções da ficha antes de mapear campos no `startup_firestore_schema`.
 SocioDetailViewData socioDetailForTeamMember(StartupTeamMember member) {
   final SocioDetailViewData? rich = member.detailPreview;
-  if (rich != null) return rich;
+  if (rich != null) {
+    return rich;
+  }
   return _placeholderSocioDetailFromListRow(member);
 }
 
@@ -1003,6 +1013,7 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
     publicQa: template.publicQa,
     demoVideoTitle: template.demoVideoTitle,
     demoVideoUrl: template.demoVideoUrl,
+    fullFirestoreDocument: template.fullFirestoreDocument,
   );
 }
 
