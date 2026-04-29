@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../models/catalog_startup.dart';
 import '../services/startup_catalog_functions_service.dart';
 import '../services/startup_catalog_list_cache.dart';
+import '../services/startup_logo_precache_service.dart';
 import '../widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -82,6 +83,18 @@ class _CatalogScreenState extends State<CatalogScreen> {
     _functionsService =
         widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
     _loadFuture = _createLoadFuture();
+    _kickLogoPrefetchWhenListReady();
+  }
+
+  /// Após cada regressão ao backend (callable ou cache global), aquece fotos Storage em fundo
+  /// assim que há [mounted] ([StartupLogoPrecacheService]) para reduzir spinners mesmo indo já para Explorar.
+  void _kickLogoPrefetchWhenListReady() {
+    final fut = _loadFuture;
+    if (fut == null) return;
+    fut.then((list) {
+      if (!mounted) return;
+      StartupLogoPrecacheService.schedulePreloadForStartupList(context, list);
+    });
   }
 
   /// Monta o [Future] conforme modo teste vs produção.
@@ -120,6 +133,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
     }
   }
 
+  /// Troca estágio pelo chip bar e refaz lista em produção; em testes filtra apenas localmente.
+  void _updateChipSelection(_ChipFilter chip) {
+    setState(() {
+      _chipFilter = chip;
+      if (widget.startupsFutureForTesting != null) {
+        return;
+      }
+      _loadFuture = _createLoadFuture();
+    });
+    if (widget.startupsFutureForTesting == null) {
+      _kickLogoPrefetchWhenListReady();
+    }
+  }
+
   /// Em produção, novo pedido ao mudar chip ou texto; em teste só [setState] local.
   void _reloadFromBackendIfNeeded() {
     if (widget.startupsFutureForTesting != null) {
@@ -128,6 +155,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     setState(() {
       _loadFuture = _createLoadFuture();
     });
+    _kickLogoPrefetchWhenListReady();
   }
 
   @override
@@ -276,49 +304,27 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               _FilterChip(
                                 label: 'Todas',
                                 selected: _chipFilter == _ChipFilter.todas,
-                                onSelected: () => setState(() {
-                                  _chipFilter = _ChipFilter.todas;
-                                  if (widget.startupsFutureForTesting != null) {
-                                    return;
-                                  }
-                                  _loadFuture = _createLoadFuture();
-                                }),
+                                onSelected: () => _updateChipSelection(_ChipFilter.todas),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Novas',
                                 selected: _chipFilter == _ChipFilter.novas,
-                                onSelected: () => setState(() {
-                                  _chipFilter = _ChipFilter.novas;
-                                  if (widget.startupsFutureForTesting != null) {
-                                    return;
-                                  }
-                                  _loadFuture = _createLoadFuture();
-                                }),
+                                onSelected: () => _updateChipSelection(_ChipFilter.novas),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Em operação',
                                 selected: _chipFilter == _ChipFilter.emOperacao,
-                                onSelected: () => setState(() {
-                                  _chipFilter = _ChipFilter.emOperacao;
-                                  if (widget.startupsFutureForTesting != null) {
-                                    return;
-                                  }
-                                  _loadFuture = _createLoadFuture();
-                                }),
+                                onSelected: () =>
+                                    _updateChipSelection(_ChipFilter.emOperacao),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Em expansão',
                                 selected: _chipFilter == _ChipFilter.emExpansao,
-                                onSelected: () => setState(() {
-                                  _chipFilter = _ChipFilter.emExpansao;
-                                  if (widget.startupsFutureForTesting != null) {
-                                    return;
-                                  }
-                                  _loadFuture = _createLoadFuture();
-                                }),
+                                onSelected: () =>
+                                    _updateChipSelection(_ChipFilter.emExpansao),
                               ),
                             ],
                           ),

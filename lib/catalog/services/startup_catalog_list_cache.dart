@@ -4,6 +4,10 @@
 // Um único pedido `listStartups()` sem filtros serve Explorar (“Todas”), Balcão e
 // pré-carga ao abrir o dashboard — evita várias chamadas paralelas e listas vazias
 // durante segundos ao mudar de aba.
+//
+// Depois dos dados regressarem com sucesso, um ecrã com [BuildContext] montado
+// (ex.: o dashboard inicial) pode chamar [StartupLogoPrecacheService.schedulePreloadForStartupList]
+// para descarregar os bitmaps dos logos antes do utilizador abrir Explorar/Balcão.
 
 import '../models/catalog_startup.dart';
 import 'startup_catalog_functions_service.dart';

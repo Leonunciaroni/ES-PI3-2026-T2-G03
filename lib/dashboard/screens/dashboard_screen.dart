@@ -11,6 +11,7 @@ import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/screens/catalog_screen.dart';
 import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
+import '../../catalog/services/startup_logo_precache_service.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
@@ -48,8 +49,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Inicia o catálogo antes do utilizador abrir Explorar/Balcão (IndexedStack partilha o mesmo Future).
-    StartupCatalogListCache.instance.prefetch(StartupCatalogFunctionsService());
+    // Primeiro quadro garante [mounted] antes de usar [precacheImage] nos logos do catálogo.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _preloadCatalogLogoBitmaps());
+  }
+
+  /// Dispara logo o primeiro `listStartups` ([StartupCatalogListCache.fullList]); quando a lista
+  /// regressa com sucesso agendamos descarga dos logos em segundo plano (sem bloquear a UI).
+  void _preloadCatalogLogoBitmaps() {
+    final service = StartupCatalogFunctionsService();
+    StartupCatalogListCache.instance.fullList(service).then((List<CatalogStartup> list) {
+      if (!mounted) return;
+      StartupLogoPrecacheService.schedulePreloadForStartupList(context, list);
+    });
   }
 
   /// Roxo → azul do card principal (Figma).

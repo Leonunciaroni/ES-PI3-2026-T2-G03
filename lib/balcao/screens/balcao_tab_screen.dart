@@ -14,6 +14,7 @@ import '../balcao_format.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
+import '../../catalog/services/startup_logo_precache_service.dart';
 import '../../catalog/widgets/startup_logo_avatar.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -156,6 +157,10 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
         widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
     _listFuture = widget.startupsFutureForTesting ??
         StartupCatalogListCache.instance.fullList(_functionsService);
+    _listFuture.then((list) {
+      if (!mounted) return;
+      StartupLogoPrecacheService.schedulePreloadForStartupList(context, list);
+    });
     _mesaStartup = widget.initialMesaStartup;
     final CatalogStartup? mesa = _mesaStartup;
     if (mesa?.firestoreId != null) {
