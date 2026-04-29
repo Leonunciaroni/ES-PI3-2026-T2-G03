@@ -2,7 +2,7 @@
 //
 // Correm com: flutter test test/catalog_screen_test.dart
 //
-// Usamos [CatalogScreen.startupsStreamForTesting] para não depender do Firestore.
+// Usamos [CatalogScreen.startupsFutureForTesting] para não depender das Functions.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,7 +64,7 @@ Widget _wrapCatalogScreen() {
       colorScheme: colorScheme,
     ),
     home: CatalogScreen(
-      startupsStreamForTesting: Stream<List<CatalogStartup>>.value(
+      startupsFutureForTesting: Future<List<CatalogStartup>>.value(
         kCatalogMockStartups,
       ),
     ),

@@ -9,6 +9,8 @@ import '../../balcao/screens/balcao_tab_screen.dart';
 import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/screens/catalog_screen.dart';
+import '../../catalog/services/startup_catalog_functions_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
@@ -42,6 +44,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Inicia o catálogo antes do utilizador abrir Explorar/Balcão (IndexedStack partilha o mesmo Future).
+    StartupCatalogListCache.instance.prefetch(StartupCatalogFunctionsService());
+  }
 
   /// Roxo → azul do card principal (Figma).
   static const _heroGradient = LinearGradient(

@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Contrato único dos nomes de campos Firestore para startups.
-// Mantém [StartupCatalogService] e [StartupDetailService] alinhados.
+// Mantém [StartupCatalogService] (Firestore direto, legado) e a callable / [StartupDetailService] alinhados.
 
 /// Nome da coleção no console Firebase.
 const String kFirestoreStartupsCollection = 'startups';
@@ -77,6 +77,23 @@ const String kFieldVideoDemo = 'video_demo';
 
 const String kFieldSocios = 'socios';
 const String kFieldMentoresConselho = 'mentores_conselho';
+
+/// Texto ou lista de linhas sobre composição acionista (alternativa/agregado a [kFieldSocios]).
+const String kFieldEstruturaSocietaria = 'estrutura_societaria';
+
+/// Variações possíveis no console Firebase (camelCase / acentos).
+const List<String> kFieldEstruturaSocietariaAliases = <String>[
+  kFieldEstruturaSocietaria,
+  'estruturaSocietaria',
+  'Estrutura societária',
+  'estrutura societária',
+  'Estrutura Societária',
+  'quadro_societario',
+  'quadroSocietario',
+  'composicao_societaria',
+  'composicaoSocietaria',
+];
+
 const String kFieldReceitaMensal = 'receita_mensal';
 const String kFieldTokensEmitidos = 'tokens_emitidos';
 const String kFieldModeloNegocio = 'modelo_negocio';

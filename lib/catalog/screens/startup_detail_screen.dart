@@ -12,7 +12,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../data/startup_detail_mock.dart';
 import '../models/catalog_startup.dart';
 import '../models/startup_detail_load_state.dart';
-import '../services/startup_detail_service.dart';
+import '../services/socio_firestore_mapper.dart';
+import '../services/startup_catalog_functions_service.dart';
 import '../widgets/detail_demo_video_section.dart';
 import '../widgets/mescla_detail_header.dart';
 import '../widgets/mescla_pdf_section_card.dart';
@@ -26,21 +27,21 @@ part 'startup_detail_screen_widgets.dart';
 
 /// Tela completa de detalhes da startup.
 ///
-/// Com [catalog.firestoreId] preenchido (vindo do Firestore), os dados são lidos em tempo real.
-/// Sem ID ou em testes, usa [detailLoadStreamForTesting] ou [startupDetailFor] local.
+/// Com [catalog.firestoreId] preenchido, os dados vêm da callable `listStartups`
+/// (`includeDetail`). Sem ID ou em testes, usa [detailLoadStreamForTesting] ou [startupDetailFor] local.
 class StartupDetailScreen extends StatefulWidget {
   const StartupDetailScreen({
     super.key,
     required this.catalog,
-    this.detailService,
+    this.catalogFunctionsService,
     this.detailLoadStreamForTesting,
   });
 
   /// Startup tocada no catálogo (mantém identidade visual e o ID do documento, se houver).
   final CatalogStartup catalog;
 
-  /// Injecção opcional do serviço (testes / DI).
-  final StartupDetailService? detailService;
+  /// Injecção opcional da callable (testes / DI).
+  final StartupCatalogFunctionsService? catalogFunctionsService;
 
   /// Injeta um stream fixo em `flutter test` (sem Firebase).
   final Stream<StartupDetailLoadState>? detailLoadStreamForTesting;
@@ -56,29 +57,33 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Simula favoritar na lista de desejos (sem persistência).
   bool _onWishlist = false;
 
-  /// Um único [Stream] por estado: Firestore, teste ou mock estático.
-  late final Stream<StartupDetailLoadState> _detailStream;
+  /// Modo teste: stream fixo injetado.
+  Stream<StartupDetailLoadState>? _detailStream;
 
-  /// Dados a partir do card, antes do primeiro evento do stream.
-  /// Evita tela vazia / [CircularProgressIndicator] a tapar a transição quando o
-  /// [StreamBuilder] ainda não recebeu o snapshot do Firestore.
-  late final StartupDetailLoadState? _streamInitialData;
+  /// Mock instantâneo antes do primeiro frame do stream (só modos stream).
+  StartupDetailLoadState? _streamInitialData;
+
+  /// Modo produção com `firestoreId`: resposta da callable `listStartups`.
+  Future<StartupDetailViewData?>? _detailFuture;
 
   @override
   void initState() {
     super.initState();
     if (widget.detailLoadStreamForTesting != null) {
       _streamInitialData = null;
-      _detailStream = widget.detailLoadStreamForTesting!;
+      _detailStream = widget.detailLoadStreamForTesting;
+      _detailFuture = null;
     } else if (widget.catalog.firestoreId != null) {
-      _streamInitialData =
-          StartupDetailReady(startupDetailFor(widget.catalog));
-      _detailStream = (widget.detailService ?? StartupDetailService())
-          .watchDetail(widget.catalog.firestoreId!);
+      _detailStream = null;
+      _streamInitialData = null;
+      _detailFuture = (widget.catalogFunctionsService ??
+              StartupCatalogFunctionsService())
+          .fetchStartupDetail(widget.catalog.firestoreId!);
     } else {
       final ready = StartupDetailReady(startupDetailFor(widget.catalog));
       _streamInitialData = ready;
       _detailStream = Stream<StartupDetailLoadState>.value(ready);
+      _detailFuture = null;
     }
   }
 
@@ -144,6 +149,155 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     }
   }
 
+  /// Corpo scrollável comum ao [FutureBuilder] (callable) e ao [StreamBuilder] (teste/mock).
+  Widget _buildDetailScrollView(
+    ThemeData theme,
+    Color primary,
+    StartupDetailViewData detail,
+  ) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const MesclaDetailHeader(),
+          const SizedBox(height: 16),
+          _MainInfoCard(
+            data: detail,
+            primary: primary,
+            onWishlist: _onWishlist,
+            onToggleWishlist: () =>
+                setState(() => _onWishlist = !_onWishlist),
+            onInvest: () => _redirectToBalcao(detail.catalog),
+          ),
+          const SizedBox(height: 14),
+          _CaptureCard(
+            headline: detail.captureHeadline,
+            progress: detail.captureProgressFraction,
+            caption: detail.captureProgressLabel,
+            primary: primary,
+          ),
+          const SizedBox(height: 14),
+          _ValuationCard(
+            roundLabel: detail.valuationRoundLabel,
+            headline: detail.valuationHeadline,
+            trend: detail.valuationTrendText,
+          ),
+          const SizedBox(height: 14),
+          ValuationEvolutionChartCard(
+            selected: _valuationPeriod,
+            onSelect: (p) => setState(() => _valuationPeriod = p),
+            series: detail.chartSeriesByPeriod[_valuationPeriod]!,
+            primary: primary,
+          ),
+          const SizedBox(height: 14),
+          _PerformanceMetricsCard(metrics: detail.performanceMetrics),
+          const SizedBox(height: 14),
+          _CompanyInfoCard(data: detail, primary: primary),
+          const SizedBox(height: 14),
+          _TeamCard(
+            members: detail.teamMembers,
+            initialsFor: _initials,
+            onMemberTap: (member) {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (context) => SocioDetailScreen(
+                    data: resolveSocioDetailForTeamMember(member),
+                    startupDisplayName: detail.catalog.name,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          MesclaPdfSectionCard(
+            title: 'Sumário executivo',
+            child: Text(
+              detail.executiveSummary,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(theme),
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          MesclaPdfSectionCard(
+            title: 'Estrutura societária',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: detail.societaryLines
+                  .map(
+                    (line) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Text(
+                        '• $line',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          MesclaPdfSectionCard(
+            title: 'Perguntas e respostas públicas',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: detail.publicQa.isEmpty
+                  ? [
+                      Text(
+                        'Ainda não há perguntas públicas.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                        ),
+                      ),
+                    ]
+                  : detail.publicQa.map((qa) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'P: ${qa.question}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'R: ${qa.answer}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.secondaryLabel(theme),
+                                height: 1.35,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+            ),
+          ),
+          const SizedBox(height: 14),
+          MesclaPdfSectionCard(
+            title: 'Vídeos demonstrativos',
+            child: RepaintBoundary(
+              child: DetailDemoVideoSection(
+                videoTitle: detail.demoVideoTitle,
+                videoUrl: detail.demoVideoUrl,
+                primary: primary,
+                onOpenExternal: _openDemoVideo,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -163,195 +317,91 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
             ),
           ),
           child: SafeArea(
-            child: StreamBuilder<StartupDetailLoadState>(
-              initialData: _streamInitialData,
-              stream: _detailStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Não foi possível carregar os detalhes. Tente novamente.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                if (snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final StartupDetailLoadState? state = snapshot.data;
-                if (state is StartupDetailNotFound) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Startup não encontrada.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                if (state is! StartupDetailReady) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final StartupDetailViewData detail = state.data;
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const MesclaDetailHeader(),
-                      const SizedBox(height: 16),
-                      _MainInfoCard(
-                        data: detail,
-                        primary: primary,
-                        onWishlist: _onWishlist,
-                        onToggleWishlist: () =>
-                            setState(() => _onWishlist = !_onWishlist),
-                          onInvest: () => _redirectToBalcao(detail.catalog),
-                      ),
-                      const SizedBox(height: 14),
-                      _CaptureCard(
-                        headline: detail.captureHeadline,
-                        progress: detail.captureProgressFraction,
-                        caption: detail.captureProgressLabel,
-                        primary: primary,
-                      ),
-                      const SizedBox(height: 14),
-                      _ValuationCard(
-                        roundLabel: detail.valuationRoundLabel,
-                        headline: detail.valuationHeadline,
-                        trend: detail.valuationTrendText,
-                      ),
-                      const SizedBox(height: 14),
-                      ValuationEvolutionChartCard(
-                        selected: _valuationPeriod,
-                        onSelect: (p) => setState(() => _valuationPeriod = p),
-                        series: detail.chartSeriesByPeriod[_valuationPeriod]!,
-                        primary: primary,
-                      ),
-                      const SizedBox(height: 14),
-                      _PerformanceMetricsCard(metrics: detail.performanceMetrics),
-                      const SizedBox(height: 14),
-                      _CompanyInfoCard(data: detail, primary: primary),
-                      const SizedBox(height: 14),
-                      _TeamCard(
-                        members: detail.teamMembers,
-                        initialsFor: _initials,
-                        onMemberTap: (member) {
-                          Navigator.of(context).push<void>(
-                            MaterialPageRoute<void>(
-                              builder: (context) => SocioDetailScreen(
-                                data: socioDetailForTeamMember(member),
-                                startupDisplayName: detail.catalog.name,
+            child: _detailFuture != null
+                ? FutureBuilder<StartupDetailViewData?>(
+                    future: _detailFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              StartupCatalogFunctionsService.messageForError(
+                                snapshot.error!,
+                              ),
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: AppColors.secondaryLabel(theme),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      MesclaPdfSectionCard(
-                        title: 'Sumário executivo',
-                        child: Text(
-                          detail.executiveSummary,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.secondaryLabel(theme),
-                            height: 1.4,
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      MesclaPdfSectionCard(
-                        title: 'Estrutura societária',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: detail.societaryLines
-                              .map(
-                                (line) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 6),
-                                  child: Text(
-                                    '• $line',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.secondaryLabel(theme),
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      MesclaPdfSectionCard(
-                        title: 'Perguntas e respostas públicas',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: detail.publicQa.isEmpty
-                              ? [
-                                  Text(
-                                    'Ainda não há perguntas públicas.',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.secondaryLabel(theme),
-                                    ),
-                                  ),
-                                ]
-                              : detail.publicQa.map((qa) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'P: ${qa.question}',
-                                          style: theme.textTheme.titleSmall
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'R: ${qa.answer}',
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: AppColors.secondaryLabel(
-                                                  theme,
-                                                ),
-                                                height: 1.35,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      MesclaPdfSectionCard(
-                        title: 'Vídeos demonstrativos',
-                        child: RepaintBoundary(
-                          child: DetailDemoVideoSection(
-                            videoTitle: detail.demoVideoTitle,
-                            videoUrl: detail.demoVideoUrl,
-                            primary: primary,
-                            onOpenExternal: _openDemoVideo,
+                        );
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final StartupDetailViewData? detail = snapshot.data;
+                      if (detail == null) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              'Startup não encontrada.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: AppColors.secondaryLabel(theme),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
+                        );
+                      }
+                      return _buildDetailScrollView(theme, primary, detail);
+                    },
+                  )
+                : StreamBuilder<StartupDetailLoadState>(
+                    initialData: _streamInitialData,
+                    stream: _detailStream!,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              'Não foi possível carregar os detalhes. Tente novamente.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: AppColors.secondaryLabel(theme),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final StartupDetailLoadState? state = snapshot.data;
+                      if (state is StartupDetailNotFound) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              'Startup não encontrada.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: AppColors.secondaryLabel(theme),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      if (state is! StartupDetailReady) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      final StartupDetailViewData detail = state.data;
+                      return _buildDetailScrollView(theme, primary, detail);
+                    },
                   ),
-                );
-              },
-            ),
           ),
         ),
       ),

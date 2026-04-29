@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -138,6 +139,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
       Future<void>.delayed(const Duration(milliseconds: 2400), () {
         if (!mounted) return;
         if (widget.replaceStackWithDashboard) {
+          StartupCatalogListCache.instance.clear();
           Navigator.of(context).pushAndRemoveUntil<void>(
             MaterialPageRoute<void>(
               builder: (_) => const DashboardScreen(),
