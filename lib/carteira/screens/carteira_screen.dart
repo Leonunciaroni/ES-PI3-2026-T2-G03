@@ -7,14 +7,18 @@
 // [wrapWithSafeArea]: quando um pai (ex.: [MesclaMainShell]) já aplicou
 // [SafeArea], passa `false` para não duplicar insets no topo.
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../catalog/data/startup_detail_mock.dart';
+import '../../catalog/services/startup_firestore_mapper.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../format/carteira_brl.dart';
+import '../services/simulated_wallet_service.dart';
 import 'adicionar_fundos_screen.dart';
 
 // --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
@@ -106,6 +110,178 @@ final _temposCarteiraYtd = <DateTime>[
   DateTime(2026, 4, 19, 18, 15),
 ];
 
+/// Início da janela temporal de cada chip do gráfico (inclusivo).
+DateTime _carteiraInicioPeriodo(ValuationPeriod p, DateTime now) {
+  switch (p) {
+    case ValuationPeriod.diario:
+      return now.subtract(const Duration(days: 7));
+    case ValuationPeriod.semanal:
+      return now.subtract(const Duration(days: 49));
+    case ValuationPeriod.mensal:
+      return now.subtract(const Duration(days: 210));
+    case ValuationPeriod.seisMeses:
+      return now.subtract(const Duration(days: 183));
+    case ValuationPeriod.ytd:
+      return DateTime(now.year, 1, 1);
+  }
+}
+
+/// Efeito de uma linha do ledger no saldo disponível (BRL).
+double _carteiraDeltaBrlLedgerLinha(Map<String, dynamic> m) {
+  final op = m['op'] as String?;
+  final amt = (m['amountBrl'] as num?)?.toDouble() ?? 0.0;
+  switch (op) {
+    case 'credit_pix_simulated':
+      return amt;
+    case 'trade_buy':
+      return -amt;
+    case 'trade_sell':
+      return amt;
+    default:
+      return 0.0;
+  }
+}
+
+/// Reverte, a partir de [brlNow], todas as operações em
+/// [rangeStartInclusive, rangeEndInclusive] (ledger mais recente primeiro).
+double _carteiraBrlAntesDoIntervalo({
+  required double brlNow,
+  required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
+  required DateTime rangeStartInclusive,
+  required DateTime rangeEndInclusive,
+}) {
+  var b = brlNow;
+  for (final d in docsNewestFirst) {
+    final m = d.data();
+    final ts = m['createdAt'];
+    if (ts is! Timestamp) continue;
+    final t = ts.toDate();
+    if (t.isBefore(rangeStartInclusive) || t.isAfter(rangeEndInclusive)) {
+      continue;
+    }
+    b -= _carteiraDeltaBrlLedgerLinha(m);
+  }
+  return b;
+}
+
+/// Soma dos `trade_buy` no intervalo (aproxima custo em posições no início do mês).
+double _carteiraSomaComprasNoIntervalo(
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> docsAnyOrder,
+  DateTime rangeStartInclusive,
+  DateTime rangeEndInclusive,
+) {
+  var s = 0.0;
+  for (final d in docsAnyOrder) {
+    final m = d.data();
+    if ((m['op'] as String?) != 'trade_buy') continue;
+    final ts = m['createdAt'];
+    if (ts is! Timestamp) continue;
+    final t = ts.toDate();
+    if (t.isBefore(rangeStartInclusive) || t.isAfter(rangeEndInclusive)) {
+      continue;
+    }
+    s += (m['amountBrl'] as num?)?.toDouble() ?? 0.0;
+  }
+  return s;
+}
+
+/// Património exibido no hero: saldo livre + custo das posições.
+double _carteiraPatrimonioTotal({
+  required double brlDisponivel,
+  required double custoPosicoes,
+}) =>
+    brlDisponivel + custoPosicoes;
+
+/// Variação % do património no mês civil corrente (património = BRL + custo).
+/// Custo no início do mês é aproximado (vendas no período podem distorcer).
+String _carteiraVariacaoPatrimonioMesLabel({
+  required double brlNow,
+  required double custoNow,
+  required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
+  required DateTime now,
+}) {
+  final inicioMes = DateTime(now.year, now.month, 1);
+  final brlIni = _carteiraBrlAntesDoIntervalo(
+    brlNow: brlNow,
+    docsNewestFirst: docsNewestFirst,
+    rangeStartInclusive: inicioMes,
+    rangeEndInclusive: now,
+  );
+  final comprasMes = _carteiraSomaComprasNoIntervalo(
+    docsNewestFirst,
+    inicioMes,
+    now,
+  );
+  final custoIni = (custoNow - comprasMes).clamp(0.0, 1.0e15);
+  final patIni = brlIni + custoIni;
+  final patNow = _carteiraPatrimonioTotal(
+    brlDisponivel: brlNow,
+    custoPosicoes: custoNow,
+  );
+  if (patIni < 1.0) {
+    if (patNow >= 1.0) {
+      return '+ 100,0% este mês';
+    }
+    return '+ 0,0% este mês';
+  }
+  final pct = (patNow - patIni) / patIni * 100;
+  final s = pct.toStringAsFixed(1).replaceAll('.', ',');
+  final sign = pct >= 0 ? '+ ' : '';
+  return '$sign$s% este mês';
+}
+
+/// Evolução do **saldo disponível** (BRL) no período, coerente com o ledger e [brlNow].
+ValuationChartSeries saldoBrlEvolucaoSeries({
+  required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
+  required ValuationPeriod periodo,
+  required DateTime now,
+  required double brlNow,
+}) {
+  final inicio = _carteiraInicioPeriodo(periodo, now);
+  final brlOpening = _carteiraBrlAntesDoIntervalo(
+    brlNow: brlNow,
+    docsNewestFirst: docsNewestFirst,
+    rangeStartInclusive: inicio,
+    rangeEndInclusive: now,
+  );
+
+  final inPeriodChrono = docsNewestFirst.reversed.where((d) {
+    final ts = d.data()['createdAt'];
+    if (ts is! Timestamp) return false;
+    final t = ts.toDate();
+    return !t.isBefore(inicio) && !t.isAfter(now);
+  }).toList();
+
+  final times = <DateTime>[inicio];
+  final values = <double>[brlOpening];
+  var b = brlOpening;
+
+  for (final d in inPeriodChrono) {
+    final m = d.data();
+    final ts = m['createdAt'];
+    if (ts is! Timestamp) continue;
+    final t = ts.toDate();
+    b += _carteiraDeltaBrlLedgerLinha(m);
+    times.add(t);
+    values.add(b);
+  }
+
+  if (times.length < 2) {
+    times.add(now);
+    values.add(brlNow);
+  } else if (times.last.isBefore(now)) {
+    times.add(now);
+    values.add(brlNow);
+  } else {
+    values[values.length - 1] = brlNow;
+  }
+
+  return ValuationChartSeries(
+    valuationMillions: values,
+    sampleTimes: times,
+  );
+}
+
 // --- Modelos simples (mock) ---------------------------------------------------
 
 /// Uma linha da lista “Minhas Movimentações”.
@@ -151,6 +327,53 @@ class _StartupMock {
   final double totalInvestido;
   final Color corLogo;
   final IconData icone;
+}
+
+String _carteiraFmtDataPortugues(DateTime dt) =>
+    '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+
+_MovimentacaoMock _ledgerFirestoreParaLinha(Map<String, dynamic> m) {
+  final entrada = (m['dir'] as String?) == 'in';
+  final tipoLinha1 = entrada ? 'Entrada' : 'Saída';
+  final raw = (m['headline'] as String?)?.trim();
+  final detalheCaps =
+      (raw != null && raw.isNotEmpty) ? raw.toUpperCase() : 'MOVIMENTAÇÃO';
+  final ts = m['createdAt'];
+  final quando = ts is Timestamp ? ts.toDate() : DateTime.now();
+  return _MovimentacaoMock(
+    entrada: entrada,
+    tipoLinha1: tipoLinha1,
+    detalheCaps: detalheCaps,
+    data: _carteiraFmtDataPortugues(quando),
+    valor: (m['amountBrl'] as num?)?.toDouble() ?? 0.0,
+  );
+}
+
+double _somaCustosPosicoes(
+  QuerySnapshot<Map<String, dynamic>> snap,
+) {
+  var sum = 0.0;
+  for (final d in snap.docs) {
+    sum += (d.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
+  }
+  return sum;
+}
+
+_StartupMock _docPosicaoParaMock(
+  QueryDocumentSnapshot<Map<String, dynamic>> d,
+) {
+  final m = d.data();
+  final nome = ((m['startupName'] as String?) ?? '').trim();
+  final cat = ((m['category'] as String?) ?? '—').trim();
+  final setor = cat.isEmpty ? '—' : cat;
+  return _StartupMock(
+    nome: nome.isNotEmpty ? nome : 'Startup',
+    categoria: setor.toUpperCase(),
+    rendimentoLabel: 'N/D',
+    totalInvestido: (m['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
+    corLogo: firestoreColorForSector(setor),
+    icone: firestoreIconForSector(setor),
+  );
 }
 
 // --- Tela pública --------------------------------------------------------------
@@ -294,11 +517,14 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     setState(() => _hideValues = !_hideValues);
   }
 
-  /// Mesmo componente de gráfico que o catálogo/detalhe da startup ([ValuationEvolutionChartCard]).
+  /// Gráfico: mock (convidado) ou evolução do saldo em BRL a partir do extrato.
   Widget _evolucaoSaldoBlock({
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    const tituloGrafico = 'Evolução de Saldo';
+
     if (_hideValues) {
       return Material(
         color: AppColors.themeCardSurface(theme),
@@ -311,7 +537,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Evolução de Saldo',
+                tituloGrafico,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface,
@@ -363,16 +589,85 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         ),
       );
     }
-    return ValuationEvolutionChartCard(
-      selected: _periodo,
-      onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
-      series: carteiraSaldoSeries(_periodo),
-      primary: colorScheme.primary,
-      title: 'Evolução de Saldo',
-      footnote: '',
-      formatYAxis: formatBrl,
-      formatTooltip: formatBrl,
-      touchListenerKey: const ValueKey<String>('carteira_saldo_chart_touch'),
+
+    if (uid == null) {
+      return ValuationEvolutionChartCard(
+        selected: _periodo,
+        onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
+        series: carteiraSaldoSeries(_periodo),
+        primary: colorScheme.primary,
+        title: tituloGrafico,
+        footnote: '',
+        formatYAxis: formatBrl,
+        formatTooltip: formatBrl,
+        touchListenerKey: const ValueKey<String>('carteira_saldo_chart_touch'),
+      );
+    }
+
+    return StreamBuilder<double>(
+      stream: SimulatedWalletService.watchBrlBalance(uid),
+      builder: (context, balSnap) {
+        if (balSnap.connectionState == ConnectionState.waiting &&
+            !balSnap.hasData &&
+            balSnap.error == null) {
+          return SizedBox(
+            height: 280,
+            child: Center(
+              child: CircularProgressIndicator(color: colorScheme.primary),
+            ),
+          );
+        }
+        final saldoErro = balSnap.hasError;
+        final brlNow = saldoErro ? 0.0 : (balSnap.data ?? 0.0);
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
+          builder: (context, snap) {
+            if (snap.hasError) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Gráfico indisponível (${snap.error}).',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
+                ),
+              );
+            }
+            if (snap.connectionState == ConnectionState.waiting &&
+                !snap.hasData) {
+              return SizedBox(
+                height: 280,
+                child: Center(
+                  child: CircularProgressIndicator(color: colorScheme.primary),
+                ),
+              );
+            }
+
+            final now = DateTime.now();
+            final series = saldoBrlEvolucaoSeries(
+              docsNewestFirst: snap.data?.docs ?? const [],
+              periodo: _periodo,
+              now: now,
+              brlNow: brlNow,
+            );
+
+            return ValuationEvolutionChartCard(
+              selected: _periodo,
+              onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
+              series: series,
+              primary: colorScheme.primary,
+              title: tituloGrafico,
+              footnote: '',
+              formatYAxis: formatBrl,
+              formatTooltip: formatBrl,
+              touchListenerKey:
+                  const ValueKey<String>('carteira_saldo_chart_touch'),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -388,8 +683,255 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     return value;
   }
 
-  /// Texto completo do chip “+ X% este mês” quando visível.
+  /// Texto completo do chip “+ X% este mês” quando visível (convidado sem sessão).
   String get _trendTextCompleto => '+ 14.2% este mês';
+
+  Widget _blocoSaldoHero() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return _SaldoHeroCard(
+        totalLabel: 'SALDO TOTAL INVESTIDO',
+        totalValue: _brlParaExibicao(_saldoTotal),
+        trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
+        onAdicionar: _abrirAdicionarFundos,
+        onVerStartups: _scrollParaStartupsInvestidas,
+        onVenderTokens: widget.onCompraVendaTokens ??
+            () => _emBreve('Compra / Venda de tokens'),
+      );
+    }
+
+    return StreamBuilder<double>(
+      stream: SimulatedWalletService.watchBrlBalance(uid),
+      builder: (context, balSnap) {
+        if (balSnap.connectionState == ConnectionState.waiting &&
+            !balSnap.hasData &&
+            balSnap.error == null) {
+          return const SizedBox(
+            height: 180,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final saldoErro = balSnap.hasError;
+        final brl = (!balSnap.hasData || saldoErro)
+            ? 0.0
+            : (balSnap.data ?? 0.0);
+
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: SimulatedWalletService.watchPositions(uid),
+          builder: (context, posSnap) {
+            if (posSnap.connectionState == ConnectionState.waiting &&
+                !posSnap.hasData &&
+                posSnap.error == null) {
+              return const SizedBox(
+                height: 180,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            final posErro = posSnap.hasError;
+            var custo = 0.0;
+            if (!posErro && posSnap.hasData && posSnap.data != null) {
+              custo = _somaCustosPosicoes(posSnap.data!);
+            }
+
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
+              builder: (context, ledSnap) {
+                if (ledSnap.connectionState == ConnectionState.waiting &&
+                    !ledSnap.hasData &&
+                    ledSnap.error == null) {
+                  return const SizedBox(
+                    height: 180,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final ledErro = ledSnap.hasError;
+                final docs = ledSnap.data?.docs ?? const [];
+                final patrimonio = _carteiraPatrimonioTotal(
+                  brlDisponivel: brl,
+                  custoPosicoes: custo,
+                );
+                final trendText = _hideValues
+                    ? '• • • • • •'
+                    : (saldoErro || ledErro || posErro
+                        ? 'N/D este mês'
+                        : _carteiraVariacaoPatrimonioMesLabel(
+                            brlNow: brl,
+                            custoNow: custo,
+                            docsNewestFirst: docs,
+                            now: DateTime.now(),
+                          ));
+
+                return _SaldoHeroCard(
+                  totalLabel: 'SALDO TOTAL INVESTIDO',
+                  totalValue: (saldoErro || posErro)
+                      ? '—'
+                      : _brlParaExibicao(patrimonio),
+                  trendText: trendText,
+                  onAdicionar: _abrirAdicionarFundos,
+                  onVerStartups: _scrollParaStartupsInvestidas,
+                  onVenderTokens: widget.onCompraVendaTokens ??
+                      () => _emBreve('Compra / Venda de tokens'),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _listaStartupsInvestidasBloco({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final primary = colorScheme.primary;
+    if (uid == null) {
+      final filhos = <Widget>[];
+      for (final s in _startups) {
+        filhos.addAll([
+          _StartupInvestidaCard(
+            startup: s,
+            primary: primary,
+            hideValues: _hideValues,
+            rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
+            investidoExibicao: _brlParaExibicao(s.totalInvestido),
+          ),
+          const SizedBox(height: 12),
+        ]);
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: filhos,
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: SimulatedWalletService.watchPositions(uid),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'Posições não carregadas (${snap.error}).',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(theme),
+              ),
+            ),
+          );
+        }
+        if (!snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 36),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'Sem posições registadas — credite saldo pelo PIX e '
+              'compre tokens no Balcão.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(theme),
+                height: 1.4,
+              ),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final doc in docs) ...[
+              _StartupInvestidaCard(
+                startup: _docPosicaoParaMock(doc),
+                primary: primary,
+                hideValues: _hideValues,
+                rendimentoExibicao: _percentParaExibicao('N/D'),
+                investidoExibicao: _brlParaExibicao(
+                  (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _listaMovimentacoesBloco({required Color primary}) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      final filhos = <Widget>[];
+      for (final m in _movimentacoes) {
+        filhos.addAll([
+          _MovimentacaoCard(
+            mov: m,
+            primary: primary,
+            valorExibicao: _brlParaExibicao(m.valor),
+          ),
+          const SizedBox(height: 10),
+        ]);
+      }
+      return Column(children: filhos);
+    }
+
+    final themeLocal = Theme.of(context);
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: SimulatedWalletService.watchLedger(uid),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Extrato indisponível (${snap.error}).',
+              style: themeLocal.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(themeLocal),
+              ),
+            ),
+          );
+        }
+        if (!snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 36),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final docs = snap.data!.docs;
+        if (docs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Sem movimentações registadas nesta conta.',
+              textAlign: TextAlign.center,
+              style: themeLocal.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(themeLocal),
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (final doc in docs) ...[
+              _MovimentacaoCard(
+                mov: _ledgerFirestoreParaLinha(doc.data()),
+                primary: primary,
+                valorExibicao: _brlParaExibicao(
+                  (doc.data()['amountBrl'] as num?)?.toDouble() ?? 0.0,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -437,15 +979,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          _SaldoHeroCard(
-            totalLabel: 'SALDO TOTAL INVESTIDO',
-            totalValue: _brlParaExibicao(_saldoTotal),
-            trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
-            onAdicionar: _abrirAdicionarFundos,
-            onVerStartups: _scrollParaStartupsInvestidas,
-            onVenderTokens: widget.onCompraVendaTokens ??
-                () => _emBreve('Compra / Venda de tokens'),
-          ),
+          _blocoSaldoHero(),
           const SizedBox(height: _sectionGap),
           _evolucaoSaldoBlock(
             theme: theme,
@@ -466,16 +1000,10 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                   theme: theme,
                 ),
                 const SizedBox(height: 12),
-                for (final s in _startups) ...[
-                  _StartupInvestidaCard(
-                    startup: s,
-                    primary: colorScheme.primary,
-                    hideValues: _hideValues,
-                    rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
-                    investidoExibicao: _brlParaExibicao(s.totalInvestido),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+                _listaStartupsInvestidasBloco(
+                  theme: theme,
+                  colorScheme: colorScheme,
+                ),
               ],
             ),
           ),
@@ -489,14 +1017,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             theme: theme,
           ),
           const SizedBox(height: 12),
-          for (final m in _movimentacoes) ...[
-            _MovimentacaoCard(
-              mov: m,
-              primary: colorScheme.primary,
-              valorExibicao: _brlParaExibicao(m.valor),
-            ),
-            const SizedBox(height: 10),
-          ],
+          _listaMovimentacoesBloco(primary: colorScheme.primary),
         ],
       ),
     );
