@@ -5,10 +5,12 @@ import * as logger from "firebase-functions/logger";
 const REGION = "us-central1";
 
 const ROOT = "sim_wallet";
+const STARTUPS_COLLECTION = "startups";
+const STARTUP_FIELD_TOKEN_PRICE = "preco_token";
 const MAX_OP_BRL = 50_000_000;
 const EPSILON_BRL = 0.06;
 
-/** Valida total ≈ tokens * preço declarado pelo cliente (tolerância de arredondamento). */
+/** Valida total ≈ tokens * preço (tolerância de arredondamento). */
 function assertAmountMatchesTrade(
   amountBrl: number,
   tokens: number,
@@ -36,6 +38,20 @@ function clip(s: unknown, max: number): string {
   }
   const t = s.trim();
   return t.length > max ? t.slice(0, max) : t;
+}
+
+function readRequiredStartupTokenPriceBrl(
+  startupSnapData: FirebaseFirestore.DocumentData | undefined
+): number {
+  const raw = startupSnapData?.[STARTUP_FIELD_TOKEN_PRICE];
+  const p = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(p) || p <= 0) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Cotação do token indisponível para esta startup."
+    );
+  }
+  return p;
 }
 
 /** Operações simuladas: crédito interno PIX (demo) + compra/venda de tokens no balcão. */
@@ -89,11 +105,17 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
 
   if (actionRaw === "trade_buy" || actionRaw === "trade_sell") {
     const tokens = Number(request.data?.tokens);
-    const tokenPriceBrl = Number(request.data?.tokenPriceBrl);
     const startupId = clip(request.data?.startupId, 200);
     if (!startupId) {
       throw new HttpsError("invalid-argument", "startupId obrigatório para negócio.");
     }
+
+    // Fonte de verdade: cotação vem do Firestore (não confiar no cliente).
+    const startupSnap = await db.collection(STARTUPS_COLLECTION).doc(startupId).get();
+    if (!startupSnap.exists) {
+      throw new HttpsError("not-found", "Startup não encontrada no catálogo.");
+    }
+    const tokenPriceBrl = readRequiredStartupTokenPriceBrl(startupSnap.data());
 
     assertAmountMatchesTrade(amountBrl, tokens, tokenPriceBrl);
 
@@ -245,3 +267,10 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
     "Ação não reconhecida. Use credit_pix_simulated, trade_buy ou trade_sell."
   );
 });
+
+// Export interno para testes unitários.
+export const __test__ = {
+  assertAmountMatchesTrade,
+  clip,
+  readRequiredStartupTokenPriceBrl,
+};
