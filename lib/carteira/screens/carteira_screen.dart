@@ -2,7 +2,12 @@
 // RA: 25005592
 //
 // Tela **Carteira** — protótipo visual alinhado ao Figma (saldo, evolução,
-// startups investidas, movimentações). Dados fixos em memória até existir API.
+// startups investidas, movimentações). Com utilizador autenticado, saldo,
+// posições e extrato vêm do Firestore (`sim_wallet`); convidado mantém mocks.
+//
+// Pré-carga: ao mudar para este separador no dashboard, [MesclaNavigationPrefetch]
+// dispara leituras em paralelo (ver `lib/navigation/mescla_navigation.dart`) para
+// aquecer a cache antes dos [StreamBuilder]s — melhora a perceção de velocidade.
 //
 // [wrapWithSafeArea]: quando um pai (ex.: [MesclaMainShell]) já aplicou
 // [SafeArea], passa `false` para não duplicar insets no topo.

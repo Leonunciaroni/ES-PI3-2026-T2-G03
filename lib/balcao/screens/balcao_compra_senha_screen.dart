@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../auth/services/auth_service.dart';
+import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
 import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
@@ -168,8 +169,8 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
     );
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (context) => BalcaoTransacaoDetalheScreen(detalhe: detalhe),
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) => BalcaoTransacaoDetalheScreen(detalhe: detalhe),
       ),
     );
   }

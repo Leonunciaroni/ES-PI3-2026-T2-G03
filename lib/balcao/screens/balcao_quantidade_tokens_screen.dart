@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
 import '../../carteira/screens/adicionar_fundos_screen.dart';
 import '../../carteira/services/simulated_wallet_service.dart';
@@ -327,8 +328,8 @@ class _BalcaoQuantidadeTokensScreenState
     if (!mounted || confirmou != true) return;
 
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => BalcaoCompraSenhaScreen(
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) => BalcaoCompraSenhaScreen(
           startup: widget.startup,
           operacao: widget.operacao,
           valorReaisOperacao: valor,

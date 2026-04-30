@@ -3,6 +3,9 @@
 //
 // Dashboard (protótipo visual) — layout conforme Figma, sem backend.
 
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../balcao/screens/balcao_tab_screen.dart';
@@ -12,6 +15,7 @@ import '../../catalog/screens/catalog_screen.dart';
 import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../catalog/services/startup_logo_precache_service.dart';
+import '../../navigation/mescla_navigation.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
@@ -87,6 +91,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _toggleVisibility() {
     setState(() => _hideValues = !_hideValues);
+  }
+
+  /// Troca de separador na barra inferior: dispara pré-cargas úteis em paralelo
+  /// com a perceção do utilizador (sem `await` — não bloqueia a animação).
+  void _onMainNavIndexChanged(int i) {
+    if (i == _mainNavIndex) {
+      return;
+    }
+    if (i == 1) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        MesclaNavigationPrefetch.scheduleWalletFirestoreForCarteiraTab(user.uid);
+      }
+    }
+    if (i == 3) {
+      final service = StartupCatalogFunctionsService();
+      unawaited(StartupCatalogListCache.instance.fullList(service));
+    }
+    setState(() => _mainNavIndex = i);
   }
 
   String _money(double value) {
@@ -275,7 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return MesclaMainShell(
       selectedIndex: _mainNavIndex,
-      onNavIndexChanged: (i) => setState(() => _mainNavIndex = i),
+      onNavIndexChanged: _onMainNavIndexChanged,
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
         CarteiraScreen(

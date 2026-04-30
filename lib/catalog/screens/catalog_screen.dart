@@ -13,6 +13,8 @@ import '../services/startup_catalog_functions_service.dart';
 import '../services/startup_catalog_list_cache.dart';
 import '../services/startup_logo_precache_service.dart';
 import '../widgets/startup_logo_avatar.dart';
+import '../../navigation/mescla_material_route.dart';
+import '../../navigation/mescla_navigation.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'startup_detail_screen.dart';
@@ -374,6 +376,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                       startup: s,
                                       tokenPriceFormatted: _tokenPriceLabel(s),
                                       primary: colorScheme.primary,
+                                      functionsService: _functionsService,
                                       onInvestir: widget.onInvestir,
                                     ),
                                   ),
@@ -483,12 +486,14 @@ class _CatalogStartupCard extends StatelessWidget {
     required this.startup,
     required this.tokenPriceFormatted,
     required this.primary,
+    required this.functionsService,
     this.onInvestir,
   });
 
   final CatalogStartup startup;
   final String tokenPriceFormatted;
   final Color primary;
+  final StartupCatalogFunctionsService functionsService;
   final void Function(CatalogStartup)? onInvestir;
 
   /// Texto curto do badge conforme o estágio (para o utilizador ler rápido).
@@ -516,9 +521,20 @@ class _CatalogStartupCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () async {
+          // Pré-carga: o pedido começa **já** aqui; durante a transição (tema global
+          // Fade Through) o backend pode responder — a tela de detalhe reutiliza o
+          // mesmo [Future] e não dispara um segundo pedido.
+          final prefetch = MesclaNavigationPrefetch.startupDetailPrefetchIfNeeded(
+            service: functionsService,
+            startup: startup,
+          );
           final result = await Navigator.of(context).push<CatalogStartup>(
-            MaterialPageRoute<CatalogStartup>(
-              builder: (context) => StartupDetailScreen(catalog: startup),
+            MesclaMaterialRoute.fadeSlide<CatalogStartup>(
+              (context) => StartupDetailScreen(
+                catalog: startup,
+                catalogFunctionsService: functionsService,
+                prefetchDetailFuture: prefetch,
+              ),
             ),
           );
           if (result != null) {
