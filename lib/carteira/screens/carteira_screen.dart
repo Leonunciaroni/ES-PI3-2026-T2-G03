@@ -164,27 +164,6 @@ double _carteiraBrlAntesDoIntervalo({
   return b;
 }
 
-/// Soma dos `trade_buy` no intervalo (aproxima custo em posições no início do mês).
-double _carteiraSomaComprasNoIntervalo(
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> docsAnyOrder,
-  DateTime rangeStartInclusive,
-  DateTime rangeEndInclusive,
-) {
-  var s = 0.0;
-  for (final d in docsAnyOrder) {
-    final m = d.data();
-    if ((m['op'] as String?) != 'trade_buy') continue;
-    final ts = m['createdAt'];
-    if (ts is! Timestamp) continue;
-    final t = ts.toDate();
-    if (t.isBefore(rangeStartInclusive) || t.isAfter(rangeEndInclusive)) {
-      continue;
-    }
-    s += (m['amountBrl'] as num?)?.toDouble() ?? 0.0;
-  }
-  return s;
-}
-
 /// Património exibido no hero: saldo livre + custo das posições.
 double _carteiraPatrimonioTotal({
   required double brlDisponivel,
@@ -192,11 +171,11 @@ double _carteiraPatrimonioTotal({
 }) =>
     brlDisponivel + custoPosicoes;
 
-/// Variação % do património no mês civil corrente (património = BRL + custo).
-/// Custo no início do mês é aproximado (vendas no período podem distorcer).
-String _carteiraVariacaoPatrimonioMesLabel({
+/// Variação % do **saldo disponível** (BRL) no mês civil corrente.
+///
+/// Este número é exato porque é derivado do ledger + saldo atual.
+String _carteiraVariacaoSaldoMesLabel({
   required double brlNow,
-  required double custoNow,
   required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
   required DateTime now,
 }) {
@@ -207,24 +186,13 @@ String _carteiraVariacaoPatrimonioMesLabel({
     rangeStartInclusive: inicioMes,
     rangeEndInclusive: now,
   );
-  final comprasMes = _carteiraSomaComprasNoIntervalo(
-    docsNewestFirst,
-    inicioMes,
-    now,
-  );
-  final custoIni = (custoNow - comprasMes).clamp(0.0, 1.0e15);
-  final patIni = brlIni + custoIni;
-  final patNow = _carteiraPatrimonioTotal(
-    brlDisponivel: brlNow,
-    custoPosicoes: custoNow,
-  );
-  if (patIni < 1.0) {
-    if (patNow >= 1.0) {
+  if (brlIni.abs() < 1.0) {
+    if (brlNow.abs() >= 1.0) {
       return '+ 100,0% este mês';
     }
     return '+ 0,0% este mês';
   }
-  final pct = (patNow - patIni) / patIni * 100;
+  final pct = (brlNow - brlIni) / brlIni * 100;
   final s = pct.toStringAsFixed(1).replaceAll('.', ',');
   final sign = pct >= 0 ? '+ ' : '';
   return '$sign$s% este mês';
@@ -755,9 +723,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     ? '• • • • • •'
                     : (saldoErro || ledErro || posErro
                         ? 'N/D este mês'
-                        : _carteiraVariacaoPatrimonioMesLabel(
+                        : _carteiraVariacaoSaldoMesLabel(
                             brlNow: brl,
-                            custoNow: custo,
                             docsNewestFirst: docs,
                             now: DateTime.now(),
                           ));
