@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'auth/screens/login_screen.dart';
+import 'firebase_dev_setup.dart';
 import 'firebase_options.dart';
 import 'theme/app_scroll_behavior.dart';
 import 'theme/app_theme.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    configureFirebaseFunctionsEmulatorIfNeeded();
   }
 
   // Lê o tema guardado no cache (shared_preferences) antes do primeiro frame.
