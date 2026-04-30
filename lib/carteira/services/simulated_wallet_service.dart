@@ -150,6 +150,36 @@ abstract final class SimulatedWalletService {
     return v is num ? v.toDouble() : 0.0;
   }
 
+  /// Pré-carga da carteira simulada no Firestore.
+  ///
+  /// Objetivo pedagógico e de UX: disparar **em paralelo** com a navegação (ex.: ao
+  /// tocar no separador “Carteira”) para que o SDK já traga documentos para a cache
+  /// local antes dos [StreamBuilder]s da [CarteiraScreen] subscreverem `snapshots()`.
+  ///
+  /// Não é obrigatório chamar — a tela funciona sem isto — mas reduz a sensação de
+  /// “ficar à espera” no primeiro frame. Erros (offline, permissões) são ignorados
+  /// aqui; a própria tela mostra estado de erro.
+  static Future<void> prefetchWalletFirestore(String uid) async {
+    try {
+      final DocumentReference<Map<String, dynamic>> doc =
+          SimulatedWalletPaths.walletDoc(uid);
+      final CollectionReference<Map<String, dynamic>> ledger =
+          SimulatedWalletPaths.ledgerCol(uid);
+      final CollectionReference<Map<String, dynamic>> positions =
+          SimulatedWalletPaths.positionsCol(uid);
+
+      const GetOptions opts = GetOptions(source: Source.serverAndCache);
+
+      await Future.wait<Object?>(<Future<Object?>>[
+        doc.get(opts),
+        ledger.orderBy('createdAt', descending: true).limit(500).get(opts),
+        positions.get(opts),
+      ]);
+    } catch (_) {
+      // Ver doc acima: falhas não bloqueiam navegação.
+    }
+  }
+
   static String messageForUser(Object error) {
     if (error is FirebaseFunctionsException) {
       switch (error.code) {
