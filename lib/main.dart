@@ -1,10 +1,10 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'auth/screens/login_screen.dart';
+import 'firebase_dev_setup.dart';
 import 'firebase_options.dart';
 import 'theme/app_scroll_behavior.dart';
 import 'theme/app_theme.dart';
@@ -18,7 +18,7 @@ Future<void> main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     await _activateFirebaseAppCheck();
-    _configureFirebaseFunctionsEmulator();
+    configureFirebaseFunctionsEmulatorIfNeeded();
   }
 
   // Lê o tema guardado no cache (shared_preferences) antes do primeiro frame.
@@ -59,33 +59,6 @@ Future<void> _activateFirebaseAppCheck() async {
       debugPrint('App Check activate failed: $e');
     }
   }
-}
-
-/// Em **debug**, permite apontar [FirebaseFunctions] para o emulador local.
-///
-/// Ative com:
-/// `flutter run --dart-define=USE_FUNCTIONS_EMULATOR=true`
-///
-/// No Android Emulator use `10.0.2.2` (mapeado para localhost da máquina); no iOS/desktop,
-/// `localhost` funciona. A porta padrão do emulador de Functions é **5001**.
-void _configureFirebaseFunctionsEmulator() {
-  if (!kDebugMode) {
-    return;
-  }
-  const useEmu = bool.fromEnvironment(
-    'USE_FUNCTIONS_EMULATOR',
-    defaultValue: false,
-  );
-  if (!useEmu) {
-    return;
-  }
-  final String host = defaultTargetPlatform == TargetPlatform.android
-      ? '10.0.2.2'
-      : 'localhost';
-  FirebaseFunctions.instanceFor(region: 'us-central1').useFunctionsEmulator(
-    host,
-    5001,
-  );
 }
 
 /// Raiz do app: [ListenableBuilder] reconstrói quando [themeModeController] muda.

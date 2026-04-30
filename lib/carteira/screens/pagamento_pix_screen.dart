@@ -6,18 +6,20 @@
 
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../theme/app_colors.dart';
 import '../format/carteira_brl.dart';
+import '../services/simulated_wallet_service.dart';
 import '../widgets/carteira_app_bar_logo.dart';
 
-/// Segundos para o utilizador “pagar e aprovar” (5 min — exemplo realista).
-const int kTempoPagamentoPixSegundos = 300;
+/// Segundos para o utilizador concluir o fluxo antes de confirmar o crédito.
+const int kTempoPagamentoPixSegundos = 30;
 
-/// Chave PIX fictícia só para UI (não é um pagamento real).
+/// Chave PIX de exemplo só para UI.
 const String kChavePixMock = 'mescla.invest.pix@exemplo.com.br';
 
 /// Payload mostrado no QR (string longa estável para gerar imagem).
@@ -53,6 +55,9 @@ class PagamentoPixScreen extends StatefulWidget {
 class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
   late int _segundosRestantes;
   Timer? _timer;
+  bool _creditoEmCurso = false;
+  bool _creditoSucesso = false;
+  bool _creditoFalhou = false;
 
   static const _radiusCard = 20.0;
   static const _padH = 20.0;
@@ -61,14 +66,24 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
   void initState() {
     super.initState();
     _segundosRestantes = kTempoPagamentoPixSegundos;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      if (_segundosRestantes <= 0) {
-        _timer?.cancel();
-        return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _onTickRelogio());
+  }
+
+  void _onTickRelogio() {
+    if (!mounted) return;
+    if (_creditoSucesso) {
+      _timer?.cancel();
+      return;
+    }
+    setState(() {
+      if (_segundosRestantes > 0) {
+        _segundosRestantes--;
       }
-      setState(() => _segundosRestantes--);
     });
+    if (_segundosRestantes <= 0) {
+      _timer?.cancel();
+      unawaited(_executarCreditoPix());
+    }
   }
 
   @override
@@ -98,12 +113,70 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
     );
   }
 
+  Future<void> _executarCreditoPix() async {
+    if (!mounted || _creditoEmCurso || _creditoSucesso) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      setState(() => _creditoFalhou = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Para creditar saldo é preciso iniciar sessão no app.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _creditoEmCurso = true;
+      _creditoFalhou = false;
+    });
+
+    try {
+      await SimulatedWalletService.creditPixSimulated(
+        amountBrl: widget.valorReais,
+      );
+      if (!mounted) return;
+      setState(() {
+        _creditoEmCurso = false;
+        _creditoSucesso = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.all(16),
+          content: Text(
+            'Saldo atualizado: ${formatBrl(widget.valorReais)}',
+          ),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _creditoEmCurso = false;
+        _creditoFalhou = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(SimulatedWalletService.messageForUser(e)),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
     final onSurface = theme.colorScheme.onSurface;
-    final esgotado = _segundosRestantes <= 0;
+    final contagemVisivel = _segundosRestantes > 0 && !_creditoSucesso;
     final bodyBg = theme.brightness == Brightness.light
         ? const Color(0xFFF3F4F6)
         : AppColors.gradientBottomDark;
@@ -146,7 +219,6 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                // Valor total (wireframe: só rótulo + montante, centrados).
                 Material(
                   color: AppColors.themeCardSurface(theme),
                   elevation: 2,
@@ -218,7 +290,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                if (!esgotado) ...[
+                if (contagemVisivel) ...[
                   Text(
                     'Tempo restante para pagar',
                     textAlign: TextAlign.center,
@@ -250,7 +322,40 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                       ),
                     ),
                   ),
-                ] else ...[
+                ] else if (_creditoEmCurso) ...[
+                  Material(
+                    color: AppColors.themeCardSurface(theme),
+                    elevation: 2,
+                    borderRadius: BorderRadius.circular(_radiusCard),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 24,
+                        horizontal: 20,
+                      ),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: primary,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'A confirmar o pagamento e atualizar o saldo…',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.secondaryLabel(theme),
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else if (_creditoFalhou) ...[
                   Material(
                     color: theme.colorScheme.errorContainer.withValues(
                       alpha: 0.35,
@@ -264,13 +369,13 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.schedule_rounded,
+                            Icons.error_outline_rounded,
                             color: theme.colorScheme.error,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Tempo esgotado. Volte à carteira e tente de novo.',
+                              'Não foi possível creditar o saldo. Tente novamente.',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: AppColors.secondaryLabel(theme),
                                 height: 1.35,
@@ -279,6 +384,23 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                           ),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.tonal(
+                    onPressed: _creditoEmCurso ? null : () => _executarCreditoPix(),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Tentar novamente',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -310,12 +432,12 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        _PassoLinha(
+                        const _PassoLinha(
                           numero: 1,
                           texto:
                               'Abra o app do seu banco e escolha PIX (QR ou copia e cola).',
                         ),
-                        _PassoLinha(
+                        const _PassoLinha(
                           numero: 2,
                           texto:
                               'Confira o valor e o destinatário antes de confirmar.',
@@ -323,7 +445,8 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                         _PassoLinha(
                           numero: 3,
                           texto:
-                              'O saldo pode levar alguns minutos a atualizar após o pagamento.',
+                              'Após o tempo indicado acima, o saldo é atualizado '
+                              'automaticamente na sua carteira.',
                         ),
                       ],
                     ),
@@ -380,7 +503,7 @@ class _PagamentoPixScreenState extends State<PagamentoPixScreen> {
                     ),
                   ),
                 ),
-                if (esgotado) ...[
+                if (_creditoFalhou) ...[
                   const SizedBox(height: 16),
                   FilledButton(
                     onPressed: () => Navigator.of(context).pop(),

@@ -31,6 +31,21 @@ service cloud.firestore {
       allow delete: if isOwner();
     }
 
+    // Carteira simulada (PI): apenas o dono pode **ler**. Escritos só via Cloud Functions
+    // [simulateWallet] (Admin bypassa regras).
+    match /sim_wallet/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+      match /ledger/{txnId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+      match /positions/{startupDocId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+    }
+
     // `two_factor_codes` e outras coleções: sem acesso direto do cliente (Admin SDK nas Functions).
     match /{document=**} {
       allow read, write: if false;
