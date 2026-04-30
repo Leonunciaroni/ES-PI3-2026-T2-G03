@@ -1,60 +1,51 @@
+/**
+ * Autor principal: Pedro Henrique Contardi Soler
+ * RA: 25005592
+ *
+ * Cloud Function callable: `simulateWallet`
+ *
+ * Objetivo do módulo:
+ * - Implementar um “saldo fictício” (BRL) para testes/demonstração.
+ * - Persistir no Firestore em `sim_wallet/{uid}`:
+ *   - `brlBalance` (saldo disponível)
+ *   - `ledger/*` (histórico mínimo)
+ *   - `positions/{startupId}` (posição do investidor)
+ *
+ * Decisões importantes:
+ * - O cliente **não** pode escrever diretamente em `sim_wallet` (regras Firestore).
+ * - Toda atualização é feita via transação (`runTransaction`) para consistência.
+ * - A cotação (preço do token) é lida do Firestore `startups/{startupId}.preco_token`
+ *   (fonte de verdade), não do payload do app.
+ */
+
 import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-const REGION = "us-central1";
+import {
+  MAX_OP_BRL,
+  REGION,
+  ROOT,
+  STARTUPS_COLLECTION,
+} from "../shared/constants.js";
+import {
+  assertAmountMatchesTrade,
+  clip,
+  readRequiredStartupTokenPriceBrl,
+} from "../shared/validation.js";
 
-const ROOT = "sim_wallet";
-const STARTUPS_COLLECTION = "startups";
-const STARTUP_FIELD_TOKEN_PRICE = "preco_token";
-const MAX_OP_BRL = 50_000_000;
-const EPSILON_BRL = 0.06;
-
-/** Valida total ≈ tokens * preço (tolerância de arredondamento). */
-function assertAmountMatchesTrade(
-  amountBrl: number,
-  tokens: number,
-  tokenPriceBrl: number
-): void {
-  if (tokens <= 0 || !Number.isFinite(tokens)) {
-    throw new HttpsError("invalid-argument", "Informe uma quantidade de tokens válida.");
-  }
-  if (tokenPriceBrl <= 0 || !Number.isFinite(tokenPriceBrl)) {
-    throw new HttpsError("invalid-argument", "Preço por token inválido.");
-  }
-  const implied = tokens * tokenPriceBrl;
-  if (Math.abs(amountBrl - implied) > EPSILON_BRL) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Valor em reais e quantidade de tokens não conferem com a cotação."
-    );
-  }
-}
-
-/** Recorta strings vindas da app antes de gravar nos documentos auditáveis. */
-function clip(s: unknown, max: number): string {
-  if (typeof s !== "string") {
-    return "";
-  }
-  const t = s.trim();
-  return t.length > max ? t.slice(0, max) : t;
-}
-
-function readRequiredStartupTokenPriceBrl(
-  startupSnapData: FirebaseFirestore.DocumentData | undefined
-): number {
-  const raw = startupSnapData?.[STARTUP_FIELD_TOKEN_PRICE];
-  const p = typeof raw === "number" ? raw : Number(raw);
-  if (!Number.isFinite(p) || p <= 0) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Cotação do token indisponível para esta startup."
-    );
-  }
-  return p;
-}
-
-/** Operações simuladas: crédito interno PIX (demo) + compra/venda de tokens no balcão. */
+/**
+ * Operações simuladas: crédito interno PIX (demo) + compra/venda de tokens no balcão.
+ *
+ * Contrato de entrada (request.data):
+ * - action: "credit_pix_simulated" | "trade_buy" | "trade_sell"
+ * - amountBrl: number (sempre > 0)
+ *
+ * Para trade:
+ * - startupId: string
+ * - tokens: number
+ * - (metadata opcional para ledger): startupName, tokenSigla, category, headline
+ */
 export const simulateWallet = onCall({region: REGION}, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
@@ -77,10 +68,12 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
   const walletRef = db.collection(ROOT).doc(uid);
 
   if (actionRaw === "credit_pix_simulated") {
+    // Crédito simples: soma ao saldo e grava um item no ledger.
     await db.runTransaction(async (trx) => {
       const snap = await trx.get(walletRef);
-      const prev = typeof snap.data()?.brlBalance === "number"
-        ? (snap.data()!.brlBalance as number)
+      const walletData = snap.data() ?? {};
+      const prev = typeof walletData.brlBalance === "number"
+        ? (walletData.brlBalance as number)
         : 0;
       const next = prev + amountBrl;
       trx.set(walletRef, {brlBalance: next}, {merge: true});
@@ -110,7 +103,7 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
       throw new HttpsError("invalid-argument", "startupId obrigatório para negócio.");
     }
 
-    // Fonte de verdade: cotação vem do Firestore (não confiar no cliente).
+    // Cotação oficial: evita manipulação do preço pelo cliente.
     const startupSnap = await db.collection(STARTUPS_COLLECTION).doc(startupId).get();
     if (!startupSnap.exists) {
       throw new HttpsError("not-found", "Startup não encontrada no catálogo.");
@@ -125,10 +118,16 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
 
     if (actionRaw === "trade_buy") {
       await db.runTransaction(async (trx) => {
+        // Compra:
+        // - valida saldo suficiente
+        // - decrementa BRL
+        // - incrementa posição (tokensHeld/costBasisBrl)
+        // - grava ledger
         const ws = await trx.get(walletRef);
+        const walletData = ws.data() ?? {};
         const balance =
-          typeof ws.data()?.brlBalance === "number"
-            ? (ws.data()!.brlBalance as number)
+          typeof walletData.brlBalance === "number"
+            ? (walletData.brlBalance as number)
             : 0;
 
         if (balance + 1e-9 < amountBrl) {
@@ -140,13 +139,14 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
 
         const positionRef = walletRef.collection("positions").doc(startupId);
         const posSnap = await trx.get(positionRef);
+        const posData = posSnap.data() ?? {};
         let tokensHeld =
-          typeof posSnap.data()?.tokensHeld === "number"
-            ? (posSnap.data()!.tokensHeld as number)
+          typeof posData.tokensHeld === "number"
+            ? (posData.tokensHeld as number)
             : 0;
         let costBasisBrl =
-          typeof posSnap.data()?.costBasisBrl === "number"
-            ? (posSnap.data()!.costBasisBrl as number)
+          typeof posData.costBasisBrl === "number"
+            ? (posData.costBasisBrl as number)
             : 0;
 
         tokensHeld += tokens;
@@ -188,23 +188,30 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
       return {ok: true};
     }
 
-    // trade_sell
     await db.runTransaction(async (trx) => {
+      // Venda:
+      // - valida tokens suficientes
+      // - incrementa BRL
+      // - decrementa posição proporcionalmente (reduz costBasisBrl)
+      // - se tokensHeld zera, apaga o doc da posição
+      // - grava ledger
       const ws = await trx.get(walletRef);
+      const walletData = ws.data() ?? {};
       const balance =
-        typeof ws.data()?.brlBalance === "number"
-          ? (ws.data()!.brlBalance as number)
+        typeof walletData.brlBalance === "number"
+          ? (walletData.brlBalance as number)
           : 0;
 
       const positionRef = walletRef.collection("positions").doc(startupId);
       const posSnap = await trx.get(positionRef);
+      const posData = posSnap.data() ?? {};
       let tokensHeld =
-        typeof posSnap.data()?.tokensHeld === "number"
-          ? (posSnap.data()!.tokensHeld as number)
+        typeof posData.tokensHeld === "number"
+          ? (posData.tokensHeld as number)
           : 0;
       const costBasisBrl =
-        typeof posSnap.data()?.costBasisBrl === "number"
-          ? (posSnap.data()!.costBasisBrl as number)
+        typeof posData.costBasisBrl === "number"
+          ? (posData.costBasisBrl as number)
           : 0;
 
       if (!posSnap.exists || tokensHeld < tokens - 1e-12) {
@@ -267,10 +274,3 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
     "Ação não reconhecida. Use credit_pix_simulated, trade_buy ou trade_sell."
   );
 });
-
-// Export interno para testes unitários.
-export const __test__ = {
-  assertAmountMatchesTrade,
-  clip,
-  readRequiredStartupTokenPriceBrl,
-};
