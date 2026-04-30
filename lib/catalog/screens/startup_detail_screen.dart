@@ -3,7 +3,7 @@
 //
 // Tela de detalhes da startup (MesclaInvest) — layout inspirado no Figma.
 // Conteúdo institucional mínimo do documento §5.2; filtros de gráfico conforme §5.4.
-// Esta rota não inclui a bottom navigation bar (é um [MaterialPageRoute] empilhado).
+// Esta rota não inclui a bottom navigation bar (empilhada com [MesclaMaterialRoute]).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +18,7 @@ import '../widgets/detail_demo_video_section.dart';
 import '../widgets/mescla_detail_header.dart';
 import '../widgets/mescla_pdf_section_card.dart';
 import '../widgets/startup_logo_avatar.dart';
+import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 
@@ -35,6 +36,7 @@ class StartupDetailScreen extends StatefulWidget {
     required this.catalog,
     this.catalogFunctionsService,
     this.detailLoadStreamForTesting,
+    this.prefetchDetailFuture,
   });
 
   /// Startup tocada no catálogo (mantém identidade visual e o ID do documento, se houver).
@@ -45,6 +47,13 @@ class StartupDetailScreen extends StatefulWidget {
 
   /// Injeta um stream fixo em `flutter test` (sem Firebase).
   final Stream<StartupDetailLoadState>? detailLoadStreamForTesting;
+
+  /// [Future] já iniciado **antes** do [Navigator.push] (pré-carga do detalhe).
+  ///
+  /// Evita começar o pedido só no [initState] deste widget — ganha o tempo da
+  /// animação de transição. Se for `null`, o estado normal chama
+  /// [StartupCatalogFunctionsService.fetchStartupDetail] aqui.
+  final Future<StartupDetailViewData?>? prefetchDetailFuture;
 
   @override
   State<StartupDetailScreen> createState() => _StartupDetailScreenState();
@@ -76,9 +85,10 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     } else if (widget.catalog.firestoreId != null) {
       _detailStream = null;
       _streamInitialData = null;
-      _detailFuture = (widget.catalogFunctionsService ??
-              StartupCatalogFunctionsService())
-          .fetchStartupDetail(widget.catalog.firestoreId!);
+      _detailFuture = widget.prefetchDetailFuture ??
+          (widget.catalogFunctionsService ??
+                  StartupCatalogFunctionsService())
+              .fetchStartupDetail(widget.catalog.firestoreId!);
     } else {
       final ready = StartupDetailReady(startupDetailFor(widget.catalog));
       _streamInitialData = ready;
@@ -200,8 +210,8 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
             initialsFor: _initials,
             onMemberTap: (member) {
               Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (context) => SocioDetailScreen(
+                MesclaMaterialRoute.fadeSlide<void>(
+                  (context) => SocioDetailScreen(
                     data: resolveSocioDetailForTeamMember(member),
                     startupDisplayName: detail.catalog.name,
                   ),
