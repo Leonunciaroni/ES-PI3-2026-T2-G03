@@ -154,6 +154,10 @@ abstract final class SimulatedWalletService {
     if (error is FirebaseFunctionsException) {
       switch (error.code) {
         case 'not-found':
+          final detail = error.message?.trim();
+          if (detail != null && detail.isNotEmpty) {
+            return detail;
+          }
           return 'Serviço de carteira indisponível. Se usa o emulador, confirme '
               '`firebase emulators:start` e `--dart-define=USE_FUNCTIONS_EMULATOR=true`. '
               'Em produção, faça deploy da função simulateWallet.';
