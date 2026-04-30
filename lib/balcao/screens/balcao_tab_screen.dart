@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../../carteira/format/carteira_brl.dart';
 import '../../catalog/data/startup_detail_mock.dart';
 import '../balcao_format.dart';
+import '../../navigation/mescla_material_route.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
@@ -150,12 +151,21 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
 
   static const _horizontalPadding = 20.0;
 
+  /// Scroll do corpo: ao alternar lista ↔ mesa, voltamos ao topo (evita offset estranho).
+  final ScrollController _bodyScrollController = ScrollController();
+
+  /// Chave estável para [AnimatedSwitcher] distinguir lista vs. mesa (e cada startup).
+  String get _balcaoPainelKey => _mesaStartup == null
+      ? 'balcao_lista'
+      : 'mesa_${_mesaStartup!.firestoreId ?? _mesaStartup!.name}';
+
   @override
   void initState() {
     super.initState();
     _functionsService =
         widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
-    _listFuture = widget.startupsFutureForTesting ??
+    _listFuture =
+        widget.startupsFutureForTesting ??
         StartupCatalogListCache.instance.fullList(_functionsService);
     _listFuture.then((list) {
       if (!mounted) return;
@@ -164,15 +174,38 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     _mesaStartup = widget.initialMesaStartup;
     final CatalogStartup? mesa = _mesaStartup;
     if (mesa?.firestoreId != null) {
-      _mesaDetailFuture =
-          _functionsService.fetchStartupDetail(mesa!.firestoreId!);
+      _mesaDetailFuture = _functionsService.fetchStartupDetail(
+        mesa!.firestoreId!,
+      );
     }
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _bodyScrollController.dispose();
     super.dispose();
+  }
+
+  void _jumpBodyScrollTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_bodyScrollController.hasClients) {
+        _bodyScrollController.jumpTo(0);
+      }
+    });
+  }
+
+  /// Lista → mesa: mesma linguagem visual das rotas Mescla (fade + micro-slide).
+  void _abrirMesa(CatalogStartup s) {
+    setState(() {
+      _mesaStartup = s;
+      _periodoCotacao = ValuationPeriod.mensal;
+      _mesaDetailFuture = s.firestoreId != null
+          ? _functionsService.fetchStartupDetail(s.firestoreId!)
+          : null;
+    });
+    _jumpBodyScrollTop();
   }
 
   /// Mesma regra do catálogo: nome, categoria, descrição, sigla.
@@ -193,6 +226,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
       _periodoCotacao = ValuationPeriod.mensal;
       _mesaDetailFuture = null;
     });
+    _jumpBodyScrollTop();
   }
 
   /// Abre o ecrã onde o utilizador define a **quantidade**; o modal e a senha
@@ -202,11 +236,9 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     if (startup == null) return;
 
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => BalcaoQuantidadeTokensScreen(
-          startup: startup,
-          operacao: operacao,
-        ),
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) =>
+            BalcaoQuantidadeTokensScreen(startup: startup, operacao: operacao),
       ),
     );
   }
@@ -232,191 +264,209 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     final searchFill = AppColors.searchFieldFillForTheme(theme);
 
     final scroll = SingleChildScrollView(
+      controller: _bodyScrollController,
       padding: const EdgeInsets.fromLTRB(
         _horizontalPadding,
         8,
         _horizontalPadding,
         24,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_mesaStartup == null) ...[
-            const _BalcaoLogoHeader(),
-            const SizedBox(height: 20),
-            Text(
-              'Balcão',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: onSurface,
-              ),
+      child: AnimatedSwitcher(
+        duration: MesclaMaterialRoute.kTransitionDuration,
+        reverseDuration: MesclaMaterialRoute.kReverseTransitionDuration,
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.035),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Escolha uma startup para ver saldo em tokens e negociar.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryLabel(theme),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _searchController,
-              onChanged: (_) => setState(() {}),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Buscar startups, setores...',
-                suffixIcon: Icon(
-                  Icons.search,
-                  color: onSurface.withValues(alpha: 0.75),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<String>(_balcaoPainelKey),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_mesaStartup == null) ...[
+                const _BalcaoLogoHeader(),
+                const SizedBox(height: 20),
+                Text(
+                  'Balcão',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
                 ),
-                filled: true,
-                fillColor: searchFill,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
+                const SizedBox(height: 6),
+                Text(
+                  'Escolha uma startup para ver saldo em tokens e negociar.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
                 ),
-                enabledBorder: _searchBorder(searchFill),
-                focusedBorder: _searchBorder(scheme.primary),
-                border: _searchBorder(searchFill),
-              ),
-            ),
-            const SizedBox(height: 20),
-            FutureBuilder<List<CatalogStartup>>(
-              future: _listFuture,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Text(
-                      StartupCatalogFunctionsService.messageForError(
-                        snapshot.error!,
-                      ),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.secondaryLabel(theme),
-                      ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _searchController,
+                  onChanged: (_) => setState(() {}),
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar startups, setores...',
+                    suffixIcon: Icon(
+                      Icons.search,
+                      color: onSurface.withValues(alpha: 0.75),
                     ),
-                  );
-                }
-                if (snapshot.connectionState != ConnectionState.done ||
-                    !snapshot.hasData) {
-                  return const Padding(
-                    padding: EdgeInsets.only(top: 48),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                final all = snapshot.data!;
-                if (all.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 32),
-                    child: Text(
-                      'Nenhuma startup disponível.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.secondaryLabel(theme),
-                      ),
+                    filled: true,
+                    fillColor: searchFill,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
                     ),
-                  );
-                }
-                final list = all.where(_matchesSearch).toList();
-                if (list.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 32),
-                    child: Text(
-                      'Nenhuma startup encontrada.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: AppColors.secondaryLabel(theme),
-                      ),
-                    ),
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final s in list) ...[
-                      _BalcaoStartupRowCard(
-                        startup: s,
-                        ticker: balcaoTickerParaStartup(s),
-                        primary: scheme.primary,
-                        onTap: () => setState(() {
-                          _mesaStartup = s;
-                          _periodoCotacao = ValuationPeriod.mensal;
-                          _mesaDetailFuture = s.firestoreId != null
-                              ? _functionsService.fetchStartupDetail(
-                                  s.firestoreId!,
-                                )
-                              : null;
-                        }),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ] else ...[
-            _BalcaoMesaTopRow(onBack: _limparMesa),
-            const SizedBox(height: 20),
-            Builder(
-              builder: (context) {
-                final s = _mesaStartup!;
-                final fut = _mesaDetailFuture;
-                if (fut == null) {
-                  return _balcaoMesaTradingColumn(
-                    theme: theme,
-                    scheme: scheme,
-                    s: s,
-                    detail: startupDetailFor(s),
-                    onPeriodo: (p) => setState(() => _periodoCotacao = p),
-                    comprar: () =>
-                        _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
-                    vender: () =>
-                        _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
-                  );
-                }
-                return FutureBuilder<StartupDetailViewData?>(
-                  future: fut,
+                    enabledBorder: _searchBorder(searchFill),
+                    focusedBorder: _searchBorder(scheme.primary),
+                    border: _searchBorder(searchFill),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FutureBuilder<List<CatalogStartup>>(
+                  future: _listFuture,
                   builder: (context, snapshot) {
-                    final StartupDetailViewData detail =
-                        snapshot.hasData && snapshot.data != null
-                            ? snapshot.data!
-                            : startupDetailFor(s);
-                    return _balcaoMesaTradingColumn(
-                      theme: theme,
-                      scheme: scheme,
-                      s: s,
-                      detail: detail,
-                      onPeriodo: (p) =>
-                          setState(() => _periodoCotacao = p),
-                      comprar: () =>
-                          _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
-                      vender: () =>
-                          _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Text(
+                          StartupCatalogFunctionsService.messageForError(
+                            snapshot.error!,
+                          ),
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                          ),
+                        ),
+                      );
+                    }
+                    if (snapshot.connectionState != ConnectionState.done ||
+                        !snapshot.hasData) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 48),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final all = snapshot.data!;
+                    if (all.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 32),
+                        child: Text(
+                          'Nenhuma startup disponível.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                          ),
+                        ),
+                      );
+                    }
+                    final list = all.where(_matchesSearch).toList();
+                    if (list.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 32),
+                        child: Text(
+                          'Nenhuma startup encontrada.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                          ),
+                        ),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final s in list) ...[
+                          _BalcaoStartupRowCard(
+                            startup: s,
+                            ticker: balcaoTickerParaStartup(s),
+                            primary: scheme.primary,
+                            onTap: () => _abrirMesa(s),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ],
                     );
                   },
-                );
-              },
-            ),
-            const SizedBox(height: 28),
-            Text(
-              'Transações de hoje',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: onSurface,
-              ),
-            ),
-            const SizedBox(height: 12),
-            for (final tx in balcaoTransacoesHojeMock(_mesaStartup!)) ...[
-              _TransacaoDiaTile(
-                item: tx,
-                primary: scheme.primary,
-                theme: theme,
-              ),
-              const SizedBox(height: 10),
+                ),
+              ] else ...[
+                _BalcaoMesaTopRow(onBack: _limparMesa),
+                const SizedBox(height: 20),
+                Builder(
+                  builder: (context) {
+                    final s = _mesaStartup!;
+                    final fut = _mesaDetailFuture;
+                    if (fut == null) {
+                      return _balcaoMesaTradingColumn(
+                        theme: theme,
+                        scheme: scheme,
+                        s: s,
+                        detail: startupDetailFor(s),
+                        onPeriodo: (p) => setState(() => _periodoCotacao = p),
+                        comprar: () =>
+                            _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
+                        vender: () =>
+                            _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+                      );
+                    }
+                    return FutureBuilder<StartupDetailViewData?>(
+                      future: fut,
+                      builder: (context, snapshot) {
+                        final StartupDetailViewData detail =
+                            snapshot.hasData && snapshot.data != null
+                            ? snapshot.data!
+                            : startupDetailFor(s);
+                        return _balcaoMesaTradingColumn(
+                          theme: theme,
+                          scheme: scheme,
+                          s: s,
+                          detail: detail,
+                          onPeriodo: (p) => setState(() => _periodoCotacao = p),
+                          comprar: () =>
+                              _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
+                          vender: () =>
+                              _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  'Transações de hoje',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: onSurface,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (final tx in balcaoTransacoesHojeMock(_mesaStartup!)) ...[
+                  _TransacaoDiaTile(
+                    item: tx,
+                    primary: scheme.primary,
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
             ],
-          ],
-        ],
+          ),
+        ),
       ),
     );
 
@@ -470,8 +520,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           pairLabel: '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
           nomeStartup: s.name,
           categoria: s.category,
-          cotacaoFormatada:
-              precoConhecido ? formatBrl(s.tokenPrice) : '—',
+          cotacaoFormatada: precoConhecido ? formatBrl(s.tokenPrice) : '—',
           variacao24hPct: balcaoVariacao24hPercentual(p24),
           min24h: p24.isEmpty
               ? '—'
@@ -514,10 +563,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: scheme.primary,
                   backgroundColor: theme.colorScheme.surface,
-                  side: BorderSide(
-                    color: scheme.primary,
-                    width: 1.5,
-                  ),
+                  side: BorderSide(color: scheme.primary, width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -568,10 +614,7 @@ class _BalcaoMesaTopRow extends StatelessWidget {
           tooltip: 'Trocar startup',
           color: onSurface,
         ),
-        MesclaBrandLogo(
-          boxWidth: 200,
-          boxHeight: _logoHeight,
-        ),
+        MesclaBrandLogo(boxWidth: 200, boxHeight: _logoHeight),
       ],
     );
   }
@@ -670,7 +713,10 @@ class _BalcaoStartupRowCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_right_rounded, color: primary.withValues(alpha: 0.7)),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: primary.withValues(alpha: 0.7),
+              ),
             ],
           ),
         ),
@@ -771,10 +817,7 @@ class _MesaTokenCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Container(
-                    height: 1,
-                    color: AppColors.cardDivider(theme),
-                  ),
+                  Container(height: 1, color: AppColors.cardDivider(theme)),
                   const SizedBox(height: 12),
                   Text(
                     'COTAÇÃO ATUAL (BRL / TOKEN)',
@@ -842,10 +885,7 @@ class _MesaTokenCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  Container(
-                    height: 1,
-                    color: AppColors.cardDivider(theme),
-                  ),
+                  Container(height: 1, color: AppColors.cardDivider(theme)),
                   const SizedBox(height: 12),
                   Text(
                     'Saldo (quantidade)',
@@ -902,7 +942,9 @@ class _TransacaoDiaTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tipoLabel = item.tipo == BalcaoOperacaoTipo.compra ? 'Compra' : 'Venda';
+    final tipoLabel = item.tipo == BalcaoOperacaoTipo.compra
+        ? 'Compra'
+        : 'Venda';
     return Material(
       color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(16),
