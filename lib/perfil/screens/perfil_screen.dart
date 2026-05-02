@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 
 import '../../auth/screens/login_screen.dart';
 import '../../auth/services/user_firestore_service.dart';
+import '../../catalog/models/catalog_startup.dart';
+import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../../theme/theme_mode_controller.dart';
@@ -111,11 +113,33 @@ class PerfilScreen extends StatefulWidget {
 class _PerfilScreenState extends State<PerfilScreen> {
   /// Uma instância por ecrã: evita relançar o [Future] a cada [build].
   late final Future<_PerfilDados> _carga = _carregarPerfil();
+  late final Future<List<CatalogStartup>> _favoritosCarga =
+      _carregarFavoritos();
 
   static const _logoHeight = 52.0;
   static const _paddingH = 20.0;
   static const _cinzaConta = Color(0xFFF3F4F6);
   static const _corSairBorda = Color(0xFFEA580C);
+
+  Future<List<CatalogStartup>> _carregarFavoritos() async {
+    final ids = await UserFirestoreService.fetchFavoriteStartupIds();
+    if (ids.isEmpty) {
+      return const <CatalogStartup>[];
+    }
+    final startups = await StartupCatalogFunctionsService().listStartups();
+    final byId = <String, CatalogStartup>{
+      for (final s in startups)
+        if (s.firestoreId != null && s.firestoreId!.isNotEmpty) s.firestoreId!: s,
+    };
+    final out = <CatalogStartup>[];
+    for (final id in ids) {
+      final item = byId[id];
+      if (item != null) {
+        out.add(item);
+      }
+    }
+    return out;
+  }
 
   /// Material 3: [Dialog] com o mesmo desenho dos outros modais (cantos 24, ícone,
   /// textos com [AppColors], botões empilhados como em [AdicionarFundosScreen]).
@@ -301,6 +325,22 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 ),
                 child: Column(
                   children: [
+                    FutureBuilder<List<CatalogStartup>>(
+                      future: _favoritosCarga,
+                      builder: (context, favSnap) {
+                        final qtd = favSnap.data?.length ?? 0;
+                        final subtitulo = qtd == 0
+                            ? 'Nenhuma startup favorita'
+                            : '$qtd ${qtd == 1 ? "startup favorita" : "startups favoritas"}';
+                        return _PerfilConfigRow(
+                          icon: Icons.favorite_border_rounded,
+                          titulo: 'Favoritos',
+                          subtitulo: subtitulo,
+                          onTap: () {},
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 72),
                     _PerfilConfigRow(
                       icon: Icons.shield_outlined,
                       titulo: 'Segurança e Privacidade',
@@ -348,6 +388,29 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 14),
+              FutureBuilder<List<CatalogStartup>>(
+                future: _favoritosCarga,
+                builder: (context, favSnap) {
+                  if (favSnap.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (favSnap.hasError) {
+                    return Text(
+                      'Não foi possível carregar favoritos agora.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    );
+                  }
+                  return _PerfilFavoritosCard(
+                    favoritos: favSnap.data ?? const <CatalogStartup>[],
+                  );
+                },
               ),
               const SizedBox(height: 24),
               Text(
@@ -551,6 +614,70 @@ class _PerfilConfigRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PerfilFavoritosCard extends StatelessWidget {
+  const _PerfilFavoritosCard({required this.favoritos});
+
+  final List<CatalogStartup> favoritos;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Startups Favoritas',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (favoritos.isEmpty)
+              Text(
+                'Você ainda não favoritou nenhuma startup.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              )
+            else
+              ...favoritos.map(
+                (s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.favorite_rounded, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          s.name,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        s.category,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
