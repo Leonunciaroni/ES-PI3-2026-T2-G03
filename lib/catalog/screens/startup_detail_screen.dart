@@ -19,6 +19,7 @@ import '../widgets/mescla_detail_header.dart';
 import '../widgets/mescla_pdf_section_card.dart';
 import '../widgets/startup_logo_avatar.dart';
 import '../../navigation/mescla_material_route.dart';
+import '../../auth/services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 
@@ -63,8 +64,9 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Período ativo no gráfico "Evolução" — rótulos do PDF §5.4.
   ValuationPeriod _valuationPeriod = ValuationPeriod.mensal;
 
-  /// Simula favoritar na lista de desejos (sem persistência).
+  /// Estado de favorito persistido em `users/{uid}.favoriteStartupIds`.
   bool _onWishlist = false;
+  bool _wishlistBusy = false;
 
   /// Modo teste: stream fixo injetado.
   Stream<StartupDetailLoadState>? _detailStream;
@@ -95,6 +97,23 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
       _detailStream = Stream<StartupDetailLoadState>.value(ready);
       _detailFuture = null;
     }
+    _loadWishlistState();
+  }
+
+  Future<void> _loadWishlistState() async {
+    final startupId = widget.catalog.firestoreId?.trim();
+    if (startupId == null || startupId.isEmpty) {
+      return;
+    }
+    try {
+      final fav = await UserFirestoreService.isStartupFavorited(startupId);
+      if (!mounted) {
+        return;
+      }
+      setState(() => _onWishlist = fav);
+    } catch (_) {
+      // Em falha de rede/permissão, mantém o estado local padrão (não favorito).
+    }
   }
 
   /// Iniciais para o avatar textual (ex.: "Ana Luíza Costa" → "AC").
@@ -114,6 +133,36 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _toggleWishlist() async {
+    if (_wishlistBusy) return;
+    final startupId = widget.catalog.firestoreId?.trim();
+    if (startupId == null || startupId.isEmpty) {
+      _snack('Não foi possível favoritar esta startup.');
+      return;
+    }
+    final next = !_onWishlist;
+    setState(() {
+      _onWishlist = next;
+      _wishlistBusy = true;
+    });
+    try {
+      await UserFirestoreService.setStartupFavorite(
+        startupId: startupId,
+        favorite: next,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _onWishlist = !next);
+      _snack('Não foi possível atualizar os favoritos.');
+    } finally {
+      if (mounted) {
+        setState(() => _wishlistBusy = false);
+      }
+    }
   }
 
   void _redirectToBalcao(CatalogStartup startup) {
@@ -176,8 +225,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
             data: detail,
             primary: primary,
             onWishlist: _onWishlist,
-            onToggleWishlist: () =>
-                setState(() => _onWishlist = !_onWishlist),
+            onToggleWishlist: _toggleWishlist,
             onInvest: () => _redirectToBalcao(detail.catalog),
           ),
           const SizedBox(height: 14),
