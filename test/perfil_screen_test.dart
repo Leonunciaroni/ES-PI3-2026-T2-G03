@@ -21,6 +21,7 @@ void main() {
     expect(find.text('SESSÃO'), findsOneWidget);
     expect(find.text('Sair da Conta'), findsOneWidget);
     expect(find.text('Segurança e Privacidade'), findsOneWidget);
+    expect(find.text('Favoritos'), findsOneWidget);
   });
 
   testWidgets('Toque em Segurança abre subpágina', (WidgetTester tester) async {
@@ -33,11 +34,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Segurança e Privacidade'));
+    final seguranca = find.text('Segurança e Privacidade');
+    await tester.ensureVisible(seguranca);
+    await tester.pumpAndSettle();
+    await tester.tap(seguranca);
     await tester.pumpAndSettle();
 
-    expect(find.text('Verificação em duas etapas (2FA)'), findsOneWidget);
-    expect(find.byType(Switch), findsOneWidget);
+    // Sem sessão: não há interruptor 2FA; mensagem e recuperação de senha mantêm-se.
+    expect(
+      find.text(
+        'Inicie sessão para ativar ou desativar a verificação em duas etapas.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Trocar senha por e-mail'), findsOneWidget);
   });
 
@@ -53,7 +62,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Sair da Conta'));
+    final sair = find.text('Sair da Conta');
+    await tester.ensureVisible(sair);
+    await tester.pumpAndSettle();
+    await tester.tap(sair);
     await tester.pumpAndSettle();
 
     expect(find.text('Sair do aplicativo?'), findsOneWidget);
