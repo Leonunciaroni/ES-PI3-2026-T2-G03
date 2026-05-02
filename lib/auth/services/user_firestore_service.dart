@@ -6,6 +6,15 @@ class UserFirestoreService {
 
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Em `flutter test` sem [Firebase.initializeApp], [FirebaseAuth.instance] falha.
+  static FirebaseAuth? _tryAuth() {
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
   static final CollectionReference<Map<String, dynamic>> _usersCollection =
       _firestore.collection('users');
 
@@ -171,7 +180,8 @@ class UserFirestoreService {
 
   /// IDs Firestore das startups favoritas do utilizador autenticado.
   static Future<List<String>> fetchFavoriteStartupIds() async {
-    final uid = _auth.currentUser?.uid;
+    final auth = _tryAuth();
+    final uid = auth?.currentUser?.uid;
     if (uid == null) {
       return const <String>[];
     }
@@ -196,7 +206,8 @@ class UserFirestoreService {
 
   /// Stream de favoritos para atualizar UI em tempo real.
   static Stream<List<String>> watchFavoriteStartupIds() {
-    final uid = _auth.currentUser?.uid;
+    final auth = _tryAuth();
+    final uid = auth?.currentUser?.uid;
     if (uid == null) {
       return Stream<List<String>>.value(const <String>[]);
     }
