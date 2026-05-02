@@ -1,5 +1,5 @@
 // Lista de startups marcadas como favoritas — mesmo gradiente/cores do Explorar,
-// logo Mescla centrado e cards iguais ao catálogo.
+// cabeçalho [MesclaDetailHeader] como na tela de detalhes da startup, cards iguais ao catálogo.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,18 +7,18 @@ import 'package:flutter/services.dart';
 import '../../auth/services/user_firestore_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_functions_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../catalog/services/startup_logo_precache_service.dart';
 import '../../catalog/widgets/catalog_startup_card.dart';
+import '../../catalog/widgets/mescla_detail_header.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/mescla_brand_logo.dart';
 
 /// Ecrã dedicado aos favoritos (aberto a partir do Perfil).
 class FavoritosScreen extends StatefulWidget {
-  const FavoritosScreen({super.key});
+  const FavoritosScreen({super.key, this.onInvestir});
 
-  static const _horizontalPadding = 20.0;
-  static const _logoHeight = 52.0;
-  static const _logoBoxWidth = 200.0;
+  /// Igual ao Explorar: após «Investir Agora» no detalhe, abre o Balcão na startup certa.
+  final void Function(CatalogStartup)? onInvestir;
 
   @override
   State<FavoritosScreen> createState() => _FavoritosScreenState();
@@ -41,7 +41,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
     if (ids.isEmpty) {
       return const <CatalogStartup>[];
     }
-    final startups = await _functionsService.listStartups();
+    final startups =
+        await StartupCatalogListCache.instance.fullList(_functionsService);
     final byId = <String, CatalogStartup>{
       for (final s in startups)
         if (s.firestoreId != null && s.firestoreId!.isNotEmpty) s.firestoreId!: s,
@@ -80,35 +81,15 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 8, 0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: Icon(Icons.arrow_back, color: onSurface),
-                      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                    ),
-                  ),
-                ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      FavoritosScreen._horizontalPadding,
-                      8,
-                      FavoritosScreen._horizontalPadding,
-                      28,
-                    ),
+                    // Mesmo recuo que [StartupDetailScreen._buildDetailScrollView].
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Center(
-                          child: MesclaBrandLogo(
-                            boxWidth: FavoritosScreen._logoBoxWidth,
-                            boxHeight: FavoritosScreen._logoHeight,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                        const MesclaDetailHeader(),
+                        const SizedBox(height: 16),
                         Text(
                           'Favoritos',
                           textAlign: TextAlign.center,
@@ -182,6 +163,7 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                     startup: s,
                                     primary: colorScheme.primary,
                                     functionsService: _functionsService,
+                                    onInvestir: widget.onInvestir,
                                   ),
                                   const SizedBox(height: 12),
                                 ],
