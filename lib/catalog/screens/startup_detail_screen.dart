@@ -225,6 +225,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
             data: detail,
             primary: primary,
             onWishlist: _onWishlist,
+            wishlistBusy: _wishlistBusy,
             onToggleWishlist: _toggleWishlist,
             onInvest: () => _redirectToBalcao(detail.catalog),
           ),
