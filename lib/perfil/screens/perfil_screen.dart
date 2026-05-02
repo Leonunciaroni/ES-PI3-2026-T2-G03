@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../auth/screens/login_screen.dart';
 import '../../auth/services/user_firestore_service.dart';
+import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../../theme/theme_mode_controller.dart';
@@ -100,10 +101,14 @@ class PerfilScreen extends StatefulWidget {
   const PerfilScreen({
     super.key,
     this.wrapWithSafeArea = true,
+    this.onInvestir,
   });
 
   /// Quando o pai já aplicou [SafeArea] (ex.: [MesclaMainShell]), passa `false`.
   final bool wrapWithSafeArea;
+
+  /// Repassado a [FavoritosScreen] — «Investir Agora» abre o Balcão (ex.: [DashboardScreen]).
+  final void Function(CatalogStartup)? onInvestir;
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -316,7 +321,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           onTap: () {
                             Navigator.of(context).push<void>(
                               MaterialPageRoute<void>(
-                                builder: (_) => const FavoritosScreen(),
+                                builder: (_) => FavoritosScreen(
+                                  onInvestir: widget.onInvestir,
+                                ),
                               ),
                             );
                           },
