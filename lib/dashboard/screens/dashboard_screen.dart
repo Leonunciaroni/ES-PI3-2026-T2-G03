@@ -318,7 +318,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           wrapWithSafeArea: false,
           onInvestir: _abrirBalcaoParaStartup,
         ),
-        const PerfilScreen(wrapWithSafeArea: false),
+        PerfilScreen(
+          wrapWithSafeArea: false,
+          onInvestir: _abrirBalcaoParaStartup,
+        ),
       ],
     );
   }

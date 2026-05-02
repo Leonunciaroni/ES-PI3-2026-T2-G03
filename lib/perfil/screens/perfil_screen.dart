@@ -11,10 +11,12 @@ import 'package:flutter/material.dart';
 
 import '../../auth/screens/login_screen.dart';
 import '../../auth/services/user_firestore_service.dart';
+import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../../theme/theme_mode_controller.dart';
 import 'ajuda_suporte_screen.dart';
+import 'favoritos_screen.dart';
 import 'modo_aparencia_screen.dart';
 import 'seguranca_privacidade_screen.dart';
 
@@ -99,10 +101,14 @@ class PerfilScreen extends StatefulWidget {
   const PerfilScreen({
     super.key,
     this.wrapWithSafeArea = true,
+    this.onInvestir,
   });
 
   /// Quando o pai já aplicou [SafeArea] (ex.: [MesclaMainShell]), passa `false`.
   final bool wrapWithSafeArea;
+
+  /// Repassado a [FavoritosScreen] — «Investir Agora» abre o Balcão (ex.: [DashboardScreen]).
+  final void Function(CatalogStartup)? onInvestir;
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -301,6 +307,30 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 ),
                 child: Column(
                   children: [
+                    StreamBuilder<List<String>>(
+                      stream: UserFirestoreService.watchFavoriteStartupIds(),
+                      builder: (context, favSnap) {
+                        final qtd = favSnap.data?.length ?? 0;
+                        final subtitulo = qtd == 0
+                            ? 'Ver lista de desejos'
+                            : '$qtd ${qtd == 1 ? "startup favorita" : "startups favoritas"}';
+                        return _PerfilConfigRow(
+                          icon: Icons.favorite_border_rounded,
+                          titulo: 'Favoritos',
+                          subtitulo: subtitulo,
+                          onTap: () {
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => FavoritosScreen(
+                                  onInvestir: widget.onInvestir,
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 72),
                     _PerfilConfigRow(
                       icon: Icons.shield_outlined,
                       titulo: 'Segurança e Privacidade',

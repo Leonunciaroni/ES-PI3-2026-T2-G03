@@ -6,11 +6,21 @@ class UserFirestoreService {
 
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  /// Em `flutter test` sem [Firebase.initializeApp], [FirebaseAuth.instance] falha.
+  static FirebaseAuth? _tryAuth() {
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
   static final CollectionReference<Map<String, dynamic>> _usersCollection =
       _firestore.collection('users');
 
   /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
   static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
+  static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
 
   static Future<void> _removeLegacyPasswordFieldForEmail(
     String normalizedEmail,
@@ -57,6 +67,7 @@ class UserFirestoreService {
         'cpf': cpf.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         fieldTwoFactorEnabled: true,
+        fieldFavoriteStartupIds: <String>[],
       }, SetOptions(merge: true));
 
       await _removeLegacyPasswordFieldForEmail(normalizedEmail);
@@ -165,5 +176,90 @@ class UserFirestoreService {
       // Sem Firebase ou falha de rede: o ecrã Perfil usa fallback.
     }
     return null;
+  }
+
+  /// IDs Firestore das startups favoritas do utilizador autenticado.
+  static Future<List<String>> fetchFavoriteStartupIds() async {
+    final auth = _tryAuth();
+    final uid = auth?.currentUser?.uid;
+    if (uid == null) {
+      return const <String>[];
+    }
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) {
+        return const <String>[];
+      }
+      final raw = snap.data()?[fieldFavoriteStartupIds];
+      if (raw is! List) {
+        return const <String>[];
+      }
+      return raw
+          .map((e) => e?.toString().trim() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  /// Stream de favoritos para atualizar UI em tempo real.
+  static Stream<List<String>> watchFavoriteStartupIds() {
+    final auth = _tryAuth();
+    final uid = auth?.currentUser?.uid;
+    if (uid == null) {
+      return Stream<List<String>>.value(const <String>[]);
+    }
+    return _usersCollection.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) {
+        return const <String>[];
+      }
+      final raw = snap.data()?[fieldFavoriteStartupIds];
+      if (raw is! List) {
+        return const <String>[];
+      }
+      return raw
+          .map((e) => e?.toString().trim() ?? '')
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+    });
+  }
+
+  static Future<bool> isStartupFavorited(String startupId) async {
+    final id = startupId.trim();
+    if (id.isEmpty) {
+      return false;
+    }
+    final ids = await fetchFavoriteStartupIds();
+    return ids.contains(id);
+  }
+
+  /// Adiciona/remove favorito no documento do utilizador.
+  static Future<void> setStartupFavorite({
+    required String startupId,
+    required bool favorite,
+  }) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    final id = startupId.trim();
+    if (id.isEmpty) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'invalid-argument',
+        message: 'startupId inválido.',
+      );
+    }
+    await _usersCollection.doc(uid).set({
+      fieldFavoriteStartupIds: favorite
+          ? FieldValue.arrayUnion(<String>[id])
+          : FieldValue.arrayRemove(<String>[id]),
+    }, SetOptions(merge: true));
   }
 }
