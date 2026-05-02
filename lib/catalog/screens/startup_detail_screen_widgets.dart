@@ -5,6 +5,7 @@ class _MainInfoCard extends StatelessWidget {
     required this.data,
     required this.primary,
     required this.onWishlist,
+    required this.wishlistBusy,
     required this.onToggleWishlist,
     required this.onInvest,
   });
@@ -12,6 +13,7 @@ class _MainInfoCard extends StatelessWidget {
   final StartupDetailViewData data;
   final Color primary;
   final bool onWishlist;
+  final bool wishlistBusy;
   final VoidCallback onToggleWishlist;
   final VoidCallback onInvest;
 
@@ -94,7 +96,7 @@ class _MainInfoCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton.tonal(
-                    onPressed: onToggleWishlist,
+                    onPressed: wishlistBusy ? null : onToggleWishlist,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       backgroundColor: AppColors.themeMutedSurface(theme),
