@@ -21,15 +21,18 @@ import 'package:flutter/material.dart';
 import '../../auth/services/user_firestore_service.dart';
 import '../../catalog/data/startup_detail_mock.dart';
 import '../../catalog/services/startup_firestore_mapper.dart';
+import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../format/carteira_brl.dart';
 import '../format/pix_chave_input.dart';
+import '../models/carteira_movimentacao_detalhe.dart';
 import '../models/pix_chave_ui.dart';
 import '../services/simulated_wallet_service.dart';
 import 'adicionar_fundos_screen.dart';
+import 'carteira_movimentacao_detalhe_screen.dart';
 import 'sacar_valor_screen.dart';
 
 // --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
@@ -409,14 +412,25 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   /// Chaves PIX em **memória** só para convidado / testes sem `users/{uid}`.
   final List<PixChaveUi> _chavesPixConvidado = [];
 
+  /// Lista de movimentações expandida (`true`) ou só as 3 mais recentes (`false`).
+  bool _movimentacoesVerTodas = false;
+
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
   /// Saldo total mock (mesmo valor exemplo do Figma).
   static const _saldoTotal = 12450.0;
 
-  /// Lista fixa de movimentações até existir Firestore/API.
+  /// Lista fixa de movimentações (convidado): ordem **mais recente primeiro**,
+  /// alinhada ao extrato Firestore (`orderBy` descendente).
   static const List<_MovimentacaoMock> _movimentacoes = [
+    _MovimentacaoMock(
+      entrada: true,
+      tipoLinha1: 'Entrada',
+      detalheCaps: 'CRÉDITO PIX',
+      data: '02/05/2026',
+      valor: 1_000_000,
+    ),
     _MovimentacaoMock(
       entrada: true,
       tipoLinha1: 'Entrada',
@@ -1211,69 +1225,214 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  Widget _listaMovimentacoesBloco({required Color primary}) {
+  Widget _tituloMovimentacoesRow({
+    required bool mostrarLinkVerTodas,
+    required Color onSurface,
+    required Color primary,
+    required ThemeData theme,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            'Minhas Movimentações',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: onSurface,
+            ),
+          ),
+        ),
+        if (mostrarLinkVerTodas)
+          TextButton(
+            onPressed: () =>
+                setState(() => _movimentacoesVerTodas = !_movimentacoesVerTodas),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              _movimentacoesVerTodas ? 'Ver menos' : 'Ver todas',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _abrirDetalheMovimentacao({
+    required _MovimentacaoMock mov,
+    Map<String, dynamic>? ledger,
+  }) {
+    final detalhe = ledger != null
+        ? CarteiraMovimentacaoDetalhe.fromLedger(
+            ledger,
+            formatarBrl: _brlParaExibicao,
+          )
+        : CarteiraMovimentacaoDetalhe.fromConvidadoMock(
+            entrada: mov.entrada,
+            detalheCaps: mov.detalheCaps,
+            dataDdMmYyyy: mov.data,
+            valorNumerico: mov.valor,
+            formatarBrl: _brlParaExibicao,
+          );
+    Navigator.of(context).push<void>(
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) => CarteiraMovimentacaoDetalheScreen(detalhe: detalhe),
+      ),
+    );
+  }
+
+  Widget _blocoMinhasMovimentacoes({
+    required Color primary,
+    required Color onSurface,
+    required ThemeData theme,
+  }) {
     final uid = _uidSessao;
     if (uid == null) {
-      final filhos = <Widget>[];
-      for (final m in _movimentacoes) {
-        filhos.addAll([
-          _MovimentacaoCard(
-            mov: m,
+      final total = _movimentacoes.length;
+      final mostrarLink = total > 3;
+      final lista = _movimentacoesVerTodas || total <= 3
+          ? _movimentacoes
+          : _movimentacoes.take(3).toList();
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _tituloMovimentacoesRow(
+            mostrarLinkVerTodas: mostrarLink,
+            onSurface: onSurface,
             primary: primary,
-            valorExibicao: _brlParaExibicao(m.valor),
+            theme: theme,
           ),
-          const SizedBox(height: 10),
-        ]);
-      }
-      return Column(children: filhos);
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final m in lista) ...[
+                _MovimentacaoCard(
+                  mov: m,
+                  primary: primary,
+                  valorExibicao: _brlParaExibicao(m.valor),
+                  onVerDetalhes: () => _abrirDetalheMovimentacao(mov: m),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ],
+          ),
+        ],
+      );
     }
 
-    final themeLocal = Theme.of(context);
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: SimulatedWalletService.watchLedger(uid),
       builder: (context, snap) {
         if (snap.hasError) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              'Extrato indisponível (${snap.error}).',
-              style: themeLocal.textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryLabel(themeLocal),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tituloMovimentacoesRow(
+                mostrarLinkVerTodas: false,
+                onSurface: onSurface,
+                primary: primary,
+                theme: theme,
               ),
-            ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Extrato indisponível (${snap.error}).',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
+                ),
+              ),
+            ],
           );
         }
         if (!snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 36),
-            child: Center(child: CircularProgressIndicator()),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tituloMovimentacoesRow(
+                mostrarLinkVerTodas: false,
+                onSurface: onSurface,
+                primary: primary,
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 36),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
           );
         }
         final docs = snap.data!.docs;
-        if (docs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              'Sem movimentações registadas nesta conta.',
-              textAlign: TextAlign.center,
-              style: themeLocal.textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryLabel(themeLocal),
-              ),
-            ),
-          );
-        }
-        return Column(
-          children: [
-            for (final doc in docs) ...[
-              _MovimentacaoCard(
-                mov: _ledgerFirestoreParaLinha(doc.data()),
+        final total = docs.length;
+        final mostrarLink = total > 3;
+        final visDocs = _movimentacoesVerTodas || total <= 3
+            ? docs
+            : docs.take(3).toList();
+
+        if (total == 0) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tituloMovimentacoesRow(
+                mostrarLinkVerTodas: false,
+                onSurface: onSurface,
                 primary: primary,
-                valorExibicao: _brlParaExibicao(
-                  (doc.data()['amountBrl'] as num?)?.toDouble() ?? 0.0,
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Sem movimentações registadas nesta conta.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
             ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _tituloMovimentacoesRow(
+              mostrarLinkVerTodas: mostrarLink,
+              onSurface: onSurface,
+              primary: primary,
+              theme: theme,
+            ),
+            const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final doc in visDocs) ...[
+                  _MovimentacaoCard(
+                    mov: _ledgerFirestoreParaLinha(doc.data()),
+                    primary: primary,
+                    valorExibicao: _brlParaExibicao(
+                      (doc.data()['amountBrl'] as num?)?.toDouble() ?? 0.0,
+                    ),
+                    onVerDetalhes: () => _abrirDetalheMovimentacao(
+                      mov: _ledgerFirestoreParaLinha(doc.data()),
+                      ledger: doc.data(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+            ),
           ],
         );
       },
@@ -1360,16 +1519,11 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             ),
           ),
           const SizedBox(height: _sectionGap - 12),
-          _SecaoTituloComLink(
-            titulo: 'Minhas Movimentações',
-            linkLabel: 'Ver todas',
-            onLink: () => _emBreve('Ver todas as movimentações'),
-            onSurface: onSurface,
+          _blocoMinhasMovimentacoes(
             primary: colorScheme.primary,
+            onSurface: onSurface,
             theme: theme,
           ),
-          const SizedBox(height: 12),
-          _listaMovimentacoesBloco(primary: colorScheme.primary),
         ],
       ),
     );
@@ -1808,6 +1962,7 @@ class _MovimentacaoCard extends StatelessWidget {
     required this.mov,
     required this.primary,
     required this.valorExibicao,
+    required this.onVerDetalhes,
   });
 
   final _MovimentacaoMock mov;
@@ -1815,6 +1970,8 @@ class _MovimentacaoCard extends StatelessWidget {
 
   /// Valor em reais já formatado ou mascarado pelo ecrã pai.
   final String valorExibicao;
+
+  final VoidCallback onVerDetalhes;
 
   @override
   Widget build(BuildContext context) {
@@ -1882,12 +2039,33 @@ class _MovimentacaoCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '$sinal $valorExibicao',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: primary,
-                fontWeight: FontWeight.bold,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$sinal $valorExibicao',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: onVerDetalhes,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.only(top: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Ver detalhes',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
