@@ -4,6 +4,7 @@
 // Tela **Carteira** — protótipo visual alinhado ao Figma (saldo, evolução,
 // startups investidas, movimentações). Com utilizador autenticado, saldo,
 // posições e extrato vêm do Firestore (`sim_wallet`); convidado mantém mocks.
+// Inclui **Minhas Chaves PIX** (memória local) e atalho **Sacar** (fluxo visual).
 //
 // Pré-carga: ao mudar para este separador no dashboard, [MesclaNavigationPrefetch]
 // dispara leituras em paralelo (ver `lib/navigation/mescla_navigation.dart`) para
@@ -23,8 +24,10 @@ import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../format/carteira_brl.dart';
+import '../models/pix_chave_ui.dart';
 import '../services/simulated_wallet_service.dart';
 import 'adicionar_fundos_screen.dart';
+import 'sacar_valor_screen.dart';
 
 // --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
 
@@ -360,6 +363,9 @@ class CarteiraScreen extends StatefulWidget {
     super.key,
     this.wrapWithSafeArea = true,
     this.onCompraVendaTokens,
+    /// Quando `false`, o ecrã assume **convidado** sem ler [FirebaseAuth] —
+    /// útil em [flutter test] no VM (sem canais nativos do Firebase).
+    this.usarFirebaseParaSessao = true,
   });
 
   /// Quando `false`, o antecessor (ex.: [MesclaMainShell]) já aplicou
@@ -370,11 +376,20 @@ class CarteiraScreen extends StatefulWidget {
   /// de Tokens” no card de saldo deixa o “em breve” e abre o separador Balcão.
   final VoidCallback? onCompraVendaTokens;
 
+  /// Se `false`, não acede a [FirebaseAuth] (testes de widget no desktop).
+  final bool usarFirebaseParaSessao;
+
   @override
   State<CarteiraScreen> createState() => _CarteiraScreenState();
 }
 
 class _CarteiraScreenState extends State<CarteiraScreen> {
+  /// Id do utilizador ou `null` (convidado). Respeita [CarteiraScreen.usarFirebaseParaSessao].
+  String? get _uidSessao =>
+      widget.usarFirebaseParaSessao
+          ? FirebaseAuth.instance.currentUser?.uid
+          : null;
+
   /// Período inicial alinhado ao gráfico de valuation do detalhe ([ValuationPeriod.mensal]).
   ValuationPeriod _periodo = ValuationPeriod.mensal;
 
@@ -385,6 +400,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   /// Ancora a secção “Minhas Startups Investidas” para o botão do card roxo a
   /// fazer scroll até aqui com [Scrollable.ensureVisible].
   final GlobalKey _startupsSecaoKey = GlobalKey();
+
+  /// Chaves PIX guardadas só na app (protótipo; sem Firestore nesta fase).
+  final List<PixChaveUi> _chavesPix = [];
 
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
@@ -468,6 +486,249 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
+  // --- Secção “Minhas Chaves PIX” (UI local) ----------------------------------
+
+  /// Formulário simples no [AlertDialog] para criar ou editar uma chave.
+  Future<void> _dialogCadastrarOuEditarChave({PixChaveUi? existente}) async {
+    var tipo = existente?.tipoLabel ?? 'E-mail';
+    final valorCtrl = TextEditingController(text: existente?.valor ?? '');
+    final apelidoCtrl = TextEditingController(text: existente?.apelido ?? '');
+    const tipos = ['E-mail', 'CPF', 'Telefone', 'Chave aleatória'];
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            return AlertDialog(
+              title: Text(
+                existente == null ? 'Cadastrar chave PIX' : 'Editar chave PIX',
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      key: ValueKey<String>(tipo),
+                      initialValue: tipo,
+                      decoration: const InputDecoration(labelText: 'Tipo'),
+                      items: [
+                        for (final t in tipos)
+                          DropdownMenuItem(value: t, child: Text(t)),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setLocal(() => tipo = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: valorCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Chave',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: apelidoCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Apelido (opcional)',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Guardar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (ok != true || !mounted) {
+      valorCtrl.dispose();
+      apelidoCtrl.dispose();
+      return;
+    }
+
+    final v = valorCtrl.text.trim();
+    valorCtrl.dispose();
+    final ap = apelidoCtrl.text.trim();
+    apelidoCtrl.dispose();
+    if (v.isEmpty) return;
+
+    setState(() {
+      if (existente == null) {
+        _chavesPix.add(
+          PixChaveUi(
+            id: 'pix_${DateTime.now().millisecondsSinceEpoch}',
+            tipoLabel: tipo,
+            valor: v,
+            apelido: ap.isEmpty ? null : ap,
+          ),
+        );
+      } else {
+        final i = _chavesPix.indexWhere((e) => e.id == existente.id);
+        if (i >= 0) {
+          _chavesPix[i] = PixChaveUi(
+            id: existente.id,
+            tipoLabel: tipo,
+            valor: v,
+            apelido: ap.isEmpty ? null : ap,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _confirmarExcluirChave(PixChaveUi c) async {
+    final sim = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir chave?'),
+        content: Text('Remover "${c.rotuloLista}" da lista?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+    if (sim == true && mounted) {
+      setState(() => _chavesPix.removeWhere((e) => e.id == c.id));
+    }
+  }
+
+  /// Cartão branco com lista de chaves e ações, abaixo do gráfico de saldo.
+  Widget _blocoMinhasChavesPix({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final onSurface = colorScheme.onSurface;
+    final card = AppColors.themeCardSurface(theme);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Minhas Chaves PIX',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: onSurface,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Material(
+          color: card,
+          borderRadius: BorderRadius.circular(22),
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.06),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_chavesPix.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Nenhuma chave cadastrada. Adicione uma para usar no saque.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.secondaryLabel(theme),
+                        height: 1.35,
+                      ),
+                    ),
+                  )
+                else
+                  for (var i = 0; i < _chavesPix.length; i++) ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        _chavesPix[i].rotuloLista,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: onSurface,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _chavesPix[i].valor,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                        ),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: 'Editar',
+                            onPressed: () => _dialogCadastrarOuEditarChave(
+                              existente: _chavesPix[i],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: 'Excluir',
+                            onPressed: () => _confirmarExcluirChave(_chavesPix[i]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (i < _chavesPix.length - 1)
+                      Divider(height: 1, color: AppColors.cardDivider(theme)),
+                  ],
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => _dialogCadastrarOuEditarChave(),
+                    icon: const Icon(Icons.add, size: 20),
+                    label: const Text('Cadastrar chave'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Abre o fluxo **Sacar** (valor → confirmação → senha visual → comprovante).
+  void _abrirSacar() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => SacarValorScreen(
+          chavesPixIniciais: List<PixChaveUi>.from(_chavesPix),
+          onChavesAlteradas: (lista) {
+            if (mounted) {
+              setState(() {
+                _chavesPix
+                  ..clear()
+                  ..addAll(lista);
+              });
+            }
+          },
+          usarFirebaseParaSessao: widget.usarFirebaseParaSessao,
+        ),
+      ),
+    );
+  }
+
   /// Desce o scroll até à lista de startups (botão “Ver Startups Investidas”).
   ///
   /// [WidgetsBinding.addPostFrameCallback] garante que o [BuildContext] da
@@ -495,7 +756,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _uidSessao;
     const tituloGrafico = 'Evolução de Saldo';
 
     if (_hideValues) {
@@ -660,7 +921,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   String get _trendTextCompleto => '+ 14.2% este mês';
 
   Widget _blocoSaldoHero() {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _uidSessao;
     if (uid == null) {
       return _SaldoHeroCard(
         totalLabel: 'SALDO TOTAL INVESTIDO',
@@ -668,6 +929,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
         onAdicionar: _abrirAdicionarFundos,
         onVerStartups: _scrollParaStartupsInvestidas,
+        onSacar: _abrirSacar,
         onVenderTokens: widget.onCompraVendaTokens ??
             () => _emBreve('Compra / Venda de tokens'),
       );
@@ -742,6 +1004,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                   trendText: trendText,
                   onAdicionar: _abrirAdicionarFundos,
                   onVerStartups: _scrollParaStartupsInvestidas,
+                  onSacar: _abrirSacar,
                   onVenderTokens: widget.onCompraVendaTokens ??
                       () => _emBreve('Compra / Venda de tokens'),
                 );
@@ -757,7 +1020,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _uidSessao;
     final primary = colorScheme.primary;
     if (uid == null) {
       final filhos = <Widget>[];
@@ -837,7 +1100,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   }
 
   Widget _listaMovimentacoesBloco({required Color primary}) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _uidSessao;
     if (uid == null) {
       final filhos = <Widget>[];
       for (final m in _movimentacoes) {
@@ -957,6 +1220,11 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             theme: theme,
             colorScheme: colorScheme,
           ),
+          const SizedBox(height: _sectionGap),
+          _blocoMinhasChavesPix(
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
           KeyedSubtree(
             key: _startupsSecaoKey,
             child: Column(
@@ -1003,9 +1271,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   }
 }
 
-// --- Card roxo de saldo + três ações ------------------------------------------
+// --- Card roxo de saldo + quatro ações (grelha 2×2) ----------------------------
 
-/// Card principal roxo com valor, badge de tendência e três botões brancos.
+/// Card principal roxo com valor, badge de tendência e quatro botões brancos.
 class _SaldoHeroCard extends StatelessWidget {
   const _SaldoHeroCard({
     required this.totalLabel,
@@ -1013,6 +1281,7 @@ class _SaldoHeroCard extends StatelessWidget {
     required this.trendText,
     required this.onAdicionar,
     required this.onVerStartups,
+    required this.onSacar,
     required this.onVenderTokens,
   });
 
@@ -1021,6 +1290,7 @@ class _SaldoHeroCard extends StatelessWidget {
   final String trendText;
   final VoidCallback onAdicionar;
   final VoidCallback onVerStartups;
+  final VoidCallback onSacar;
   final VoidCallback onVenderTokens;
 
   /// Gradiente roxo → índigo (harmoniza com o resto do app Mescla).
@@ -1095,35 +1365,50 @@ class _SaldoHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 18),
-          // Os três botões na **mesma linha**; o texto pode quebrar dentro de cada
-          // um ([maxLines] no [_PillActionButton]) em ecrãs estreitos.
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Quatro ações em **duas linhas** (2×2): evita botões demasiado estreitos.
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: _PillActionButton(
-                  label: '+ Adicionar Saldo',
-                  onPressed: onAdicionar,
-                  expandWidth: true,
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _PillActionButton(
+                      label: '+ Adicionar Saldo',
+                      onPressed: onAdicionar,
+                      expandWidth: true,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _PillActionButton(
+                      label: 'Ver Startups Investidas',
+                      onPressed: onVerStartups,
+                      expandWidth: true,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _PillActionButton(
-                  label: 'Ver Startups Investidas',
-                  onPressed: onVerStartups,
-                  expandWidth: true,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _PillActionButton(
-                  // Quebra explícita: em colunas estreitas “Vender Tokens” ficava
-                  // numa linha só; o \n iguala a leitura aos outros botões multilinha.
-                  label: 'Compra / Venda\nde Tokens',
-                  onPressed: onVenderTokens,
-                  expandWidth: true,
-                ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _PillActionButton(
+                      label: 'Sacar',
+                      onPressed: onSacar,
+                      expandWidth: true,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _PillActionButton(
+                      label: 'Compra / Venda\nde Tokens',
+                      onPressed: onVenderTokens,
+                      expandWidth: true,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1136,7 +1421,7 @@ class _SaldoHeroCard extends StatelessWidget {
 /// Botão branco em formato de pílula (contraste com o card roxo).
 ///
 /// [expandWidth]: quando `true`, ocupa toda a largura do pai ([Expanded]) na
-/// fila única de três botões do card de saldo.
+/// grelha de botões do card de saldo.
 class _PillActionButton extends StatelessWidget {
   const _PillActionButton({
     required this.label,
