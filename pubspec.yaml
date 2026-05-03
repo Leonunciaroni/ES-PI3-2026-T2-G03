@@ -1,4 +1,4 @@
-name: Mescla Invest
+name: mescla_invest
 description: "Aplicativo de investimentos das startups do hub de inovação Mescla da PUC-Campinas"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
