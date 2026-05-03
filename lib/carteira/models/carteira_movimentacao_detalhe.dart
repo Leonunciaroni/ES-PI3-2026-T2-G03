@@ -1,40 +1,38 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Dados para o ecrã [CarteiraMovimentacaoDetalheScreen] (mesmo padrão visual do
-// detalhe do Balcão), construídos a partir do ledger `sim_wallet` ou da lista mock.
+// Dados para o ecrã [CarteiraMovimentacaoDetalheScreen] — layout **Comprovante**
+// (título de estado, subtítulo, valor em destaque roxo, linha opcional tipo
+// “Chave: …”, cartão Informações), alinhado a [SaqueComprovanteScreen].
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../balcao/balcao_format.dart';
 
-/// Resumo imutável para o comprovante “Detalhe da transação” na Carteira.
+/// Resumo imutável para o comprovante na Carteira (“Ver detalhes”).
 class CarteiraMovimentacaoDetalhe {
   const CarteiraMovimentacaoDetalhe({
     required this.tituloConclusao,
     required this.subtitulo,
-    required this.linhaDestaque,
-    required this.linhaDestaqueEmCorPrimaria,
     required this.valorReaisExibicao,
     required this.dataHora,
-    this.status = 'Concluída',
+    this.linhaRodapeOpcional,
+    this.status = 'Concluída (demonstração)',
   });
 
-  /// Ex.: "Compra concluída", "Saque concluído".
+  /// Ex.: "Saque concluído", "Compra concluída".
   final String tituloConclusao;
 
-  /// Linha cinza abaixo do título (ex.: "Token WHOP").
+  /// Linha cinza sob o título (ex.: "PIX · Telefone", "Token WHOP").
   final String subtitulo;
 
-  /// Linha grande (roxo só em operações de token, como no Balcão).
-  final String linhaDestaque;
-
-  final bool linhaDestaqueEmCorPrimaria;
-
-  /// Valor em reais já formatado / mascarado pelo ecrã pai.
+  /// Valor em reais já formatado / mascarado (mostrado em roxo, como o comprovante).
   final String valorReaisExibicao;
 
   final DateTime dataHora;
+
+  /// Texto pequeno cinza sob o valor (ex.: "Chave: 199…13"); `null` omite a linha.
+  final String? linhaRodapeOpcional;
 
   final String status;
 
@@ -66,10 +64,10 @@ class CarteiraMovimentacaoDetalhe {
         return CarteiraMovimentacaoDetalhe(
           tituloConclusao: 'Compra concluída',
           subtitulo: 'Token $nomeTok',
-          linhaDestaque: '${formatQuantidadeTokensBr(tokens ?? 0)} tokens',
-          linhaDestaqueEmCorPrimaria: true,
           valorReaisExibicao: valorTxt,
           dataHora: dt,
+          linhaRodapeOpcional:
+              'Quantidade: ${formatQuantidadeTokensBr(tokens ?? 0)} tokens',
         );
       case 'trade_sell':
         final nomeTok =
@@ -77,40 +75,39 @@ class CarteiraMovimentacaoDetalhe {
         return CarteiraMovimentacaoDetalhe(
           tituloConclusao: 'Venda concluída',
           subtitulo: 'Token $nomeTok',
-          linhaDestaque: '${formatQuantidadeTokensBr(tokens ?? 0)} tokens',
-          linhaDestaqueEmCorPrimaria: true,
           valorReaisExibicao: valorTxt,
           dataHora: dt,
+          linhaRodapeOpcional:
+              'Quantidade: ${formatQuantidadeTokensBr(tokens ?? 0)} tokens',
         );
       case 'withdraw_pix_simulated':
         final tipo = (m['pixTipo'] as String?)?.trim() ?? 'PIX';
         final hint = (m['pixDestHint'] as String?)?.trim() ?? '';
         return CarteiraMovimentacaoDetalhe(
           tituloConclusao: 'Saque concluído',
-          subtitulo: headline.isNotEmpty ? headline : 'Saque via PIX',
-          linhaDestaque: hint.isNotEmpty ? hint : 'Chave $tipo',
-          linhaDestaqueEmCorPrimaria: false,
+          subtitulo: 'PIX · $tipo',
           valorReaisExibicao: valorTxt,
           dataHora: dt,
+          linhaRodapeOpcional:
+              hint.isNotEmpty ? 'Chave: $hint' : 'Chave: —',
         );
       case 'credit_pix_simulated':
         return CarteiraMovimentacaoDetalhe(
           tituloConclusao: 'Crédito concluído',
-          subtitulo: headline.isNotEmpty ? headline : 'Crédito PIX simulado',
-          linhaDestaque: 'Entrada na carteira (simulação)',
-          linhaDestaqueEmCorPrimaria: false,
+          subtitulo: headline.isNotEmpty ? headline : 'PIX · Crédito simulado',
           valorReaisExibicao: valorTxt,
           dataHora: dt,
+          linhaRodapeOpcional: 'Entrada na carteira (simulação)',
         );
       default:
         final dirIn = (m['dir'] as String?) == 'in';
+        final leg = _ledgerOpLegivel(op);
         return CarteiraMovimentacaoDetalhe(
           tituloConclusao: dirIn ? 'Entrada concluída' : 'Saída concluída',
-          subtitulo: headline.isNotEmpty ? headline : 'Movimentação',
-          linhaDestaque: _ledgerOpLegivel(op),
-          linhaDestaqueEmCorPrimaria: false,
+          subtitulo: headline.isNotEmpty ? headline : leg,
           valorReaisExibicao: valorTxt,
           dataHora: dt,
+          linhaRodapeOpcional: null,
         );
     }
   }
@@ -130,60 +127,55 @@ class CarteiraMovimentacaoDetalhe {
     if (caps.contains('CREDITO') && caps.contains('PIX')) {
       return CarteiraMovimentacaoDetalhe(
         tituloConclusao: 'Crédito concluído',
-        subtitulo: detalheCaps,
-        linhaDestaque: 'Crédito PIX (demonstração)',
-        linhaDestaqueEmCorPrimaria: false,
+        subtitulo: 'PIX · $detalheCaps',
         valorReaisExibicao: valorTxt,
         dataHora: dt,
+        linhaRodapeOpcional: 'Crédito simulado (demonstração)',
       );
     }
     if (caps.contains('COMPRA') && caps.contains('TOKEN')) {
       return CarteiraMovimentacaoDetalhe(
         tituloConclusao: 'Compra concluída',
         subtitulo: 'Token (demonstração)',
-        linhaDestaque: '${formatQuantidadeTokensBr(0)} tokens',
-        linhaDestaqueEmCorPrimaria: true,
         valorReaisExibicao: valorTxt,
         dataHora: dt,
+        linhaRodapeOpcional:
+            'Quantidade: ${formatQuantidadeTokensBr(0)} tokens',
       );
     }
     if (caps.contains('DIVIDENDO')) {
       return CarteiraMovimentacaoDetalhe(
         tituloConclusao: 'Dividendos creditados',
         subtitulo: detalheCaps,
-        linhaDestaque: 'Rendimento na carteira (demo)',
-        linhaDestaqueEmCorPrimaria: false,
         valorReaisExibicao: valorTxt,
         dataHora: dt,
+        linhaRodapeOpcional: 'Rendimento (demonstração)',
       );
     }
     if (caps.contains('TAXA')) {
       return CarteiraMovimentacaoDetalhe(
         tituloConclusao: 'Pagamento concluído',
         subtitulo: detalheCaps,
-        linhaDestaque: 'Tarifa da plataforma (demo)',
-        linhaDestaqueEmCorPrimaria: false,
         valorReaisExibicao: valorTxt,
         dataHora: dt,
+        linhaRodapeOpcional: 'Tarifa (demonstração)',
       );
     }
     if (entrada) {
       return CarteiraMovimentacaoDetalhe(
         tituloConclusao: 'Entrada concluída',
         subtitulo: detalheCaps,
-        linhaDestaque: 'Movimentação na carteira (demo)',
-        linhaDestaqueEmCorPrimaria: false,
         valorReaisExibicao: valorTxt,
         dataHora: dt,
+        linhaRodapeOpcional: 'Movimentação (demonstração)',
       );
     }
     return CarteiraMovimentacaoDetalhe(
       tituloConclusao: 'Saída concluída',
       subtitulo: detalheCaps,
-      linhaDestaque: 'Movimentação na carteira (demo)',
-      linhaDestaqueEmCorPrimaria: false,
       valorReaisExibicao: valorTxt,
       dataHora: dt,
+      linhaRodapeOpcional: 'Movimentação (demonstração)',
     );
   }
 

@@ -1,9 +1,10 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// **Detalhe da transação** da Carteira (ledger / mock), mesmo layout do
-// [BalcaoTransacaoDetalheScreen]: título, subtítulo, linha de destaque (roxo em
-// compra/venda de tokens), valor em BRL e cartão “Informações”.
+// **Comprovante** de uma movimentação da Carteira (“Ver detalhes”), no mesmo
+// padrão visual de [SaqueComprovanteScreen]: AppBar “Comprovante”, estado,
+// subtítulo, valor em roxo, linha opcional, cartão Informações e botão roxo
+// “Voltar à carteira”.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +12,7 @@ import 'package:flutter/services.dart';
 import '../../theme/app_colors.dart';
 import '../models/carteira_movimentacao_detalhe.dart';
 
-/// Ecrã de comprovante para uma linha de “Minhas Movimentações”.
+/// Comprovante para uma linha de “Minhas Movimentações”.
 class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
   const CarteiraMovimentacaoDetalheScreen({
     super.key,
@@ -40,6 +41,7 @@ class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
         ? AppColors.gradientBottom
         : AppColors.gradientBottomDark;
     final overlay = AppColors.shellOverlayStyle(theme.brightness);
+    final rodape = detalhe.linhaRodapeOpcional;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlay,
@@ -57,7 +59,7 @@ class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
             tooltip: 'Voltar',
           ),
           title: Text(
-            'Detalhe da transação',
+            'Comprovante',
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: onSurface,
@@ -87,22 +89,21 @@ class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                detalhe.linhaDestaque,
+                detalhe.valorReaisExibicao,
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: detalhe.linhaDestaqueEmCorPrimaria
-                      ? scheme.primary
-                      : scheme.onSurface,
+                  color: scheme.primary,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                detalhe.valorReaisExibicao,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: scheme.onSurface,
+              if (rodape != null && rodape.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  rodape,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 24),
               Material(
                 color: AppColors.themeCardSurface(theme),
@@ -122,13 +123,13 @@ class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _LinhaInfo(
+                      _LinhaInfoComprovante(
                         rotulo: 'Data e hora',
                         valor: _dataHoraPtBr(detalhe.dataHora),
                         theme: theme,
                       ),
                       const SizedBox(height: 12),
-                      _LinhaInfo(
+                      _LinhaInfoComprovante(
                         rotulo: 'Status',
                         valor: detalhe.status,
                         theme: theme,
@@ -136,6 +137,17 @@ class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Voltar à carteira'),
               ),
             ],
           ),
@@ -145,8 +157,8 @@ class CarteiraMovimentacaoDetalheScreen extends StatelessWidget {
   }
 }
 
-class _LinhaInfo extends StatelessWidget {
-  const _LinhaInfo({
+class _LinhaInfoComprovante extends StatelessWidget {
+  const _LinhaInfoComprovante({
     required this.rotulo,
     required this.valor,
     required this.theme,
