@@ -37,23 +37,56 @@ import 'sacar_valor_screen.dart';
 
 // --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
 
-List<DateTime> _carteiraSampleTimes(ValuationPeriod p) {
-  switch (p) {
-    case ValuationPeriod.diario:
-      return _temposCarteiraDiario;
-    case ValuationPeriod.semanal:
-      return _temposCarteiraSemanal;
-    case ValuationPeriod.mensal:
-      return _temposCarteiraMensal;
-    case ValuationPeriod.seisMeses:
-      return _temposCarteira6m;
-    case ValuationPeriod.ytd:
-      return _temposCarteiraYtd;
+/// Início do **dia civil** local (00:00).
+DateTime _carteiraInicioDiaLocal(DateTime now) =>
+    DateTime(now.year, now.month, now.day);
+
+/// Início da **semana civil** local (segunda-feira 00:00), como em `weekday` do Dart.
+DateTime _carteiraInicioSemanaLocal(DateTime now) {
+  final sod = _carteiraInicioDiaLocal(now);
+  return sod.subtract(Duration(days: now.weekday - 1));
+}
+
+/// Início do **mês civil** local (dia 1, 00:00).
+DateTime _carteiraInicioMesLocal(DateTime now) =>
+    DateTime(now.year, now.month, 1);
+
+/// Início da janela **6 meses** (aprox. 183 dias até ao fim do dia de hoje).
+DateTime _carteiraInicioSeisMesesLocal(DateTime now) {
+  final sod = _carteiraInicioDiaLocal(now);
+  return sod.subtract(const Duration(days: 183));
+}
+
+List<DateTime> _carteiraAmostrasTempoEntre({
+  required DateTime inicio,
+  required DateTime fim,
+  int pontos = 7,
+}) {
+  assert(pontos >= 2);
+  final a = inicio.millisecondsSinceEpoch;
+  final b = fim.millisecondsSinceEpoch;
+  if (b <= a) {
+    return <DateTime>[
+      inicio,
+      fim.isAfter(inicio) ? fim : inicio.add(const Duration(seconds: 1)),
+    ];
   }
+  final out = <DateTime>[];
+  for (var i = 0; i < pontos; i++) {
+    final t = a + ((b - a) * i / (pontos - 1)).round();
+    out.add(DateTime.fromMillisecondsSinceEpoch(t));
+  }
+  return out;
+}
+
+List<DateTime> _carteiraSampleTimesRelativos(ValuationPeriod p, DateTime now) {
+  final inicio = _carteiraInicioPeriodo(p, now);
+  return _carteiraAmostrasTempoEntre(inicio: inicio, fim: now);
 }
 
 /// Série de saldo (valores em **reais**; campo reutiliza o mock [ValuationChartSeries]).
-ValuationChartSeries carteiraSaldoSeries(ValuationPeriod p) {
+ValuationChartSeries carteiraSaldoSeries(ValuationPeriod p, [DateTime? agora]) {
+  final now = agora ?? DateTime.now();
   // Curvas suaves e monótonas (evita “dentes” de segmentos retos com ruído).
   List<double> brl;
   switch (p) {
@@ -70,71 +103,26 @@ ValuationChartSeries carteiraSaldoSeries(ValuationPeriod p) {
   }
   return ValuationChartSeries(
     valuationMillions: brl.map((e) => e.toDouble()).toList(),
-    sampleTimes: _carteiraSampleTimes(p),
+    sampleTimes: _carteiraSampleTimesRelativos(p, now),
   );
 }
 
-final _temposCarteiraDiario = <DateTime>[
-  DateTime(2026, 4, 13, 9, 5),
-  DateTime(2026, 4, 14, 10, 30),
-  DateTime(2026, 4, 15, 8, 50),
-  DateTime(2026, 4, 16, 14, 20),
-  DateTime(2026, 4, 17, 11, 15),
-  DateTime(2026, 4, 18, 16, 40),
-  DateTime(2026, 4, 19, 17, 55),
-];
-
-final _temposCarteiraSemanal = <DateTime>[
-  DateTime(2026, 3, 5, 10, 0),
-  DateTime(2026, 3, 12, 11, 20),
-  DateTime(2026, 3, 19, 9, 45),
-  DateTime(2026, 3, 26, 15, 10),
-  DateTime(2026, 4, 2, 12, 30),
-  DateTime(2026, 4, 9, 14, 0),
-  DateTime(2026, 4, 16, 17, 25),
-];
-
-final _temposCarteiraMensal = <DateTime>[
-  DateTime(2025, 10, 1, 12, 0),
-  DateTime(2025, 11, 1, 12, 0),
-  DateTime(2025, 12, 1, 12, 0),
-  DateTime(2026, 1, 1, 12, 0),
-  DateTime(2026, 2, 1, 12, 0),
-  DateTime(2026, 3, 1, 12, 0),
-  DateTime(2026, 4, 1, 12, 0),
-];
-
-final _temposCarteira6m = <DateTime>[
-  DateTime(2025, 11, 8, 10, 0),
-  DateTime(2025, 12, 10, 10, 30),
-  DateTime(2026, 1, 12, 11, 0),
-  DateTime(2026, 2, 9, 11, 30),
-  DateTime(2026, 3, 11, 12, 0),
-  DateTime(2026, 4, 5, 13, 15),
-  DateTime(2026, 4, 19, 18, 0),
-];
-
-final _temposCarteiraYtd = <DateTime>[
-  DateTime(2026, 1, 12, 9, 0),
-  DateTime(2026, 2, 10, 9, 40),
-  DateTime(2026, 3, 8, 10, 20),
-  DateTime(2026, 4, 2, 11, 5),
-  DateTime(2026, 4, 11, 12, 45),
-  DateTime(2026, 4, 16, 14, 30),
-  DateTime(2026, 4, 19, 18, 15),
-];
-
-/// Início da janela temporal de cada chip do gráfico (inclusivo).
+/// Início da janela temporal de cada chip do gráfico (inclusivo), alinhado ao rótulo:
+/// - **DIÁRIO**: apenas o dia civil corrente (desde 00:00 local).
+/// - **SEMANAL**: desde a segunda-feira da semana corrente (00:00 local).
+/// - **MENSAL**: desde o dia 1 do mês corrente.
+/// - **6 MESES**: últimos 183 dias (início no começo desse dia).
+/// - **YTD**: 1 de janeiro do ano corrente.
 DateTime _carteiraInicioPeriodo(ValuationPeriod p, DateTime now) {
   switch (p) {
     case ValuationPeriod.diario:
-      return now.subtract(const Duration(days: 7));
+      return _carteiraInicioDiaLocal(now);
     case ValuationPeriod.semanal:
-      return now.subtract(const Duration(days: 49));
+      return _carteiraInicioSemanaLocal(now);
     case ValuationPeriod.mensal:
-      return now.subtract(const Duration(days: 210));
+      return _carteiraInicioMesLocal(now);
     case ValuationPeriod.seisMeses:
-      return now.subtract(const Duration(days: 183));
+      return _carteiraInicioSeisMesesLocal(now);
     case ValuationPeriod.ytd:
       return DateTime(now.year, 1, 1);
   }
