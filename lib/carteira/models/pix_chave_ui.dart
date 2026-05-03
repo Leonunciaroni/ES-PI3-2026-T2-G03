@@ -1,12 +1,21 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Modelo **simples** para chave PIX na UI (protótipo sem Firestore).
-// Usado na secção “Minhas Chaves PIX” e no fluxo de saque.
+// Modelo de **chave PIX** na UI e no Firestore (`users/{uid}.chavesPix[]`).
+// Cada entrada no array é um mapa com [kFirestoreTipo], [kFirestoreValor],
+// [kFirestoreApelido] e [kFirestoreId].
+
+// --- Chaves usadas no documento `users` (Cloud Firestore) ---------------------
+
+/// Nome do campo no mapa gravado em `users/{uid}.chavesPix`.
+const String kFirestorePixId = 'id';
+const String kFirestorePixTipo = 'tipo';
+const String kFirestorePixValor = 'valor';
+const String kFirestorePixApelido = 'apelido';
 
 // --- Modelo -------------------------------------------------------------------
 
-/// Uma chave PIX guardada só em memória (demonstração).
+/// Uma chave PIX (memória local ou sincronizada com Firestore).
 class PixChaveUi {
   const PixChaveUi({
     required this.id,
@@ -15,17 +24,49 @@ class PixChaveUi {
     this.apelido,
   });
 
-  /// Identificador estável na lista (ex.: contador ou string única).
+  /// Identificador estável na lista (gerado na app; necessário para editar/apagar).
   final String id;
 
   /// Rótulo do tipo: E-mail, CPF, Telefone, Chave aleatória.
   final String tipoLabel;
 
-  /// Valor literal da chave (e-mail, CPF formatado, etc.).
+  /// Valor persistido: CPF/telefone só dígitos; e-mail em minúsculas; EVP/UUID como texto.
   final String valor;
 
   /// Nome opcional escolhido pelo utilizador.
   final String? apelido;
+
+  /// Mapa gravado em `users/{uid}` — sem tipos aninhados, só primitivos.
+  Map<String, dynamic> toFirestoreMap() {
+    final m = <String, dynamic>{
+      kFirestorePixId: id,
+      kFirestorePixTipo: tipoLabel,
+      kFirestorePixValor: valor,
+    };
+    final a = apelido?.trim();
+    if (a != null && a.isNotEmpty) {
+      m[kFirestorePixApelido] = a;
+    }
+    return m;
+  }
+
+  /// Lê um elemento do array [chavesPix] do Firestore; devolve `null` se inválido.
+  static PixChaveUi? tryFromFirestore(Object? raw) {
+    if (raw is! Map) return null;
+    final m = Map<String, dynamic>.from(raw);
+    final id = (m[kFirestorePixId] ?? m['id'])?.toString().trim() ?? '';
+    final tipo = (m[kFirestorePixTipo] ?? m['tipo'])?.toString().trim() ?? '';
+    final valor = (m[kFirestorePixValor] ?? m['valor'])?.toString().trim() ?? '';
+    if (id.isEmpty || tipo.isEmpty || valor.isEmpty) return null;
+    final apRaw = m[kFirestorePixApelido] ?? m['apelido'];
+    final ap = apRaw is String ? apRaw.trim() : '';
+    return PixChaveUi(
+      id: id,
+      tipoLabel: tipo,
+      valor: valor,
+      apelido: ap.isEmpty ? null : ap,
+    );
+  }
 
   /// Texto curto para lista e dropdown.
   String get rotuloLista {

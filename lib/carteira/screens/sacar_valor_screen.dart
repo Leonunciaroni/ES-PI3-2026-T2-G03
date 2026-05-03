@@ -1,17 +1,21 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Primeiro passo do **fluxo de saque** (só visual): saldo disponível, valor em
-// reais com máscara, escolha da chave PIX e modal de confirmação antes da senha.
+// Primeiro passo do **fluxo de saque**: saldo disponível, valor em reais com máscara,
+// chave PIX e modal de confirmação antes da senha. Com sessão Firebase, as chaves
+// vêm de `users/{uid}.chavesPix` ([UserFirestoreService.watchChavesPix]); convidado
+// usa lista em memória e [onChavesAlteradas].
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../auth/services/user_firestore_service.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../format/carteira_brl.dart';
 import '../format/carteira_valor_input.dart';
+import '../format/pix_chave_input.dart';
 import '../models/pix_chave_ui.dart';
 import '../services/simulated_wallet_service.dart';
 import 'sacar_senha_screen.dart';
@@ -23,7 +27,7 @@ const double _kSaldoBrlConvidadoDemo = 12450.0;
 
 // --- Ecrã ---------------------------------------------------------------------
 
-/// Formulário de saque: valor + chave; devolve as chaves atualizadas ao pai via [onChavesAlteradas].
+/// Formulário de saque: valor + chave; com convidado, [onChavesAlteradas] atualiza a Carteira.
 class SacarValorScreen extends StatefulWidget {
   const SacarValorScreen({
     super.key,
@@ -32,10 +36,10 @@ class SacarValorScreen extends StatefulWidget {
     this.usarFirebaseParaSessao = true,
   });
 
-  /// Cópia inicial vinda da [CarteiraScreen].
+  /// Cópia inicial quando não há sessão Firestore para chaves.
   final List<PixChaveUi> chavesPixIniciais;
 
-  /// Sempre que a lista mudar (ex.: chave nova no diálogo), o pai pode persistir em memória.
+  /// Lista em RAM (convidado / testes) ou após alterações locais.
   final ValueChanged<List<PixChaveUi>> onChavesAlteradas;
 
   /// Alinhado à [CarteiraScreen.usarFirebaseParaSessao] (testes no VM).
@@ -47,7 +51,10 @@ class SacarValorScreen extends StatefulWidget {
 
 class _SacarValorScreenState extends State<SacarValorScreen> {
   final _valorController = TextEditingController();
-  late List<PixChaveUi> _chaves;
+
+  /// Só usada quando [_modoChavesSoMemoria] é `true`.
+  List<PixChaveUi> _chavesLocal = [];
+
   String? _chaveIdSelecionada;
   String? _erroValidacao;
 
@@ -56,12 +63,17 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
   /// Quando `true`, o montante em BRL não aparece na UI (privacidade).
   bool _ocultarSaldo = false;
 
+  /// Convidado, teste VM, ou utilizador sem UID: chaves não vão ao Firestore.
+  bool get _modoChavesSoMemoria =>
+      !widget.usarFirebaseParaSessao ||
+      FirebaseAuth.instance.currentUser == null;
+
   @override
   void initState() {
     super.initState();
-    _chaves = List<PixChaveUi>.from(widget.chavesPixIniciais);
-    if (_chaves.isNotEmpty) {
-      _chaveIdSelecionada = _chaves.first.id;
+    if (_modoChavesSoMemoria) {
+      _chavesLocal = List<PixChaveUi>.from(widget.chavesPixIniciais);
+      _sincronizarSelecao(_chavesLocal);
     }
   }
 
@@ -71,19 +83,33 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
     super.dispose();
   }
 
+  void _sincronizarSelecao(List<PixChaveUi> chaves) {
+    if (chaves.isEmpty) {
+      _chaveIdSelecionada = null;
+      return;
+    }
+    final id = _chaveIdSelecionada;
+    if (id == null || !chaves.any((c) => c.id == id)) {
+      _chaveIdSelecionada = chaves.first.id;
+    }
+  }
+
   double? get _valorParsed => parseValorReaisInput(_valorController.text);
 
-  PixChaveUi? get _chaveSelecionadaObj {
-    final id = _chaveIdSelecionada;
+  PixChaveUi? _chaveSelecionadaObj(List<PixChaveUi> chaves) {
+    final id = _idDropdownValido(chaves) ?? _chaveIdSelecionada;
     if (id == null) return null;
-    for (final c in _chaves) {
+    for (final c in chaves) {
       if (c.id == id) return c;
     }
     return null;
   }
 
-  void _notificarChavesAoPai() {
-    widget.onChavesAlteradas(List<PixChaveUi>.from(_chaves));
+  String? _idDropdownValido(List<PixChaveUi> chaves) {
+    if (chaves.isEmpty) return null;
+    final id = _chaveIdSelecionada;
+    if (id != null && chaves.any((c) => c.id == id)) return id;
+    return chaves.first.id;
   }
 
   String _saldoParaExibicao(double saldo) =>
@@ -95,7 +121,10 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
 
   // --- Diálogo: cadastrar chave rápida neste fluxo -----------------------------
 
-  Future<void> _abrirDialogNovaChave() async {
+  Future<void> _abrirDialogNovaChave({
+    required List<PixChaveUi> atual,
+    required bool modoMemoria,
+  }) async {
     var tipo = 'E-mail';
     final valorCtrl = TextEditingController();
     final apelidoCtrl = TextEditingController();
@@ -122,16 +151,18 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
                           DropdownMenuItem(value: t, child: Text(t)),
                       ],
                       onChanged: (v) {
-                        if (v != null) setLocal(() => tipo = v);
+                        if (v == null) return;
+                        setLocal(() {
+                          tipo = v;
+                          valorCtrl.clear();
+                        });
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    PixChaveValorTextField(
+                      key: ValueKey<String>('valor_$tipo'),
+                      tipoLabel: tipo,
                       controller: valorCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Chave',
-                        hintText: 'E-mail, CPF, telefone ou EVP',
-                      ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -149,7 +180,19 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
+                  onPressed: () {
+                    final err = mensagemErroValidacaoPixChave(
+                      tipo,
+                      valorCtrl.text,
+                    );
+                    if (err != null) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text(err)),
+                      );
+                      return;
+                    }
+                    Navigator.pop(ctx, true);
+                  },
                   child: const Text('Guardar'),
                 ),
               ],
@@ -165,7 +208,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
       return;
     }
 
-    final v = valorCtrl.text.trim();
+    final v = pixValorParaPersistencia(tipo, valorCtrl.text);
     valorCtrl.dispose();
     final ap = apelidoCtrl.text.trim();
     apelidoCtrl.dispose();
@@ -179,17 +222,35 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
       apelido: ap.isEmpty ? null : ap,
     );
 
-    setState(() {
-      _chaves.add(novo);
-      _chaveIdSelecionada = novo.id;
-      _erroValidacao = null;
-    });
-    _notificarChavesAoPai();
+    final next = List<PixChaveUi>.from(atual)..add(novo);
+
+    try {
+      if (modoMemoria) {
+        setState(() {
+          _chavesLocal = next;
+          _chaveIdSelecionada = novo.id;
+          _erroValidacao = null;
+        });
+        widget.onChavesAlteradas(List<PixChaveUi>.from(next));
+      } else {
+        await UserFirestoreService.saveChavesPix(next);
+        if (!mounted) return;
+        setState(() {
+          _chaveIdSelecionada = novo.id;
+          _erroValidacao = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível guardar a chave: $e')),
+      );
+    }
   }
 
   // --- Modal de confirmação (mesmo espírito do Balcão) -------------------------
 
-  Future<void> _onContinuar(double saldoDisponivel) async {
+  Future<void> _onContinuar(double saldoDisponivel, List<PixChaveUi> chaves) async {
     setState(() => _erroValidacao = null);
 
     final valor = _valorParsed;
@@ -207,7 +268,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
       return;
     }
 
-    final chave = _chaveSelecionadaObj;
+    final chave = _chaveSelecionadaObj(chaves);
     if (chave == null) {
       setState(
         () => _erroValidacao =
@@ -295,6 +356,177 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
 
   // --- UI principal -----------------------------------------------------------
 
+  Widget _corpoComSaldo({
+    required ThemeData theme,
+    required ColorScheme scheme,
+    required double saldo,
+    required List<PixChaveUi> chaves,
+    required bool modoMemoria,
+  }) {
+    final idDropdown = _idDropdownValido(chaves);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Saldo disponível para saque',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: AppColors.secondaryLabel(theme),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _saldoParaExibicao(saldo),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: scheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _alternarOcultarSaldo,
+                icon: Icon(
+                  _ocultarSaldo
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: AppColors.secondaryLabel(theme),
+                ),
+                tooltip: _ocultarSaldo
+                    ? 'Mostrar saldo'
+                    : 'Ocultar saldo',
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Valor do saque (R\$)',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: AppColors.secondaryLabel(theme),
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _valorController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [CentavosParaReaisInputFormatter()],
+            onChanged: (_) {
+              if (_erroValidacao != null) setState(() => _erroValidacao = null);
+            },
+            decoration: InputDecoration(
+              labelText: 'Valor',
+              hintText: '0,00',
+              filled: true,
+              fillColor: AppColors.searchFieldFillForTheme(theme),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: AppColors.cardDivider(theme)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Chave PIX de destino',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => _abrirDialogNovaChave(
+                  atual: chaves,
+                  modoMemoria: modoMemoria,
+                ),
+                child: const Text('Nova chave'),
+              ),
+            ],
+          ),
+          if (chaves.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Não há chaves cadastradas. Use “Nova chave” ou cadastre em '
+                '“Minhas Chaves PIX” na Carteira.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.secondaryLabel(theme),
+                ),
+              ),
+            )
+          else
+            DropdownButtonFormField<String>(
+              key: ValueKey<String>(
+                '${chaves.length}_${chaves.map((e) => e.id).join('|')}',
+              ),
+              initialValue: idDropdown,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.searchFieldFillForTheme(theme),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: AppColors.cardDivider(theme)),
+                ),
+              ),
+              items: [
+                for (final c in chaves)
+                  DropdownMenuItem(
+                    value: c.id,
+                    child: Text(
+                      c.rotuloLista,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+              onChanged: (id) => setState(() => _chaveIdSelecionada = id),
+            ),
+          if (_erroValidacao != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _erroValidacao!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 28),
+          FilledButton(
+            onPressed: chaves.isEmpty
+                ? null
+                : () => _onContinuar(saldo, chaves),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -308,162 +540,39 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
         : AppColors.gradientBottomDark;
     final overlay = AppColors.shellOverlayStyle(theme.brightness);
 
-    Widget corpoComSaldo(double saldo) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Saldo disponível para saque',
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _saldoParaExibicao(saldo),
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: scheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: _alternarOcultarSaldo,
-                  icon: Icon(
-                    _ocultarSaldo
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                    color: AppColors.secondaryLabel(theme),
-                  ),
-                  tooltip: _ocultarSaldo
-                      ? 'Mostrar saldo'
-                      : 'Ocultar saldo',
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Valor do saque (R\$)',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.secondaryLabel(theme),
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _valorController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [CentavosParaReaisInputFormatter()],
-              onChanged: (_) {
-                if (_erroValidacao != null) setState(() => _erroValidacao = null);
-              },
-              decoration: InputDecoration(
-                labelText: 'Valor',
-                hintText: '0,00',
-                filled: true,
-                fillColor: AppColors.searchFieldFillForTheme(theme),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: AppColors.cardDivider(theme)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Chave PIX de destino',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: AppColors.secondaryLabel(theme),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _abrirDialogNovaChave,
-                  child: const Text('Nova chave'),
-                ),
-              ],
-            ),
-            if (_chaves.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+    Widget corpoSaldoEChaves(double saldo) {
+      if (_modoChavesSoMemoria) {
+        return _corpoComSaldo(
+          theme: theme,
+          scheme: scheme,
+          saldo: saldo,
+          chaves: _chavesLocal,
+          modoMemoria: true,
+        );
+      }
+      return StreamBuilder<List<PixChaveUi>>(
+        stream: UserFirestoreService.watchChavesPix(),
+        builder: (context, snapChaves) {
+          if (snapChaves.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
                 child: Text(
-                  'Não há chaves cadastradas. Use “Nova chave” ou cadastre em '
-                  '“Minhas Chaves PIX” na Carteira.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.secondaryLabel(theme),
-                  ),
-                ),
-              )
-            else
-              DropdownButtonFormField<String>(
-                key: ValueKey<String>(_chaveIdSelecionada ?? ''),
-                initialValue: _chaveIdSelecionada,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.searchFieldFillForTheme(theme),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: AppColors.cardDivider(theme)),
-                  ),
-                ),
-                items: [
-                  for (final c in _chaves)
-                    DropdownMenuItem(
-                      value: c.id,
-                      child: Text(
-                        c.rotuloLista,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (id) =>
-                    setState(() => _chaveIdSelecionada = id),
-              ),
-            if (_erroValidacao != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _erroValidacao!,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.error,
-                  fontWeight: FontWeight.w600,
+                  'Chaves PIX indisponíveis (${snapChaves.error}).',
+                  textAlign: TextAlign.center,
                 ),
               ),
-            ],
-            const SizedBox(height: 28),
-            FilledButton(
-              onPressed: _chaves.isEmpty
-                  ? null
-                  : () => _onContinuar(saldo),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Text('Continuar'),
-            ),
-          ],
-        ),
+            );
+          }
+          final chaves = snapChaves.data ?? const <PixChaveUi>[];
+          return _corpoComSaldo(
+            theme: theme,
+            scheme: scheme,
+            saldo: saldo,
+            chaves: chaves,
+            modoMemoria: false,
+          );
+        },
       );
     }
 
@@ -492,7 +601,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
           centerTitle: true,
         ),
         body: uid == null
-            ? corpoComSaldo(_kSaldoBrlConvidadoDemo)
+            ? corpoSaldoEChaves(_kSaldoBrlConvidadoDemo)
             : StreamBuilder<double>(
                 stream: SimulatedWalletService.watchBrlBalance(uid),
                 builder: (context, snap) {
@@ -509,7 +618,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   final saldo = snap.data ?? 0.0;
-                  return corpoComSaldo(saldo);
+                  return corpoSaldoEChaves(saldo);
                 },
               ),
       ),

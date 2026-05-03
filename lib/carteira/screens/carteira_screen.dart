@@ -4,7 +4,8 @@
 // Tela **Carteira** — protótipo visual alinhado ao Figma (saldo, evolução,
 // startups investidas, movimentações). Com utilizador autenticado, saldo,
 // posições e extrato vêm do Firestore (`sim_wallet`); convidado mantém mocks.
-// Inclui **Minhas Chaves PIX** (memória local) e atalho **Sacar** (fluxo visual).
+// Inclui **Minhas Chaves PIX** (Firestore em `users/{uid}` se logado; memória
+// se convidado) e atalho **Sacar** (fluxo visual).
 //
 // Pré-carga: ao mudar para este separador no dashboard, [MesclaNavigationPrefetch]
 // dispara leituras em paralelo (ver `lib/navigation/mescla_navigation.dart`) para
@@ -17,6 +18,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../auth/services/user_firestore_service.dart';
 import '../../catalog/data/startup_detail_mock.dart';
 import '../../catalog/services/startup_firestore_mapper.dart';
 import '../../theme/app_colors.dart';
@@ -24,6 +26,7 @@ import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 import '../format/carteira_brl.dart';
+import '../format/pix_chave_input.dart';
 import '../models/pix_chave_ui.dart';
 import '../services/simulated_wallet_service.dart';
 import 'adicionar_fundos_screen.dart';
@@ -401,8 +404,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   /// fazer scroll até aqui com [Scrollable.ensureVisible].
   final GlobalKey _startupsSecaoKey = GlobalKey();
 
-  /// Chaves PIX guardadas só na app (protótipo; sem Firestore nesta fase).
-  final List<PixChaveUi> _chavesPix = [];
+  /// Chaves PIX em **memória** só para convidado / testes sem `users/{uid}`.
+  final List<PixChaveUi> _chavesPixConvidado = [];
 
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
@@ -486,12 +489,20 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  // --- Secção “Minhas Chaves PIX” (UI local) ----------------------------------
+  // --- Secção “Minhas Chaves PIX” (Firestore ou memória) -----------------------
 
-  /// Formulário simples no [AlertDialog] para criar ou editar uma chave.
-  Future<void> _dialogCadastrarOuEditarChave({PixChaveUi? existente}) async {
+  /// Formulário no [AlertDialog]; persiste via [persistLista] (Firestore ou RAM).
+  Future<void> _dialogCadastrarOuEditarChave({
+    required List<PixChaveUi> atual,
+    PixChaveUi? existente,
+    required Future<void> Function(List<PixChaveUi> next) persistLista,
+  }) async {
     var tipo = existente?.tipoLabel ?? 'E-mail';
-    final valorCtrl = TextEditingController(text: existente?.valor ?? '');
+    final valorCtrl = TextEditingController(
+      text: existente == null
+          ? ''
+          : textoInicialCampoChavePix(tipo, existente.valor),
+    );
     final apelidoCtrl = TextEditingController(text: existente?.apelido ?? '');
     const tipos = ['E-mail', 'CPF', 'Telefone', 'Chave aleatória'];
 
@@ -518,15 +529,18 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                           DropdownMenuItem(value: t, child: Text(t)),
                       ],
                       onChanged: (v) {
-                        if (v != null) setLocal(() => tipo = v);
+                        if (v == null) return;
+                        setLocal(() {
+                          tipo = v;
+                          valorCtrl.clear();
+                        });
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
+                    PixChaveValorTextField(
+                      key: ValueKey<String>('valor_$tipo'),
+                      tipoLabel: tipo,
                       controller: valorCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Chave',
-                      ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -544,7 +558,19 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
+                  onPressed: () {
+                    final err = mensagemErroValidacaoPixChave(
+                      tipo,
+                      valorCtrl.text,
+                    );
+                    if (err != null) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text(err)),
+                      );
+                      return;
+                    }
+                    Navigator.pop(ctx, true);
+                  },
                   child: const Text('Guardar'),
                 ),
               ],
@@ -560,37 +586,49 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       return;
     }
 
-    final v = valorCtrl.text.trim();
+    final v = pixValorParaPersistencia(tipo, valorCtrl.text);
     valorCtrl.dispose();
     final ap = apelidoCtrl.text.trim();
     apelidoCtrl.dispose();
     if (v.isEmpty) return;
 
-    setState(() {
-      if (existente == null) {
-        _chavesPix.add(
-          PixChaveUi(
-            id: 'pix_${DateTime.now().millisecondsSinceEpoch}',
-            tipoLabel: tipo,
-            valor: v,
-            apelido: ap.isEmpty ? null : ap,
-          ),
+    final next = List<PixChaveUi>.from(atual);
+    if (existente == null) {
+      next.add(
+        PixChaveUi(
+          id: 'pix_${DateTime.now().millisecondsSinceEpoch}',
+          tipoLabel: tipo,
+          valor: v,
+          apelido: ap.isEmpty ? null : ap,
+        ),
+      );
+    } else {
+      final i = next.indexWhere((e) => e.id == existente.id);
+      if (i >= 0) {
+        next[i] = PixChaveUi(
+          id: existente.id,
+          tipoLabel: tipo,
+          valor: v,
+          apelido: ap.isEmpty ? null : ap,
         );
-      } else {
-        final i = _chavesPix.indexWhere((e) => e.id == existente.id);
-        if (i >= 0) {
-          _chavesPix[i] = PixChaveUi(
-            id: existente.id,
-            tipoLabel: tipo,
-            valor: v,
-            apelido: ap.isEmpty ? null : ap,
-          );
-        }
       }
-    });
+    }
+
+    try {
+      await persistLista(next);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível guardar as chaves: $e')),
+      );
+    }
   }
 
-  Future<void> _confirmarExcluirChave(PixChaveUi c) async {
+  Future<void> _confirmarExcluirChave(
+    PixChaveUi c,
+    List<PixChaveUi> atual,
+    Future<void> Function(List<PixChaveUi> next) persistLista,
+  ) async {
     final sim = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -608,8 +646,15 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         ],
       ),
     );
-    if (sim == true && mounted) {
-      setState(() => _chavesPix.removeWhere((e) => e.id == c.id));
+    if (sim != true || !mounted) return;
+    final next = List<PixChaveUi>.from(atual)..removeWhere((e) => e.id == c.id);
+    try {
+      await persistLista(next);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível excluir: $e')),
+      );
     }
   }
 
@@ -617,6 +662,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   Widget _blocoMinhasChavesPix({
     required ThemeData theme,
     required ColorScheme colorScheme,
+    required List<PixChaveUi> chavesPix,
+    required Future<void> Function(List<PixChaveUi> next) persistLista,
   }) {
     final onSurface = colorScheme.onSurface;
     final card = AppColors.themeCardSurface(theme);
@@ -642,7 +689,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_chavesPix.isEmpty)
+                if (chavesPix.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
@@ -654,18 +701,18 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     ),
                   )
                 else
-                  for (var i = 0; i < _chavesPix.length; i++) ...[
+                  for (var i = 0; i < chavesPix.length; i++) ...[
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text(
-                        _chavesPix[i].rotuloLista,
+                        chavesPix[i].rotuloLista,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: onSurface,
                         ),
                       ),
                       subtitle: Text(
-                        _chavesPix[i].valor,
+                        chavesPix[i].valorParaListagem,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.secondaryLabel(theme),
                         ),
@@ -677,25 +724,34 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                             icon: const Icon(Icons.edit_outlined),
                             tooltip: 'Editar',
                             onPressed: () => _dialogCadastrarOuEditarChave(
-                              existente: _chavesPix[i],
+                              atual: chavesPix,
+                              existente: chavesPix[i],
+                              persistLista: persistLista,
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline),
                             tooltip: 'Excluir',
-                            onPressed: () => _confirmarExcluirChave(_chavesPix[i]),
+                            onPressed: () => _confirmarExcluirChave(
+                              chavesPix[i],
+                              chavesPix,
+                              persistLista,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    if (i < _chavesPix.length - 1)
+                    if (i < chavesPix.length - 1)
                       Divider(height: 1, color: AppColors.cardDivider(theme)),
                   ],
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton.icon(
-                    onPressed: () => _dialogCadastrarOuEditarChave(),
+                    onPressed: () => _dialogCadastrarOuEditarChave(
+                      atual: chavesPix,
+                      persistLista: persistLista,
+                    ),
                     icon: const Icon(Icons.add, size: 20),
                     label: const Text('Cadastrar chave'),
                   ),
@@ -708,16 +764,70 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
+  /// Convidado: lista em RAM. Logado: [Stream] de `users/{uid}.chavesPix`.
+  Widget _secaoMinhasChavesPix({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    if (_uidSessao == null) {
+      return _blocoMinhasChavesPix(
+        theme: theme,
+        colorScheme: colorScheme,
+        chavesPix: _chavesPixConvidado,
+        persistLista: (next) async {
+          if (!mounted) return;
+          setState(() {
+            _chavesPixConvidado
+              ..clear()
+              ..addAll(next);
+          });
+        },
+      );
+    }
+
+    return StreamBuilder<List<PixChaveUi>>(
+      stream: UserFirestoreService.watchChavesPix(),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              'Chaves PIX não carregadas (${snap.error}).',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.secondaryLabel(theme),
+              ),
+            ),
+          );
+        }
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        final list = snap.data ?? const <PixChaveUi>[];
+        return _blocoMinhasChavesPix(
+          theme: theme,
+          colorScheme: colorScheme,
+          chavesPix: list,
+          persistLista: UserFirestoreService.saveChavesPix,
+        );
+      },
+    );
+  }
+
   /// Abre o fluxo **Sacar** (valor → confirmação → senha visual → comprovante).
   void _abrirSacar() {
     Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (context) => SacarValorScreen(
-          chavesPixIniciais: List<PixChaveUi>.from(_chavesPix),
+          chavesPixIniciais: List<PixChaveUi>.from(
+            _uidSessao == null ? _chavesPixConvidado : const <PixChaveUi>[],
+          ),
           onChavesAlteradas: (lista) {
-            if (mounted) {
+            if (_uidSessao == null && mounted) {
               setState(() {
-                _chavesPix
+                _chavesPixConvidado
                   ..clear()
                   ..addAll(lista);
               });
@@ -1221,7 +1331,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             colorScheme: colorScheme,
           ),
           const SizedBox(height: _sectionGap),
-          _blocoMinhasChavesPix(
+          _secaoMinhasChavesPix(
             theme: theme,
             colorScheme: colorScheme,
           ),

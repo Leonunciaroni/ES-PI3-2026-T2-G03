@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../carteira/models/pix_chave_ui.dart';
+
 class UserFirestoreService {
   UserFirestoreService._();
 
@@ -21,6 +23,9 @@ class UserFirestoreService {
   /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
   static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
+
+  /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
+  static const String fieldChavesPix = 'chavesPix';
 
   static Future<void> _removeLegacyPasswordFieldForEmail(
     String normalizedEmail,
@@ -68,6 +73,7 @@ class UserFirestoreService {
         'createdAt': FieldValue.serverTimestamp(),
         fieldTwoFactorEnabled: true,
         fieldFavoriteStartupIds: <String>[],
+        fieldChavesPix: <Map<String, dynamic>>[],
       }, SetOptions(merge: true));
 
       await _removeLegacyPasswordFieldForEmail(normalizedEmail);
@@ -261,5 +267,49 @@ class UserFirestoreService {
           ? FieldValue.arrayUnion(<String>[id])
           : FieldValue.arrayRemove(<String>[id]),
     }, SetOptions(merge: true));
+  }
+
+  // --- Chaves PIX em `users/{uid}.chavesPix` ----------------------------------
+  //
+  // O cliente substitui o **array inteiro** (sem Cloud Function): regras já
+  // permitem update ao dono do documento.
+
+  static List<PixChaveUi> _parseChavesPixList(Object? raw) {
+    if (raw is! List) return const <PixChaveUi>[];
+    final out = <PixChaveUi>[];
+    for (final e in raw) {
+      final c = PixChaveUi.tryFromFirestore(e);
+      if (c != null) out.add(c);
+    }
+    return out;
+  }
+
+  /// Emite a lista atual de chaves PIX do utilizador autenticado.
+  static Stream<List<PixChaveUi>> watchChavesPix() {
+    final auth = _tryAuth();
+    final uid = auth?.currentUser?.uid;
+    if (uid == null) {
+      return Stream<List<PixChaveUi>>.value(const <PixChaveUi>[]);
+    }
+    return _usersCollection.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return const <PixChaveUi>[];
+      return _parseChavesPixList(snap.data()?[fieldChavesPix]);
+    });
+  }
+
+  /// Grava a lista completa (substitui o campo [fieldChavesPix]).
+  static Future<void> saveChavesPix(List<PixChaveUi> chaves) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    final maps = chaves.map((c) => c.toFirestoreMap()).toList(growable: false);
+    await _usersCollection.doc(uid).set(
+      {fieldChavesPix: maps},
+      SetOptions(merge: true),
+    );
   }
 }
