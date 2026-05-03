@@ -7,10 +7,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
-import 'package:pi_iii/catalog/services/startup_detail_service.dart';
-import 'package:pi_iii/catalog/services/startup_firestore_mapper.dart';
+import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/services/startup_detail_service.dart';
+import 'package:mescla_invest/catalog/services/startup_firestore_mapper.dart';
 
 /// Converte o código de estágio da API (`nova`, `em_operacao`, …) em texto
 /// que o [parseFirestoreStage] já entende (igual ao que costuma estar no Firestore).

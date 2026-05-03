@@ -7,8 +7,8 @@
 // Cliente Firestore: conversa com a base de dados na nuvem do Firebase.
 import 'package:cloud_firestore/cloud_firestore.dart';
 // Modelo que a UI já conhece (nome, setor, estágio, etc.).
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
-import 'package:pi_iii/catalog/widgets/startup_logo_avatar.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/widgets/startup_logo_avatar.dart';
 
 import 'startup_firestore_mapper.dart';
 

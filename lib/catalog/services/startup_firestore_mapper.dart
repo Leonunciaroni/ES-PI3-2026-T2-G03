@@ -6,7 +6,7 @@
 export 'startup_firestore_schema.dart';
 
 import 'package:flutter/material.dart';
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
 
 import 'startup_firestore_schema.dart';
 

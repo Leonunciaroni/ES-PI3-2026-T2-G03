@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-import 'package:pi_iii/carteira/screens/pagamento_pix_screen.dart';
+import 'package:mescla_invest/carteira/screens/pagamento_pix_screen.dart';
 
 void main() {
   testWidgets('PagamentoPixScreen mostra valor total e QR', (tester) async {
