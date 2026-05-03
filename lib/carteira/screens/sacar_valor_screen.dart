@@ -349,6 +349,9 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
         (context) => SacarSenhaScreen(
           valorReais: valor,
           chavePix: chave,
+          debitarSaldoReal:
+              widget.usarFirebaseParaSessao &&
+              FirebaseAuth.instance.currentUser != null,
         ),
       ),
     );

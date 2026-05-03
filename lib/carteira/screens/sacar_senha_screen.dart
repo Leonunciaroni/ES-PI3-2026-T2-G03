@@ -1,30 +1,39 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Passo de **senha** no fluxo de saque (protótipo): mesma aparência do Balcão,
-// sem chamada ao Firebase — só valida campo preenchido e simula sucesso.
+// Passo de **senha** no fluxo de saque. Com [debitarSaldoReal] ativo, a validação
+// segue o Balcão: [EmailAuthProvider] + [reauthenticateWithCredential]; em seguida
+// a Cloud Function [simulateWallet] com ação `withdraw_pix_simulated` debita o
+// saldo e grava o movimento no ledger. Modo convidado/teste só confirma a UI.
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../auth/services/auth_service.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../format/carteira_brl.dart';
 import '../models/pix_chave_ui.dart';
+import '../services/simulated_wallet_service.dart';
 import 'saque_comprovante_screen.dart';
 
 // --- Ecrã ---------------------------------------------------------------------
 
-/// Confirmação visual com campo de senha; não valida credenciais nesta fase.
+/// Confirmação com senha do login; opcionalmente debita saldo via Cloud Function.
 class SacarSenhaScreen extends StatefulWidget {
   const SacarSenhaScreen({
     super.key,
     required this.valorReais,
     required this.chavePix,
+    this.debitarSaldoReal = true,
   });
 
   final double valorReais;
   final PixChaveUi chavePix;
+
+  /// Se false (ex.: convidado / testes sem Firebase), não reautentica nem chama a function.
+  final bool debitarSaldoReal;
 
   @override
   State<SacarSenhaScreen> createState() => _SacarSenhaScreenState();
@@ -42,26 +51,9 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
     super.dispose();
   }
 
-  /// Nesta versão só exige texto; o backend virá depois.
-  Future<void> _onConfirmar() async {
-    if (_enviando) return;
-    if (_senhaController.text.trim().isEmpty) {
-      setState(() => _erro = 'Informe sua senha.');
-      return;
-    }
-
-    setState(() {
-      _enviando = true;
-      _erro = null;
-    });
-
-    // Pequena pausa só para o utilizador ver o estado de “enviando”.
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
-
-    setState(() => _enviando = false);
-
+  Future<void> _irParaComprovante() async {
     final agora = DateTime.now();
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MesclaMaterialRoute.fadeSlide<void>(
         (context) => SaqueComprovanteScreen(
@@ -71,6 +63,98 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _onConfirmar() async {
+    if (_enviando) return;
+
+    final password = _senhaController.text;
+    if (password.isEmpty) {
+      setState(() => _erro = 'Informe sua senha.');
+      return;
+    }
+
+    if (!widget.debitarSaldoReal) {
+      setState(() {
+        _enviando = true;
+        _erro = null;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      setState(() => _enviando = false);
+      await _irParaComprovante();
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(
+        () => _erro = 'Sessão expirada. Entre de novo com seu e-mail e senha.',
+      );
+      return;
+    }
+
+    final email = user.email;
+    if (email == null || email.isEmpty) {
+      setState(
+        () => _erro =
+            'Esta conta não usa senha de e-mail. Não é possível validar aqui.',
+      );
+      return;
+    }
+
+    setState(() {
+      _enviando = true;
+      _erro = null;
+    });
+
+    try {
+      final cred = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(cred);
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _erro = e.code == 'invalid-credential' || e.code == 'wrong-password'
+              ? 'Senha incorreta. Use a mesma senha do login.'
+              : AuthService.messageForError(e);
+          _enviando = false;
+        });
+      }
+      return;
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _erro = AuthService.messageForError(e);
+          _enviando = false;
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    try {
+      await SimulatedWalletService.withdrawPixSimulated(
+        amountBrl: widget.valorReais,
+        pixTipoLabel: widget.chavePix.tipoLabel,
+        pixDestHint: mascararChavePixComprovante(widget.chavePix.valor),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _erro = SimulatedWalletService.messageForUser(e);
+          _enviando = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) setState(() => _enviando = false);
+    if (!mounted) return;
+    await _irParaComprovante();
   }
 
   @override
@@ -191,7 +275,10 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Demonstração: qualquer senha não vazia segue para o comprovante.',
+                widget.debitarSaldoReal
+                    ? 'Usamos a mesma senha com que você entra no app. O valor '
+                        'será debitado do saldo simulado.'
+                    : 'Modo demonstração: o saldo não é alterado.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: AppColors.secondaryLabel(theme),

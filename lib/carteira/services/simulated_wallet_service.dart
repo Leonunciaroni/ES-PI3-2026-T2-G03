@@ -36,6 +36,20 @@ abstract final class SimulatedWalletService {
     });
   }
 
+  /// Débito de saldo (saque simulado) e linha no ledger `withdraw_pix_simulated`.
+  static Future<void> withdrawPixSimulated({
+    required double amountBrl,
+    required String pixTipoLabel,
+    required String pixDestHint,
+  }) async {
+    await _fn().httpsCallable('simulateWallet').call(<String, dynamic>{
+      'action': 'withdraw_pix_simulated',
+      'amountBrl': amountBrl,
+      'pixTipo': pixTipoLabel,
+      'pixDestHint': pixDestHint,
+    });
+  }
+
   static Future<void> tradeBuy({
     required CatalogStartup startup,
     required double valorReais,

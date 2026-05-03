@@ -144,6 +144,8 @@ double _carteiraDeltaBrlLedgerLinha(Map<String, dynamic> m) {
   switch (op) {
     case 'credit_pix_simulated':
       return amt;
+    case 'withdraw_pix_simulated':
+      return -amt;
     case 'trade_buy':
       return -amt;
     case 'trade_sell':
