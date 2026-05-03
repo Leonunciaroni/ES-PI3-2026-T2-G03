@@ -11,5 +11,6 @@
 /** Operações gravadas no ledger da carteira simulada. */
 export type SimWalletLedgerOp =
   | "credit_pix_simulated"
+  | "withdraw_pix_simulated"
   | "trade_buy"
   | "trade_sell";

@@ -38,8 +38,12 @@ import {
  * Operações simuladas: crédito interno PIX (demo) + compra/venda de tokens no balcão.
  *
  * Contrato de entrada (request.data):
- * - action: "credit_pix_simulated" | "trade_buy" | "trade_sell"
+ * - action:
+ *   "credit_pix_simulated" | "withdraw_pix_simulated" | "trade_buy" | "trade_sell"
  * - amountBrl: number (sempre > 0)
+ *
+ * Para withdraw_pix_simulated (saque simulado):
+ * - pixTipo, pixDestHint, headline (opcionais, truncados) para o ledger
  *
  * Para trade:
  * - startupId: string
@@ -93,6 +97,52 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
     });
 
     logger.info("simulateWallet credit_pix_simulated", {uid, amountBrl});
+    return {ok: true};
+  }
+
+  if (actionRaw === "withdraw_pix_simulated") {
+    const pixTipo = clip(request.data?.pixTipo, 40);
+    const pixDestHint = clip(request.data?.pixDestHint, 120);
+    const headlineCustom = clip(request.data?.headline, 120);
+    const headline =
+      headlineCustom ||
+      (pixTipo ? `Saque PIX (${pixTipo})` : "Saque PIX simulado");
+
+    await db.runTransaction(async (trx) => {
+      const snap = await trx.get(walletRef);
+      const walletData = snap.data() ?? {};
+      const prev =
+        typeof walletData.brlBalance === "number"
+          ? (walletData.brlBalance as number)
+          : 0;
+
+      if (prev + 1e-9 < amountBrl) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Saldo insuficiente para este saque simulado."
+        );
+      }
+
+      const next = prev - amountBrl;
+      trx.set(walletRef, {brlBalance: next}, {merge: true});
+      const ledgerRef = walletRef.collection("ledger").doc();
+      trx.create(ledgerRef, {
+        op: "withdraw_pix_simulated",
+        dir: "out",
+        headline,
+        amountBrl,
+        startupId: null,
+        startupName: null,
+        tokenSigla: null,
+        tokensQuantity: null,
+        tokenPriceBrl: null,
+        pixTipo: pixTipo || null,
+        pixDestHint: pixDestHint || null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    });
+
+    logger.info("simulateWallet withdraw_pix_simulated", {uid, amountBrl});
     return {ok: true};
   }
 
@@ -271,6 +321,6 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
 
   throw new HttpsError(
     "invalid-argument",
-    "Ação não reconhecida. Use credit_pix_simulated, trade_buy ou trade_sell."
+    "Ação não reconhecida. Use credit_pix_simulated, withdraw_pix_simulated, trade_buy ou trade_sell."
   );
 });

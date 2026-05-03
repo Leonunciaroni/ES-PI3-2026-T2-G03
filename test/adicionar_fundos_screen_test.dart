@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:pi_iii/carteira/format/carteira_valor_input.dart';
 import 'package:pi_iii/carteira/screens/adicionar_fundos_screen.dart';
 
 void main() {

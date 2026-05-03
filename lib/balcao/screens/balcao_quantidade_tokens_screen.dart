@@ -11,7 +11,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
-import '../../carteira/screens/adicionar_fundos_screen.dart';
+import '../../carteira/format/carteira_valor_input.dart';
 import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';

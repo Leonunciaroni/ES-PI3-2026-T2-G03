@@ -89,7 +89,12 @@ void main() {
       'toque no gráfico mostra MesclaChartReadingCard com data e valor em R\$',
       (tester) async {
         await tester.pumpWidget(
-          _themedApp(const CarteiraScreen(wrapWithSafeArea: false)),
+          _themedApp(
+            const CarteiraScreen(
+              wrapWithSafeArea: false,
+              usarFirebaseParaSessao: false,
+            ),
+          ),
         );
         await tester.pumpAndSettle();
 

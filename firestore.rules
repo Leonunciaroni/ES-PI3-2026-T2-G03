@@ -11,6 +11,8 @@ service cloud.firestore {
 
     // Perfil do utilizador: dono do documento; leitura por e-mail alinha com
     // a query de limpeza de campo legacy (`emailLowercase` == e-mail da sessão).
+    // Campos como `chavesPix` (array de mapas) são gravados pelo cliente no
+    // próprio `users/{uid}` — sem Cloud Function; só o dono pode atualizar.
     match /users/{userId} {
       function isSignedIn() {
         return request.auth != null;
