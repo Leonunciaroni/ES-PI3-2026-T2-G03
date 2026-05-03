@@ -8,9 +8,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
-import 'package:pi_iii/catalog/screens/startup_detail_screen.dart';
-import 'package:pi_iii/theme/app_colors.dart';
+import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
+import 'package:mescla_invest/catalog/screens/startup_detail_screen.dart';
+import 'package:mescla_invest/theme/app_colors.dart';
 
 /// [MaterialApp] mínimo com o mesmo tema roxo do app, para a tela usar cores corretas.
 Widget _wrapStartupDetailScreen() {

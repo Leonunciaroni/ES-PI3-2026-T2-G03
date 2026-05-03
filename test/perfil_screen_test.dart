@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/perfil/screens/perfil_screen.dart';
+import 'package:mescla_invest/perfil/screens/perfil_screen.dart';
 
 void main() {
   testWidgets('Perfil mostra título, CONTA e Sair da Conta', (

@@ -1,11 +1,11 @@
 {
-    "name": "pi_iii",
-    "short_name": "pi_iii",
+    "name": "Mescla Invest",
+    "short_name": "Mescla Invest",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Aplicativo de investimentos das startups do hub de inovação Mescla da PUC-Campinas",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

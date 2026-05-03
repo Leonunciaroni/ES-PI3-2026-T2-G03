@@ -6,9 +6,9 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
-import 'package:pi_iii/catalog/models/startup_detail_load_state.dart';
+import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/models/startup_detail_load_state.dart';
 
 import 'startup_detail_document.dart';
 import 'startup_firestore_mapper.dart';

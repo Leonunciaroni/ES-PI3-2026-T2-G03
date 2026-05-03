@@ -5,8 +5,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/theme/app_colors.dart';
-import 'package:pi_iii/widgets/mescla_chart_reading_card.dart';
+import 'package:mescla_invest/theme/app_colors.dart';
+import 'package:mescla_invest/widgets/mescla_chart_reading_card.dart';
 
 Widget _wrap(Widget child) {
   final colorScheme = ColorScheme.fromSeed(

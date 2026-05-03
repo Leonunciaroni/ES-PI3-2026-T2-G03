@@ -7,7 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/carteira/screens/carteira_screen.dart';
+import 'package:mescla_invest/carteira/screens/carteira_screen.dart';
 
 void main() {
   testWidgets('CarteiraScreen mostra título e saldo total', (tester) async {

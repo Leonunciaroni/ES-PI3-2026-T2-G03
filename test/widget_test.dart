@@ -5,7 +5,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/main.dart';
+import 'package:mescla_invest/main.dart';
 
 void main() {
   testWidgets('App arranca na tela de login', (WidgetTester tester) async {
