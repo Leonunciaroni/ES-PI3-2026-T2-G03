@@ -313,7 +313,8 @@ const SocioDetailViewData kSocioMockJulianaPrado = SocioDetailViewData(
   shortBio:
       'Fundadora da CyberMesh. Especialista em segurança para PMEs e resposta a incidentes.',
   linkedinUrl: 'https://www.linkedin.com/in/example-juliana-prado',
-  academicBackground: 'Ciência da Computação; especialização em Segurança da Informação',
+  academicBackground:
+      'Ciência da Computação; especialização em Segurança da Informação',
   mainInstitution: 'UNICAMP',
   specialties: ['SOC', 'Threat intel', 'Conformidade', 'Liderança técnica'],
   marketExperience: '12 anos em cibersegurança e infraestrutura crítica.',
@@ -324,7 +325,8 @@ const SocioDetailViewData kSocioMockJulianaPrado = SocioDetailViewData(
   skills: ['Python', 'Playbooks', 'Gestão de crise', 'Mentoria de times'],
   strategicEdge:
       'Correlação automática de telemetria com feeds abertos, reduzindo tempo de deteção para PMEs.',
-  responsibilities: 'Produto, visão de longo prazo, grandes contas e fundraising.',
+  responsibilities:
+      'Produto, visão de longo prazo, grandes contas e fundraising.',
   highlights: ['SOC simulado usado em 40+ empresas piloto'],
   certifications: ['CompTIA Security+'],
   languages: ['Português (nativo)', 'Inglês (fluente)'],
@@ -425,6 +427,9 @@ class StartupDetailViewData {
     required this.executiveSummary,
     required this.societaryLines,
     required this.publicQa,
+    this.investorQa = const [],
+    this.canSelectQuestionVisibility = false,
+    this.canViewInvestorQuestions = false,
     required this.demoVideoTitle,
     this.demoVideoUrl,
     this.fullFirestoreDocument,
@@ -474,6 +479,15 @@ class StartupDetailViewData {
 
   /// Perguntas e respostas públicas (§5.2).
   final List<StartupPublicQa> publicQa;
+
+  /// Perguntas privadas (visíveis apenas para investidores).
+  final List<StartupPublicQa> investorQa;
+
+  /// Quando `true`, o utilizador pode escolher entre pergunta pública e privada.
+  final bool canSelectQuestionVisibility;
+
+  /// Quando `true`, a UI mostra as perguntas privadas de investidores.
+  final bool canViewInvestorQuestions;
 
   /// Título placeholder para vídeo demonstrativo (§5.2).
   final String demoVideoTitle;
@@ -919,8 +933,9 @@ SocioDetailViewData _placeholderSocioDetailFromListRow(StartupTeamMember m) {
 
   if (role.startsWith('Sócio')) {
     listRoleLine = 'Sócio';
-    final RegExpMatch? match =
-        RegExp(r'^Sócio\s*[—–-]\s*(.+)$').firstMatch(role);
+    final RegExpMatch? match = RegExp(
+      r'^Sócio\s*[—–-]\s*(.+)$',
+    ).firstMatch(role);
     final String pct = match?.group(1)?.trim() ?? '';
     participationLabel = pct.isEmpty
         ? 'Participação societária em definição.'
@@ -981,10 +996,7 @@ SocioDetailViewData _placeholderSocioDetailFromListRow(StartupTeamMember m) {
       '[Mock] Certificação opcional 1.',
       '[Mock] Certificação opcional 2.',
     ],
-    languages: [
-      'Português (exemplo)',
-      'Inglês — nível a definir no Firestore',
-    ],
+    languages: ['Português (exemplo)', 'Inglês — nível a definir no Firestore'],
   );
 }
 
@@ -1011,6 +1023,9 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
     executiveSummary: template.executiveSummary,
     societaryLines: template.societaryLines,
     publicQa: template.publicQa,
+    investorQa: template.investorQa,
+    canSelectQuestionVisibility: template.canSelectQuestionVisibility,
+    canViewInvestorQuestions: template.canViewInvestorQuestions,
     demoVideoTitle: template.demoVideoTitle,
     demoVideoUrl: template.demoVideoUrl,
     fullFirestoreDocument: template.fullFirestoreDocument,

@@ -4,9 +4,20 @@
 // Lê documentos da coleção `startups` no Firestore e monta itens para a callable.
 // Os nomes dos campos seguem [lib/catalog/services/startup_firestore_schema.dart].
 
+import type {QueryDocumentSnapshot} from "firebase-admin/firestore";
 import {db} from "../../auth/shared/firebase.js";
-import {STARTUPS_COLLECTION} from "../shared/constants.js";
-import type {StartupStage} from "../types/index.js";
+import {
+  STARTUP_FIELD_INVESTOR_UIDS,
+  STARTUPS_COLLECTION,
+  USER_FIELD_INVESTOR_STARTUP_IDS,
+  USERS_COLLECTION,
+} from "../shared/constants.js";
+import type {
+  QuestionVisibility,
+  StartupQuestionDocument,
+  StartupQuestionView,
+  StartupStage,
+} from "../types/index.js";
 
 /** Campos extras quando `includeDetail: true` — espelham o documento Firestore. */
 export type StartupDetailPayload = {
@@ -58,6 +69,7 @@ const kLogoPathSnake = "logo_path";
 const kPrecoToken = "preco_token";
 const kProgressoCaptacao = "progresso_captacao";
 const kRendimentoLabel = "rendimento_label";
+const startupsCollection = db.collection(STARTUPS_COLLECTION);
 
 function readString(d: Record<string, unknown>, key: string): string {
   const v = d[key];
@@ -305,4 +317,89 @@ export async function listStartupItems(
     }
   }
   return out;
+}
+
+function stringArrayFromValue(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const out = value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+  return Array.from(new Set(out));
+}
+
+export async function userIsInvestor(
+  startupId: string,
+  uid: string
+): Promise<boolean> {
+  const startupSnap = await startupsCollection.doc(startupId).get();
+  if (!startupSnap.exists) {
+    return false;
+  }
+  const startupData = startupSnap.data() as Record<string, unknown>;
+  const startupInvestorUids = stringArrayFromValue(
+    startupData[STARTUP_FIELD_INVESTOR_UIDS]
+  );
+  if (startupInvestorUids.includes(uid)) {
+    return true;
+  }
+
+  const userSnap = await db.collection(USERS_COLLECTION).doc(uid).get();
+  if (userSnap.exists) {
+    const userData = userSnap.data() as Record<string, unknown>;
+    const userStartupIds = stringArrayFromValue(
+      userData[USER_FIELD_INVESTOR_STARTUP_IDS]
+    );
+    if (userStartupIds.includes(startupId)) {
+      return true;
+    }
+  }
+
+  const investorSnapshot = await startupsCollection
+    .doc(startupId)
+    .collection("investors")
+    .doc(uid)
+    .get();
+  return investorSnapshot.exists;
+}
+
+function mapQuestionDoc(doc: QueryDocumentSnapshot): StartupQuestionView {
+  const createdAt = doc.get("createdAt");
+  return {
+    id: doc.id,
+    text: String(doc.get("text") ?? ""),
+    answer: (doc.get("answer") as string | null | undefined) ?? null,
+    visibility: doc.get("visibility") as QuestionVisibility,
+    authorUid: String(doc.get("authorUid") ?? ""),
+    createdAt: createdAt?.toDate?.()?.toISOString?.() ?? null,
+  };
+}
+
+export async function listQuestionsByVisibility(
+  startupId: string,
+  visibility: QuestionVisibility
+): Promise<StartupQuestionView[]> {
+  const questionsSnapshot = await startupsCollection
+    .doc(startupId)
+    .collection("questions")
+    .where("visibility", "==", visibility)
+    .limit(100)
+    .get();
+  return questionsSnapshot.docs
+    .map(mapQuestionDoc)
+    .sort((left: StartupQuestionView, right: StartupQuestionView) =>
+      String(right.createdAt ?? "").localeCompare(String(left.createdAt ?? ""))
+    );
+}
+
+export async function createQuestion(
+  startupId: string,
+  question: StartupQuestionDocument
+): Promise<string> {
+  const questionRef = await startupsCollection
+    .doc(startupId)
+    .collection("questions")
+    .add(question);
+  return questionRef.id;
 }

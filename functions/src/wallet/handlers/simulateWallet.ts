@@ -26,7 +26,10 @@ import {
   MAX_OP_BRL,
   REGION,
   ROOT,
+  STARTUP_FIELD_INVESTOR_UIDS,
   STARTUPS_COLLECTION,
+  USER_FIELD_INVESTOR_STARTUP_IDS,
+  USERS_COLLECTION,
 } from "../shared/constants.js";
 import {
   assertAmountMatchesTrade,
@@ -217,6 +220,34 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
           {merge: true},
         );
 
+        const userRef = db.collection(USERS_COLLECTION).doc(uid);
+        trx.set(
+          userRef,
+          {
+            [USER_FIELD_INVESTOR_STARTUP_IDS]: FieldValue.arrayUnion(startupId),
+          },
+          {merge: true}
+        );
+
+        const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
+        trx.set(
+          startupRef,
+          {
+            [STARTUP_FIELD_INVESTOR_UIDS]: FieldValue.arrayUnion(uid),
+          },
+          {merge: true}
+        );
+
+        const investorRef = startupRef.collection("investors").doc(uid);
+        trx.set(
+          investorRef,
+          {
+            uid,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          {merge: true}
+        );
+
         const ledgerRef = walletRef.collection("ledger").doc();
         trx.create(ledgerRef, {
           op: "trade_buy",
@@ -282,6 +313,23 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
 
       if (tokensHeld <= 1e-9) {
         trx.delete(positionRef);
+        const userRef = db.collection(USERS_COLLECTION).doc(uid);
+        trx.set(
+          userRef,
+          {
+            [USER_FIELD_INVESTOR_STARTUP_IDS]: FieldValue.arrayRemove(startupId),
+          },
+          {merge: true}
+        );
+        const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
+        trx.set(
+          startupRef,
+          {
+            [STARTUP_FIELD_INVESTOR_UIDS]: FieldValue.arrayRemove(uid),
+          },
+          {merge: true}
+        );
+        trx.delete(startupRef.collection("investors").doc(uid));
       } else {
         trx.set(
           positionRef,

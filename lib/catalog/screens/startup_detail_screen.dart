@@ -1,4 +1,4 @@
-﻿// Autor principal: Pedro Henrique Contardi Soler
+// Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
 // Tela de detalhes da startup (MesclaInvest) — layout inspirado no Figma.
@@ -77,6 +77,9 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Modo produção com `firestoreId`: resposta da callable `listStartups`.
   Future<StartupDetailViewData?>? _detailFuture;
 
+  StartupCatalogFunctionsService get _catalogFunctionsService =>
+      widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
+
   @override
   void initState() {
     super.initState();
@@ -87,10 +90,11 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     } else if (widget.catalog.firestoreId != null) {
       _detailStream = null;
       _streamInitialData = null;
-      _detailFuture = widget.prefetchDetailFuture ??
-          (widget.catalogFunctionsService ??
-                  StartupCatalogFunctionsService())
-              .fetchStartupDetail(widget.catalog.firestoreId!);
+      _detailFuture =
+          widget.prefetchDetailFuture ??
+          _catalogFunctionsService.fetchStartupDetail(
+            widget.catalog.firestoreId!,
+          );
     } else {
       final ready = StartupDetailReady(startupDetailFor(widget.catalog));
       _streamInitialData = ready;
@@ -133,6 +137,126 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void _refreshDetail() {
+    final startupId = widget.catalog.firestoreId?.trim();
+    if (_detailFuture == null || startupId == null || startupId.isEmpty) {
+      return;
+    }
+    setState(() {
+      _detailFuture = _catalogFunctionsService.fetchStartupDetail(startupId);
+    });
+  }
+
+  Future<void> _showCreateQuestionDialog(StartupDetailViewData detail) async {
+    final startupId = detail.catalog.firestoreId?.trim();
+    if (startupId == null || startupId.isEmpty) {
+      _snack('Não foi possível identificar a startup.');
+      return;
+    }
+    final TextEditingController textController = TextEditingController();
+    bool isPrivate = false;
+
+    final bool shouldSubmit =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) {
+            return StatefulBuilder(
+              builder: (context, setLocalState) {
+                return AlertDialog(
+                  title: const Text('Nova pergunta'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: textController,
+                          maxLines: 4,
+                          decoration: const InputDecoration(
+                            labelText: 'Pergunta',
+                            hintText: 'Digite sua pergunta para a startup',
+                          ),
+                        ),
+                        if (detail.canSelectQuestionVisibility) ...[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<bool>(
+                            initialValue: isPrivate,
+                            decoration: const InputDecoration(
+                              labelText: 'Tipo da pergunta',
+                            ),
+                            items: const [
+                              DropdownMenuItem<bool>(
+                                value: false,
+                                child: Text('Pública'),
+                              ),
+                              DropdownMenuItem<bool>(
+                                value: true,
+                                child: Text('Privada (investidores)'),
+                              ),
+                            ],
+                            onChanged: (bool? value) {
+                              setLocalState(() => isPrivate = value ?? false);
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    FilledButton(
+                      onPressed: () {
+                        if (textController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Digite uma pergunta antes de enviar.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(dialogContext).pop(true);
+                      },
+                      child: const Text('Enviar'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        ) ??
+        false;
+
+    if (!shouldSubmit) {
+      textController.dispose();
+      return;
+    }
+
+    try {
+      await _catalogFunctionsService.createStartupQuestion(
+        startupId: startupId,
+        text: textController.text,
+        isPrivate: isPrivate && detail.canSelectQuestionVisibility,
+      );
+      if (!mounted) {
+        return;
+      }
+      _snack('Pergunta enviada com sucesso.');
+      _refreshDetail();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _snack(StartupCatalogFunctionsService.messageForError(e));
+    } finally {
+      textController.dispose();
+    }
   }
 
   Future<void> _toggleWishlist() async {
@@ -305,41 +429,94 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
             title: 'Perguntas e respostas públicas',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: detail.publicQa.isEmpty
-                  ? [
-                      Text(
-                        'Ainda não há perguntas públicas.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
+              children: [
+                ...(detail.publicQa.isEmpty
+                    ? [
+                        Text(
+                          'Ainda não há perguntas públicas.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                          ),
                         ),
-                      ),
-                    ]
-                  : detail.publicQa.map((qa) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'P: ${qa.question}',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                      ]
+                    : detail.publicQa.map((qa) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'P: ${qa.question}',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'R: ${qa.answer}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.secondaryLabel(theme),
-                                height: 1.35,
+                              const SizedBox(height: 4),
+                              Text(
+                                'R: ${qa.answer}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.secondaryLabel(theme),
+                                  height: 1.35,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                            ],
+                          ),
+                        );
+                      })),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => _showCreateQuestionDialog(detail),
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('Fazer pergunta'),
+                  ),
+                ),
+              ],
             ),
           ),
+          if (detail.canViewInvestorQuestions) ...[
+            const SizedBox(height: 14),
+            MesclaPdfSectionCard(
+              title: 'Perguntas privadas (investidores)',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: detail.investorQa.isEmpty
+                    ? [
+                        Text(
+                          'Ainda não há perguntas privadas de investidores.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                          ),
+                        ),
+                      ]
+                    : detail.investorQa.map((qa) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'P: ${qa.question}',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'R: ${qa.answer}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.secondaryLabel(theme),
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           MesclaPdfSectionCard(
             title: 'Vídeos demonstrativos',
