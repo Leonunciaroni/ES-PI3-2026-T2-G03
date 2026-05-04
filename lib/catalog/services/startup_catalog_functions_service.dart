@@ -446,6 +446,11 @@ class StartupCatalogFunctionsService {
     return _fetchStartupDetailFromFirestore(id);
   }
 
+  /// Valor do campo `visibility` na callable [createStartupQuestion] (`publica` | `privada`).
+  @visibleForTesting
+  static String visibilityForCallable(bool isPrivate) =>
+      isPrivate ? 'privada' : 'publica';
+
   Future<void> createStartupQuestion({
     required String startupId,
     required String text,
@@ -461,7 +466,7 @@ class StartupCatalogFunctionsService {
         .call(<String, dynamic>{
           'startupId': id,
           'text': questionText,
-          'visibility': isPrivate ? 'privada' : 'publica',
+          'visibility': visibilityForCallable(isPrivate),
         });
   }
 
