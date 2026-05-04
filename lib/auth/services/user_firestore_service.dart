@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../carteira/models/pix_chave_ui.dart';
+import 'session_persistence_service.dart';
 
 class UserFirestoreService {
   UserFirestoreService._();
@@ -107,7 +108,10 @@ class UserFirestoreService {
   }
 
   /// Encerra a sessão no Firebase Auth (ex.: botão Sair do Perfil).
-  static Future<void> signOut() => _auth.signOut();
+  static Future<void> signOut() async {
+    await SessionPersistenceService.clearSessionMetadata();
+    await _auth.signOut();
+  }
 
   /// Preferência de 2FA no login: `true` = envia OTP; `false` = entra direto.
   ///
