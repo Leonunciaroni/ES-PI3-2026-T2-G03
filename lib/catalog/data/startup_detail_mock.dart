@@ -1000,6 +1000,37 @@ SocioDetailViewData _placeholderSocioDetailFromListRow(StartupTeamMember m) {
   );
 }
 
+/// Mesmo que [startupDetailFor], com [canSelectQuestionVisibility] ativo (ex.: testes de UI).
+StartupDetailViewData startupDetailForWithPrivateQuestions(CatalogStartup c) {
+  final d = startupDetailFor(c);
+  return StartupDetailViewData(
+    catalog: d.catalog,
+    categoryDisplay: d.categoryDisplay,
+    longDescription: d.longDescription,
+    captureHeadline: d.captureHeadline,
+    captureProgressFraction: d.captureProgressFraction,
+    captureProgressLabel: d.captureProgressLabel,
+    valuationHeadline: d.valuationHeadline,
+    valuationRoundLabel: d.valuationRoundLabel,
+    valuationTrendText: d.valuationTrendText,
+    chartSeriesByPeriod: d.chartSeriesByPeriod,
+    headquarters: d.headquarters,
+    foundedLabel: d.foundedLabel,
+    missionQuote: d.missionQuote,
+    teamMembers: d.teamMembers,
+    performanceMetrics: d.performanceMetrics,
+    executiveSummary: d.executiveSummary,
+    societaryLines: d.societaryLines,
+    publicQa: d.publicQa,
+    investorQa: d.investorQa,
+    canSelectQuestionVisibility: true,
+    canViewInvestorQuestions: d.canViewInvestorQuestions,
+    demoVideoTitle: d.demoVideoTitle,
+    demoVideoUrl: d.demoVideoUrl,
+    fullFirestoreDocument: d.fullFirestoreDocument,
+  );
+}
+
 /// Monta o [StartupDetailViewData] final usando sempre o [CatalogStartup] do card tocado.
 StartupDetailViewData startupDetailFor(CatalogStartup c) {
   final template = _detailTemplatesByName[c.name];
