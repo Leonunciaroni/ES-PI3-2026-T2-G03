@@ -23,6 +23,7 @@ import '../../catalog/data/startup_detail_mock.dart';
 import '../../catalog/services/startup_firestore_mapper.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
+import '../../widgets/brazil_flag_icon.dart';
 import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
@@ -1019,6 +1020,150 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
+  /// Secção após o gráfico: saldo **em reais** (BRL), distinto do valor em tokens.
+  Widget _secaoSaldoEmReais({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+  }) {
+    final uid = _uidSessao;
+    final onSurface = colorScheme.onSurface;
+    final card = AppColors.themeCardSurface(theme);
+    final secondary = AppColors.secondaryLabel(theme);
+
+    final tituloSecao = Text(
+      'Saldo em reais',
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.bold,
+        color: onSurface,
+      ),
+    );
+
+    const tooltipSaldoReais =
+        'Valor em reais que você pode movimentar via PIX (incluindo saque). '
+        'Investimentos em tokens aparecem em “Minhas Startups Investidas”.';
+
+    Widget cardCorpo({
+      required String valorLinha,
+      String? mensagemErro,
+    }) {
+      final roxoValor = colorScheme.primary;
+      return Material(
+        color: card,
+        borderRadius: BorderRadius.circular(22),
+        elevation: 2,
+        shadowColor: Colors.black.withValues(alpha: 0.06),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const BrazilFlagIcon(diameter: 44),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Disponível na carteira',
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              color: secondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (mensagemErro == null)
+                          Tooltip(
+                            message: tooltipSaldoReais,
+                            showDuration: const Duration(seconds: 6),
+                            triggerMode: TooltipTriggerMode.tap,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Icon(
+                                Icons.info_outline_rounded,
+                                size: 20,
+                                color: secondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      mensagemErro ?? valorLinha,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color:
+                            mensagemErro != null ? colorScheme.error : roxoValor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (uid == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          tituloSecao,
+          const SizedBox(height: 12),
+          cardCorpo(valorLinha: _brlParaExibicao(_saldoTotal)),
+        ],
+      );
+    }
+
+    return StreamBuilder<double>(
+      stream: SimulatedWalletService.watchBrlBalance(uid),
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              tituloSecao,
+              const SizedBox(height: 12),
+              cardCorpo(
+                valorLinha: '',
+                mensagemErro: 'Não foi possível carregar o saldo em reais.',
+              ),
+            ],
+          );
+        }
+        if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              tituloSecao,
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 120,
+                child: Center(
+                  child: CircularProgressIndicator(color: colorScheme.primary),
+                ),
+              ),
+            ],
+          );
+        }
+        final brl = snap.data ?? 0.0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            tituloSecao,
+            const SizedBox(height: 12),
+            cardCorpo(valorLinha: _brlParaExibicao(brl)),
+          ],
+        );
+      },
+    );
+  }
+
   /// Valor em reais para a UI: mascarado ou formatado com [formatBrl].
   String _brlParaExibicao(double value) {
     if (_hideValues) return 'R\$ ••••••';
@@ -1476,6 +1621,11 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
           _blocoSaldoHero(),
           const SizedBox(height: _sectionGap),
           _evolucaoSaldoBlock(
+            theme: theme,
+            colorScheme: colorScheme,
+          ),
+          const SizedBox(height: _sectionGap),
+          _secaoSaldoEmReais(
             theme: theme,
             colorScheme: colorScheme,
           ),

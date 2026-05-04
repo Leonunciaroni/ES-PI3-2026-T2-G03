@@ -387,6 +387,14 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Apenas saldo em reais (BRL); tokens não entram neste limite.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.secondaryLabel(theme),
+                        height: 1.3,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       _saldoParaExibicao(saldo),
