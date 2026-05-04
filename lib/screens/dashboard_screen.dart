@@ -22,6 +22,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// Quando true, valores monetários e percentuais aparecem mascarados.
   bool _hideValues = false;
 
+  // Variável para armazenar o nome do usuário
+  String _nomeCompletoUsuario = 'Ricardo Silva';
+
+  // Lógica para extrair apenas o primeiro nome em caixa alta
+  String get _primeiroNome {
+    return _nomeCompletoUsuario.trim().split(' ').first.toUpperCase();
+  }
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
@@ -111,9 +118,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _HeaderRow(colorScheme: colorScheme),
                         const SizedBox(height: 20),
                         Text(
-                          'BOM DIA, RICARDO',
+                          'BOM DIA, $_primeiroNome', // Aqui o código chama o getter acima
                           style: labelCaps,
-                        ),
+                          ),
                         const SizedBox(height: 8),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
