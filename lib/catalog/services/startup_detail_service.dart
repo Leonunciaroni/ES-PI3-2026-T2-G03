@@ -14,7 +14,9 @@ import 'startup_detail_document.dart';
 import 'startup_firestore_mapper.dart';
 
 export 'socio_firestore_mapper.dart'
-    show socioDetailViewDataFromFirestoreSocioMap, resolveSocioDetailForTeamMember;
+    show
+        socioDetailViewDataFromFirestoreSocioMap,
+        resolveSocioDetailForTeamMember;
 export 'startup_detail_document.dart'
     show
         normalizeStartupDetailDocument,
@@ -28,7 +30,7 @@ export 'startup_detail_document.dart'
 /// Ouve um único documento; emite [StartupDetailNotFound] se foi apagado ou inválido.
 class StartupDetailService {
   StartupDetailService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
 
@@ -38,20 +40,24 @@ class StartupDetailService {
         .doc(documentId)
         .snapshots()
         .map((DocumentSnapshot<Map<String, dynamic>> snap) {
-      if (!snap.exists) {
-        return const StartupDetailNotFound();
-      }
-      final Map<String, dynamic>? raw = snap.data();
-      if (raw == null) {
-        return const StartupDetailNotFound();
-      }
-      final CatalogStartup? catalog =
-          catalogStartupFromFirestoreMap(snap.id, raw);
-      if (catalog == null) {
-        return const StartupDetailNotFound();
-      }
-      return StartupDetailReady(detailViewDataFromFirestoreMap(raw, catalog));
-    });
+          if (!snap.exists) {
+            return const StartupDetailNotFound();
+          }
+          final Map<String, dynamic>? raw = snap.data();
+          if (raw == null) {
+            return const StartupDetailNotFound();
+          }
+          final CatalogStartup? catalog = catalogStartupFromFirestoreMap(
+            snap.id,
+            raw,
+          );
+          if (catalog == null) {
+            return const StartupDetailNotFound();
+          }
+          return StartupDetailReady(
+            detailViewDataFromFirestoreMap(raw, catalog),
+          );
+        });
   }
 }
 
@@ -60,8 +66,12 @@ class StartupDetailService {
 /// Exportada para reutilizar no fluxo via callable sem duplicar regras de layout.
 StartupDetailViewData detailViewDataFromFirestoreMap(
   Map<String, dynamic> d,
-  CatalogStartup catalog,
-) {
+  CatalogStartup catalog, {
+  List<StartupPublicQa> publicQa = const <StartupPublicQa>[],
+  List<StartupPublicQa> investorQa = const <StartupPublicQa>[],
+  bool canSelectQuestionVisibility = false,
+  bool canViewInvestorQuestions = false,
+}) {
   final Map<String, dynamic> dNorm = normalizeStartupDetailDocument(d);
   final String descricao = readFirestoreString(dNorm, kFieldDescricao);
   final String setorRaw = readFirestoreString(dNorm, kFieldSetor);
@@ -80,7 +90,10 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
   final double captureFraction = captureProgressFractionFromFirestore(dNorm);
   final String captureHeadline = _captureHeadlineFromFirestore(dNorm);
   final String valuationHeadline = _valuationHeadlineFromFirestore(dNorm);
-  final String rodadaRaw = readFirestoreString(dNorm, kFieldValuationRodada).trim();
+  final String rodadaRaw = readFirestoreString(
+    dNorm,
+    kFieldValuationRodada,
+  ).trim();
   final String valuationRound = rodadaRaw.isEmpty ? 'VALUATION' : rodadaRaw;
   final String valuationTrend = _valuationTrendFromFirestore(dNorm);
   final String headquarters = _headquartersFromFirestore(dNorm);
@@ -103,15 +116,18 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     missionQuote: descricao.isEmpty
         ? 'Missão em definição.'
         : (descricao.length > 200
-            ? '${descricao.substring(0, 197)}…'
-            : descricao),
+              ? '${descricao.substring(0, 197)}…'
+              : descricao),
     teamMembers: team,
     performanceMetrics: metrics,
     executiveSummary: descricao.isEmpty
         ? 'Sumário executivo em elaboração.'
         : descricao,
     societaryLines: societary,
-    publicQa: const [],
+    publicQa: publicQa,
+    investorQa: investorQa,
+    canSelectQuestionVisibility: canSelectQuestionVisibility,
+    canViewInvestorQuestions: canViewInvestorQuestions,
     demoVideoTitle: videoTitle,
     demoVideoUrl: videoUrl,
     fullFirestoreDocument: Map<String, dynamic>.from(dNorm),
@@ -119,8 +135,7 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
 }
 
 String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? direct =
-      readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
+  final String? direct = readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
   if (direct != null && direct.isNotEmpty) {
     return direct;
   }
@@ -136,8 +151,7 @@ String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
 }
 
 String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? h =
-      readFirestoreOptionalString(d, kFieldValuationHeadline);
+  final String? h = readFirestoreOptionalString(d, kFieldValuationHeadline);
   if (h != null && h.isNotEmpty) {
     return h;
   }
@@ -145,8 +159,7 @@ String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
 }
 
 String _valuationTrendFromFirestore(Map<String, dynamic> d) {
-  final String? t =
-      readFirestoreOptionalString(d, kFieldValuationTendencia);
+  final String? t = readFirestoreOptionalString(d, kFieldValuationTendencia);
   if (t != null && t.isNotEmpty) {
     return t;
   }
@@ -204,7 +217,8 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
         continue;
       }
       final String t = readFirestoreString(m, 't');
-      final double? v = readFirestoreOptionalDouble(m, 'v') ??
+      final double? v =
+          readFirestoreOptionalDouble(m, 'v') ??
           readFirestoreOptionalDouble(m, 'valor');
       if (v == null) {
         continue;
@@ -219,10 +233,7 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
     if (times.isEmpty || times.length != vals.length) {
       return null;
     }
-    return ValuationChartSeries(
-      valuationMillions: vals,
-      sampleTimes: times,
-    );
+    return ValuationChartSeries(valuationMillions: vals, sampleTimes: times);
   }
 
   final Map<ValuationPeriod, ValuationChartSeries> out = {};
@@ -412,9 +423,11 @@ String _formatIntBR(int v) {
   return out.toString();
 }
 
-String _videoTitleFromFirestore(Map<String, dynamic> d, CatalogStartup catalog) {
-  final Map<String, dynamic>? tokens =
-      _asStringKeyMap(d[kFieldTokensEmitidos]);
+String _videoTitleFromFirestore(
+  Map<String, dynamic> d,
+  CatalogStartup catalog,
+) {
+  final Map<String, dynamic>? tokens = _asStringKeyMap(d[kFieldTokensEmitidos]);
   if (tokens != null) {
     final String n = readFirestoreString(tokens, 'nome');
     if (n.isNotEmpty) {

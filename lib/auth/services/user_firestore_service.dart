@@ -17,12 +17,14 @@ class UserFirestoreService {
       return null;
     }
   }
+
   static final CollectionReference<Map<String, dynamic>> _usersCollection =
       _firestore.collection('users');
 
   /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
   static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
+  static const String fieldInvestorStartupIds = 'investorStartupIds';
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
@@ -73,6 +75,7 @@ class UserFirestoreService {
         'createdAt': FieldValue.serverTimestamp(),
         fieldTwoFactorEnabled: true,
         fieldFavoriteStartupIds: <String>[],
+        fieldInvestorStartupIds: <String>[],
         fieldChavesPix: <Map<String, dynamic>>[],
       }, SetOptions(merge: true));
 
@@ -144,10 +147,9 @@ class UserFirestoreService {
         message: 'Sessão não encontrada.',
       );
     }
-    await _usersCollection.doc(uid).set(
-      {fieldTwoFactorEnabled: enabled},
-      SetOptions(merge: true),
-    );
+    await _usersCollection.doc(uid).set({
+      fieldTwoFactorEnabled: enabled,
+    }, SetOptions(merge: true));
   }
 
   /// Emite o valor atualizado de [fieldTwoFactorEnabled] (default `true`).
@@ -307,9 +309,8 @@ class UserFirestoreService {
       );
     }
     final maps = chaves.map((c) => c.toFirestoreMap()).toList(growable: false);
-    await _usersCollection.doc(uid).set(
-      {fieldChavesPix: maps},
-      SetOptions(merge: true),
-    );
+    await _usersCollection.doc(uid).set({
+      fieldChavesPix: maps,
+    }, SetOptions(merge: true));
   }
 }

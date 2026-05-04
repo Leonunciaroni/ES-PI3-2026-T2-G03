@@ -24,6 +24,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
 
 import 'socio_detail_screen.dart';
+import 'startup_qa_full_screen.dart';
 
 part 'startup_detail_screen_widgets.dart';
 
@@ -61,6 +62,9 @@ class StartupDetailScreen extends StatefulWidget {
 }
 
 class _StartupDetailScreenState extends State<StartupDetailScreen> {
+  /// Máximo de perguntas na pré-visualização do card (lista completa em [StartupQaFullScreen]).
+  static const int _kPreviewPerguntasMax = 3;
+
   /// Período ativo no gráfico "Evolução" — rótulos do PDF §5.4.
   ValuationPeriod _valuationPeriod = ValuationPeriod.mensal;
 
@@ -77,6 +81,9 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Modo produção com `firestoreId`: resposta da callable `listStartups`.
   Future<StartupDetailViewData?>? _detailFuture;
 
+  StartupCatalogFunctionsService get _catalogFunctionsService =>
+      widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
+
   @override
   void initState() {
     super.initState();
@@ -87,10 +94,11 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     } else if (widget.catalog.firestoreId != null) {
       _detailStream = null;
       _streamInitialData = null;
-      _detailFuture = widget.prefetchDetailFuture ??
-          (widget.catalogFunctionsService ??
-                  StartupCatalogFunctionsService())
-              .fetchStartupDetail(widget.catalog.firestoreId!);
+      _detailFuture =
+          widget.prefetchDetailFuture ??
+          _catalogFunctionsService.fetchStartupDetail(
+            widget.catalog.firestoreId!,
+          );
     } else {
       final ready = StartupDetailReady(startupDetailFor(widget.catalog));
       _streamInitialData = ready;
@@ -133,6 +141,66 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
 
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void _refreshDetail() {
+    final startupId = widget.catalog.firestoreId?.trim();
+    if (_detailFuture == null || startupId == null || startupId.isEmpty) {
+      return;
+    }
+    setState(() {
+      _detailFuture = _catalogFunctionsService.fetchStartupDetail(startupId);
+    });
+  }
+
+  Future<void> _showCreateQuestionDialog(StartupDetailViewData detail) async {
+    final startupId = detail.catalog.firestoreId?.trim();
+    if (startupId == null || startupId.isEmpty) {
+      _snack('Não foi possível identificar a startup.');
+      return;
+    }
+
+    final _NovaPerguntaDialogResult? result =
+        await showDialog<_NovaPerguntaDialogResult>(
+          context: context,
+          builder: (dialogContext) => _NovaPerguntaDialog(
+            canSelectVisibility: detail.canSelectQuestionVisibility,
+          ),
+        );
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    try {
+      await _catalogFunctionsService.createStartupQuestion(
+        startupId: startupId,
+        text: result.text,
+        isPrivate: result.isPrivate && detail.canSelectQuestionVisibility,
+      );
+      if (!mounted) {
+        return;
+      }
+      _snack('Pergunta enviada com sucesso.');
+      _refreshDetail();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      _snack(StartupCatalogFunctionsService.messageForError(e));
+    }
+  }
+
+  void _abrirListaCompletaPerguntas(StartupDetailViewData detail) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => StartupQaFullScreen(
+          publicQa: detail.publicQa,
+          investorQa: detail.investorQa,
+          canUseInvestorFilter: detail.canViewInvestorQuestions,
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleWishlist() async {
@@ -303,41 +371,75 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
           const SizedBox(height: 14),
           MesclaPdfSectionCard(
             title: 'Perguntas e respostas públicas',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: detail.publicQa.isEmpty
-                  ? [
+            child: Builder(
+              builder: (context) {
+                final previas = detail.publicQa
+                    .take(_kPreviewPerguntasMax)
+                    .toList();
+                final mostrarVerTodas =
+                    detail.publicQa.length > _kPreviewPerguntasMax ||
+                    (detail.canViewInvestorQuestions &&
+                        detail.investorQa.isNotEmpty);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (previas.isEmpty)
                       Text(
                         'Ainda não há perguntas públicas.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: AppColors.secondaryLabel(theme),
                         ),
+                      )
+                    else
+                      ...previas.map((qa) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'P: ${qa.question}',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'R: ${qa.answer}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.secondaryLabel(theme),
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (mostrarVerTodas)
+                            TextButton(
+                              onPressed: () =>
+                                  _abrirListaCompletaPerguntas(detail),
+                              child: const Text('Ver todas'),
+                            ),
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: () =>
+                                _showCreateQuestionDialog(detail),
+                            icon: const Icon(Icons.help_outline),
+                            label: const Text('Fazer pergunta'),
+                          ),
+                        ],
                       ),
-                    ]
-                  : detail.publicQa.map((qa) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'P: ${qa.question}',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'R: ${qa.answer}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.secondaryLabel(theme),
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 14),

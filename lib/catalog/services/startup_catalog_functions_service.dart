@@ -32,9 +32,7 @@ void _mergeCallableDetailIntoMap(Map<String, dynamic> map, Object? detailAny) {
     return;
   }
   final Map<String, dynamic> dm = Map<String, dynamic>.from(
-    raw.map(
-      (Object? k, Object? v) => MapEntry(k.toString(), v),
-    ),
+    raw.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
   );
   dm.forEach((String k, dynamic v) {
     if (v != null) {
@@ -46,9 +44,7 @@ void _mergeCallableDetailIntoMap(Map<String, dynamic> map, Object? detailAny) {
 /// Monta um mapa no **mesmo formato** do documento Firestore a partir de um item
 /// retornado por `listStartups`, para reutilizar [catalogStartupFromFirestoreMap]
 /// e [detailViewDataFromFirestoreMap] sem duplicar regras.
-Map<String, dynamic> firestoreShapedMapFromApiItem(
-  Map<String, dynamic> item,
-) {
+Map<String, dynamic> firestoreShapedMapFromApiItem(Map<String, dynamic> item) {
   final Object? detailAny = item['detail'];
   final map = <String, dynamic>{
     kFieldNomeStartup: item['name'] == null ? '' : item['name'].toString(),
@@ -73,6 +69,42 @@ Map<String, dynamic> firestoreShapedMapFromApiItem(
   return map;
 }
 
+List<StartupPublicQa> _qaListFromApi(Object? raw) {
+  if (raw is! List) {
+    return const <StartupPublicQa>[];
+  }
+  final List<StartupPublicQa> out = <StartupPublicQa>[];
+  for (final Object? item in raw) {
+    if (item is! Map) {
+      continue;
+    }
+    final map = Map<String, dynamic>.from(
+      item.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+    );
+    final String question = (map['text'] ?? '').toString().trim();
+    if (question.isEmpty) {
+      continue;
+    }
+    final String answer = (map['answer'] ?? '').toString().trim();
+    out.add(
+      StartupPublicQa(
+        question: question,
+        answer: answer.isEmpty ? 'Ainda sem resposta.' : answer,
+      ),
+    );
+  }
+  return out;
+}
+
+Map<String, dynamic> _parseAccessPayload(Object? raw) {
+  if (raw is! Map) {
+    return const <String, dynamic>{};
+  }
+  return Map<String, dynamic>.from(
+    raw.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+  );
+}
+
 String _apiItemId(Map<String, dynamic> item) {
   final Object? v = item['id'];
   if (v is String) {
@@ -94,9 +126,8 @@ CatalogStartup? catalogStartupFromApiItem(Map<String, dynamic> item) {
 }
 
 /// Interpreta o JSON devolvido por `listStartups` (`data` + `count`, ou lista direta).
-({List<Map<String, dynamic>> rows, int? backendCount}) _parseListStartupsPayload(
-  Object? raw,
-) {
+({List<Map<String, dynamic>> rows, int? backendCount})
+_parseListStartupsPayload(Object? raw) {
   int? countFromMap(Map<String, dynamic> m) {
     final Object? c = m['count'];
     if (c is num) {
@@ -142,8 +173,9 @@ CatalogStartup? catalogStartupFromApiItem(Map<String, dynamic> item) {
   dynamic dataField = top['data'];
   if (dataField == null && top['result'] is Map) {
     final Map<String, dynamic> nested = Map<String, dynamic>.from(
-      (top['result'] as Map<dynamic, dynamic>)
-          .map((dynamic k, dynamic v) => MapEntry(k.toString(), v)),
+      (top['result'] as Map<dynamic, dynamic>).map(
+        (dynamic k, dynamic v) => MapEntry(k.toString(), v),
+      ),
     );
     backendCount ??= countFromMap(nested);
     dataField = nested['data'];
@@ -196,13 +228,16 @@ Future<List<CatalogStartup>> _listStartupsFromFirestoreFallback({
   required String? search,
 }) async {
   try {
-    final QuerySnapshot<Map<String, dynamic>> snap =
-        await FirebaseFirestore.instance
-            .collection(kFirestoreStartupsCollection)
-            .get();
+    final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+        .instance
+        .collection(kFirestoreStartupsCollection)
+        .get();
     final List<CatalogStartup> list = <CatalogStartup>[];
     for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in snap.docs) {
-      final CatalogStartup? c = catalogStartupFromFirestoreMap(doc.id, doc.data());
+      final CatalogStartup? c = catalogStartupFromFirestoreMap(
+        doc.id,
+        doc.data(),
+      );
       if (c != null) {
         list.add(c);
       }
@@ -231,11 +266,11 @@ Future<StartupDetailViewData?> _fetchStartupDetailFromFirestore(
     return null;
   }
   try {
-    final DocumentSnapshot<Map<String, dynamic>> snap =
-        await FirebaseFirestore.instance
-            .collection(kFirestoreStartupsCollection)
-            .doc(id)
-            .get();
+    final DocumentSnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+        .instance
+        .collection(kFirestoreStartupsCollection)
+        .doc(id)
+        .get();
     if (!snap.exists) {
       return null;
     }
@@ -243,7 +278,10 @@ Future<StartupDetailViewData?> _fetchStartupDetailFromFirestore(
     if (raw == null) {
       return null;
     }
-    final CatalogStartup? catalog = catalogStartupFromFirestoreMap(snap.id, raw);
+    final CatalogStartup? catalog = catalogStartupFromFirestoreMap(
+      snap.id,
+      raw,
+    );
     if (catalog == null) {
       return null;
     }
@@ -264,7 +302,7 @@ Future<StartupDetailViewData?> _fetchStartupDetailFromFirestore(
 /// Serviço que lista startups via Firebase Callable Function `listStartups`.
 class StartupCatalogFunctionsService {
   StartupCatalogFunctionsService({FirebaseFunctions? functions})
-      : _functions = functions;
+    : _functions = functions;
 
   final FirebaseFunctions? _functions;
 
@@ -294,7 +332,10 @@ class StartupCatalogFunctionsService {
     final List<Map<String, dynamic>> rows = parsed.rows;
     final int? backendCount = parsed.backendCount;
 
-    if (kDebugMode && backendCount != null && backendCount > 0 && rows.isEmpty) {
+    if (kDebugMode &&
+        backendCount != null &&
+        backendCount > 0 &&
+        rows.isEmpty) {
       debugPrint(
         '[listStartups] backend count=$backendCount mas lista de linhas vazia '
         '(payload ou coleção Firestore).',
@@ -322,9 +363,9 @@ class StartupCatalogFunctionsService {
     if (out.isEmpty) {
       final List<CatalogStartup> fromFs =
           await _listStartupsFromFirestoreFallback(
-        stage: stage,
-        search: search,
-      );
+            stage: stage,
+            search: search,
+          );
       if (fromFs.isNotEmpty) {
         if (kDebugMode) {
           debugPrint(
@@ -359,20 +400,41 @@ class StartupCatalogFunctionsService {
 
     try {
       final result = await _instance
-          .httpsCallable('listStartups')
-          .call<Map<Object?, Object?>>(<String, dynamic>{
-        'includeDetail': true,
-        'startupId': id,
-      });
+          .httpsCallable('getStartupDetails')
+          .call<Map<Object?, Object?>>(<String, dynamic>{'id': id});
 
-      final parsed = _parseListStartupsPayload(result.data);
-      if (parsed.rows.isNotEmpty) {
-        final Map<String, dynamic> item =
-            Map<String, dynamic>.from(parsed.rows.first);
+      final top = Map<String, dynamic>.from(
+        result.data.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+      );
+      final Object? dataAny = top['data'];
+      if (dataAny is Map) {
+        final Map<String, dynamic> item = Map<String, dynamic>.from(
+          dataAny.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+        );
         final CatalogStartup? catalog = catalogStartupFromApiItem(item);
         if (catalog != null) {
-          final Map<String, dynamic> merged = firestoreShapedMapFromApiItem(item);
-          return detailViewDataFromFirestoreMap(merged, catalog);
+          final Map<String, dynamic> merged = firestoreShapedMapFromApiItem(
+            item,
+          );
+          final List<StartupPublicQa> publicQa = _qaListFromApi(
+            item['publicQuestions'],
+          );
+          final List<StartupPublicQa> investorQa = _qaListFromApi(
+            item['investorQuestions'],
+          );
+          final Map<String, dynamic> access = _parseAccessPayload(
+            item['access'],
+          );
+          return detailViewDataFromFirestoreMap(
+            merged,
+            catalog,
+            publicQa: publicQa,
+            investorQa: investorQa,
+            canSelectQuestionVisibility:
+                access['canSendPrivateQuestions'] == true,
+            canViewInvestorQuestions:
+                access['canViewInvestorQuestions'] == true,
+          );
         }
       }
     } catch (e) {
@@ -382,6 +444,30 @@ class StartupCatalogFunctionsService {
     }
 
     return _fetchStartupDetailFromFirestore(id);
+  }
+
+  /// Valor do campo `visibility` na callable [createStartupQuestion] (`publica` | `privada`).
+  @visibleForTesting
+  static String visibilityForCallable(bool isPrivate) =>
+      isPrivate ? 'privada' : 'publica';
+
+  Future<void> createStartupQuestion({
+    required String startupId,
+    required String text,
+    required bool isPrivate,
+  }) async {
+    final String id = startupId.trim();
+    final String questionText = text.trim();
+    if (id.isEmpty || questionText.isEmpty) {
+      return;
+    }
+    await _instance
+        .httpsCallable('createStartupQuestion')
+        .call(<String, dynamic>{
+          'startupId': id,
+          'text': questionText,
+          'visibility': visibilityForCallable(isPrivate),
+        });
   }
 
   static String _apiStageCode(StartupStage s) {
@@ -400,9 +486,7 @@ class StartupCatalogFunctionsService {
     if (error is FirebaseFunctionsException) {
       final code = error.code.toLowerCase().replaceAll('_', '-');
       if (kDebugMode) {
-        debugPrint(
-          '[listStartups] code=$code message=${error.message}',
-        );
+        debugPrint('[listStartups] code=$code message=${error.message}');
       }
       switch (code) {
         case 'unauthenticated':
@@ -411,6 +495,10 @@ class StartupCatalogFunctionsService {
           return error.message?.trim().isNotEmpty == true
               ? error.message!.trim()
               : 'Parâmetros inválidos.';
+        case 'permission-denied':
+          return error.message?.trim().isNotEmpty == true
+              ? error.message!.trim()
+              : 'Você não tem permissão para esta ação.';
         case 'unavailable':
         case 'deadline-exceeded':
           return 'Serviço indisponível. Em debug: confira o emulador de Functions.';

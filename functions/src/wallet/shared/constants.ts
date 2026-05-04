@@ -18,9 +18,12 @@ export const ROOT = "sim_wallet";
 
 /** Coleção de startups (cotação oficial por documento). */
 export const STARTUPS_COLLECTION = "startups";
+export const USERS_COLLECTION = "users";
 
 /** Campo de preço unitário do token em BRL (contrato alinhado ao app). */
 export const STARTUP_FIELD_TOKEN_PRICE = "preco_token";
+export const STARTUP_FIELD_INVESTOR_UIDS = "investorUids";
+export const USER_FIELD_INVESTOR_STARTUP_IDS = "investorStartupIds";
 
 /** Limite superior de valor por operação simulada (BRL). */
 export const MAX_OP_BRL = 50_000_000;
