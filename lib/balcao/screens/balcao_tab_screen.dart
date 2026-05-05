@@ -842,11 +842,9 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                 variacao24hPct: variacao,
                 min24h: min24h,
                 max24h: max24h,
-                saldoTokens: saldoTok,
-                saldoReaisTexto: balcaoBrlDisponivel(
-                  saldoTok * s.tokenPrice,
-                  precoConhecido,
-                ),
+                saldoTokens: saldoTokensHeld,
+                disponivelCarteiraBrlTexto: disponivelCarteiraBrlTexto,
+                totalPosicaoBrlTexto: totalPosicaoBrlTexto,
                 corLogo: s.logoColor,
                 icone: s.logoIcon,
                 logoPath: s.logoPath,
@@ -865,11 +863,9 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
             max24h: p24.isEmpty
                 ? '—'
                 : formatBrl(p24.reduce((a, b) => a > b ? a : b)),
-            saldoTokens: saldoTok,
-            saldoReaisTexto: balcaoBrlDisponivel(
-              saldoTok * s.tokenPrice,
-              precoConhecido,
-            ),
+            saldoTokens: saldoTokensHeld,
+            disponivelCarteiraBrlTexto: disponivelCarteiraBrlTexto,
+            totalPosicaoBrlTexto: totalPosicaoBrlTexto,
             corLogo: s.logoColor,
             icone: s.logoIcon,
             logoPath: s.logoPath,
@@ -878,9 +874,6 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-<<<<<<< HEAD
-        mesaCard,
-=======
         Text(
           'Ordem à mercado · execução imediata pela cotação publicada.',
           style: theme.textTheme.bodySmall?.copyWith(
@@ -889,25 +882,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        _MesaTokenCard(
-          pairLabel: '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
-          nomeStartup: s.name,
-          categoria: s.category,
-          cotacaoFormatada: precoConhecido ? formatBrl(s.tokenPrice) : '—',
-          variacao24hPct: balcaoVariacao24hPercentual(p24),
-          min24h: p24.isEmpty
-              ? '—'
-              : formatBrl(p24.reduce((a, b) => a < b ? a : b)),
-          max24h: p24.isEmpty
-              ? '—'
-              : formatBrl(p24.reduce((a, b) => a > b ? a : b)),
-          saldoTokens: saldoTokensHeld,
-          disponivelCarteiraBrlTexto: disponivelCarteiraBrlTexto,
-          totalPosicaoBrlTexto: totalPosicaoBrlTexto,
-          corLogo: s.logoColor,
-          icone: s.logoIcon,
-          logoPath: s.logoPath,
-        ),
+        mesaCard,
         const SizedBox(height: 18),
         Text(
           'Comprar usa o disponível na carteira; vender debita apenas desta startup.',
@@ -916,7 +891,6 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
->>>>>>> 0839b93032424fc1a3187f1d505ca66bb17133ba
         const SizedBox(height: 20),
         Row(
           children: [
