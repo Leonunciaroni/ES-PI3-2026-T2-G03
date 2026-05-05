@@ -348,7 +348,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       hintText: '000.000.000-00',
                       icon: Icons.badge_outlined,
                     ),
-                  ), 
+                  ),
                   const SizedBox(height: 18),
                   _buildLabel(context, 'SENHA SEGURA *'),
                   const SizedBox(height: 8),
