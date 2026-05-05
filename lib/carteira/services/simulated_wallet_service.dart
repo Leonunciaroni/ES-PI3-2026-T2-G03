@@ -144,6 +144,23 @@ abstract final class SimulatedWalletService {
     return SimulatedWalletPaths.positionsCol(uid).snapshots();
   }
 
+  /// Quantidade atual de tokens numa startup (0 se sem posição).
+  static Stream<double> watchTokensHeld(
+    String uid,
+    String startupFirestoreId,
+  ) {
+    return SimulatedWalletPaths.positionsCol(uid)
+        .doc(startupFirestoreId)
+        .snapshots()
+        .map((snapshot) {
+      final dynamic t = snapshot.data()?['tokensHeld'];
+      if (t is num) {
+        return t.toDouble();
+      }
+      return 0.0;
+    });
+  }
+
   static Future<double?> fetchTokensHeld(
     String uid,
     String startupFirestoreId,
@@ -254,6 +271,11 @@ abstract final class SimulatedWalletService {
         case 'unauthenticated':
           return 'Faça login novamente para usar a carteira.';
         case 'failed-precondition':
+          final msg = error.message ?? '';
+          if (msg.contains('não conferem') ||
+              msg.contains('nao conferem')) {
+            return 'A cotação no servidor atualizou-se. Volte ao Balcão e confira o valor total antes de repetir.';
+          }
           return error.message ?? 'Condição não atendida.';
         case 'invalid-argument':
           return error.message ?? 'Dados inválidos.';

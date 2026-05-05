@@ -32,6 +32,10 @@ import {
   USERS_COLLECTION,
 } from "../shared/constants.js";
 import {
+  computeSellPositionUpdate,
+  mergeBuyPosition,
+} from "../shared/positionTradeMath.js";
+import {
   assertAmountMatchesTrade,
   clip,
   readRequiredStartupTokenPriceBrl,
@@ -193,17 +197,26 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
         const positionRef = walletRef.collection("positions").doc(startupId);
         const posSnap = await trx.get(positionRef);
         const posData = posSnap.data() ?? {};
-        let tokensHeld =
-          typeof posData.tokensHeld === "number"
-            ? (posData.tokensHeld as number)
-            : 0;
-        let costBasisBrl =
-          typeof posData.costBasisBrl === "number"
-            ? (posData.costBasisBrl as number)
-            : 0;
-
-        tokensHeld += tokens;
-        costBasisBrl += amountBrl;
+        const prevPos =
+          posSnap.exists &&
+          (typeof posData.tokensHeld === "number" ||
+            typeof posData.costBasisBrl === "number")
+            ? {
+                tokensHeld:
+                  typeof posData.tokensHeld === "number"
+                    ? (posData.tokensHeld as number)
+                    : 0,
+                costBasisBrl:
+                  typeof posData.costBasisBrl === "number"
+                    ? (posData.costBasisBrl as number)
+                    : 0,
+              }
+            : undefined;
+        const {tokensHeld, costBasisBrl} = mergeBuyPosition(
+          prevPos,
+          tokens,
+          amountBrl
+        );
 
         trx.set(walletRef, {brlBalance: balance - amountBrl}, {merge: true});
         trx.set(
@@ -286,32 +299,36 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
       const positionRef = walletRef.collection("positions").doc(startupId);
       const posSnap = await trx.get(positionRef);
       const posData = posSnap.data() ?? {};
-      let tokensHeld =
+      const tokensHeldRaw =
         typeof posData.tokensHeld === "number"
           ? (posData.tokensHeld as number)
           : 0;
-      const costBasisBrl =
+      const costBasisBrlRaw =
         typeof posData.costBasisBrl === "number"
           ? (posData.costBasisBrl as number)
           : 0;
 
-      if (!posSnap.exists || tokensHeld < tokens - 1e-12) {
+      if (!posSnap.exists) {
         throw new HttpsError(
           "failed-precondition",
           "Quantidade insuficiente de tokens nesta startup."
         );
       }
 
-      const costRemoved =
-        tokensHeld <= 1e-12 ? 0 : costBasisBrl * (tokens / tokensHeld);
-
-      tokensHeld -= tokens;
+      const sellUp = computeSellPositionUpdate(
+        {tokensHeld: tokensHeldRaw, costBasisBrl: costBasisBrlRaw},
+        tokens
+      );
+      if (!sellUp.ok) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Quantidade insuficiente de tokens nesta startup."
+        );
+      }
 
       trx.set(walletRef, {brlBalance: balance + amountBrl}, {merge: true});
 
-      const newCost = Math.max(0, costBasisBrl - costRemoved);
-
-      if (tokensHeld <= 1e-9) {
+      if (sellUp.deletePosition) {
         trx.delete(positionRef);
         const userRef = db.collection(USERS_COLLECTION).doc(uid);
         trx.set(
@@ -338,8 +355,8 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
             startupName,
             tokenSigla,
             category,
-            tokensHeld,
-            costBasisBrl: newCost,
+            tokensHeld: sellUp.tokensHeld,
+            costBasisBrl: sellUp.costBasisBrl,
             updatedAt: FieldValue.serverTimestamp(),
           },
           {merge: true},
