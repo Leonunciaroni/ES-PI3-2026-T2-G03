@@ -31,6 +31,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return nome.split(RegExp(r'\s+')).first.toUpperCase();
   }
 
+  String get _saudacao {
+    final horaAtual = DateTime.now().hour;
+
+    if (horaAtual >= 5 && horaAtual < 12) return 'BOM DIA';
+    if (horaAtual >= 12 && horaAtual < 18) return 'BOA TARDE';
+    return 'BOA NOITE';
+  }
+
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
@@ -113,10 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         _HeaderRow(colorScheme: colorScheme),
                         const SizedBox(height: 20),
-                        Text(
-                          'BOM DIA, $_primeiroNome', // Aqui o código chama o getter acima
-                          style: labelCaps,
-                        ),
+                        Text('$_saudacao, $_primeiroNome', style: labelCaps),
                         const SizedBox(height: 8),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -738,3 +743,4 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
+
