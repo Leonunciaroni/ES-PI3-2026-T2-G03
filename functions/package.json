@@ -2,8 +2,8 @@
   "name": "functions",
   "scripts": {
     "lint": "npx eslint --ext .js,.ts .",
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "build": "node ./node_modules/typescript/bin/tsc",
+    "build:watch": "node ./node_modules/typescript/bin/tsc --watch",
     "test": "npm run build && node --test \"lib/**/*.test.js\"",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",

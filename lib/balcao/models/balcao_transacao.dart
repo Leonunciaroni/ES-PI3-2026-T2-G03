@@ -13,6 +13,7 @@ class BalcaoTransacaoDia {
     required this.tipo,
     required this.resumo,
     required this.valorReais,
+    this.dataHora,
   });
 
   final BalcaoOperacaoTipo tipo;
@@ -22,6 +23,9 @@ class BalcaoTransacaoDia {
 
   /// Valor absoluto em reais.
   final double valorReais;
+
+  /// Quando veio do `ledger` Firestore ([null] nos mocks/demo).
+  final DateTime? dataHora;
 }
 
 /// Dados mostrados no ecrã de detalhe após operação bem-sucedida.
