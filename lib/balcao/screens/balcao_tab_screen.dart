@@ -5,10 +5,12 @@
 // `listStartups` (como o Explorar), depois “mesa” com saldo mock, compra/venda, lista do dia
 // e fluxo quantidade → modal → senha → detalhe (§5.3 MesclaInvest).
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../carteira/format/carteira_brl.dart';
+import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/data/startup_detail_mock.dart';
 import '../balcao_format.dart';
 import '../../navigation/mescla_material_route.dart';
@@ -513,30 +515,78 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     final precoConhecido = s.tokenPrice > 1e-9;
     final saldoTok = balcaoSaldoTokensMock(s);
 
+    final Widget mesaCard =
+        (s.firestoreId != null &&
+            FirebaseAuth.instance.currentUser != null)
+        ? FutureBuilder<BalcaoStartupMarketStats?>(
+            future: SimulatedWalletService.fetchStartupMarketStats(
+              s.firestoreId!,
+            ),
+            builder: (context, statsSnap) {
+              double? variacao = balcaoVariacao24hPercentual(p24);
+              String min24h = p24.isEmpty
+                  ? '—'
+                  : formatBrl(p24.reduce((a, b) => a < b ? a : b));
+              String max24h = p24.isEmpty
+                  ? '—'
+                  : formatBrl(p24.reduce((a, b) => a > b ? a : b));
+              final st = statsSnap.data;
+              if (st != null) {
+                variacao = st.changePct24h ?? variacao;
+                if (st.min24hBrl != null) {
+                  min24h = formatBrl(st.min24hBrl!);
+                }
+                if (st.max24hBrl != null) {
+                  max24h = formatBrl(st.max24hBrl!);
+                }
+              }
+              return _MesaTokenCard(
+                pairLabel:
+                    '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
+                nomeStartup: s.name,
+                categoria: s.category,
+                cotacaoFormatada:
+                    precoConhecido ? formatBrl(s.tokenPrice) : '—',
+                variacao24hPct: variacao,
+                min24h: min24h,
+                max24h: max24h,
+                saldoTokens: saldoTok,
+                saldoReaisTexto: balcaoBrlDisponivel(
+                  saldoTok * s.tokenPrice,
+                  precoConhecido,
+                ),
+                corLogo: s.logoColor,
+                icone: s.logoIcon,
+                logoPath: s.logoPath,
+              );
+            },
+          )
+        : _MesaTokenCard(
+            pairLabel: '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
+            nomeStartup: s.name,
+            categoria: s.category,
+            cotacaoFormatada: precoConhecido ? formatBrl(s.tokenPrice) : '—',
+            variacao24hPct: balcaoVariacao24hPercentual(p24),
+            min24h: p24.isEmpty
+                ? '—'
+                : formatBrl(p24.reduce((a, b) => a < b ? a : b)),
+            max24h: p24.isEmpty
+                ? '—'
+                : formatBrl(p24.reduce((a, b) => a > b ? a : b)),
+            saldoTokens: saldoTok,
+            saldoReaisTexto: balcaoBrlDisponivel(
+              saldoTok * s.tokenPrice,
+              precoConhecido,
+            ),
+            corLogo: s.logoColor,
+            icone: s.logoIcon,
+            logoPath: s.logoPath,
+          );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _MesaTokenCard(
-          pairLabel: '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
-          nomeStartup: s.name,
-          categoria: s.category,
-          cotacaoFormatada: precoConhecido ? formatBrl(s.tokenPrice) : '—',
-          variacao24hPct: balcaoVariacao24hPercentual(p24),
-          min24h: p24.isEmpty
-              ? '—'
-              : formatBrl(p24.reduce((a, b) => a < b ? a : b)),
-          max24h: p24.isEmpty
-              ? '—'
-              : formatBrl(p24.reduce((a, b) => a > b ? a : b)),
-          saldoTokens: saldoTok,
-          saldoReaisTexto: balcaoBrlDisponivel(
-            saldoTok * s.tokenPrice,
-            precoConhecido,
-          ),
-          corLogo: s.logoColor,
-          icone: s.logoIcon,
-          logoPath: s.logoPath,
-        ),
+        mesaCard,
         const SizedBox(height: 20),
         Row(
           children: [
