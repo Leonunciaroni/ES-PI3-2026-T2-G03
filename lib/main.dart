@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'auth/screens/login_screen.dart';
+import 'auth/screens/auth_gate_screen.dart';
 import 'firebase_dev_setup.dart';
 import 'firebase_options.dart';
 import 'theme/app_scroll_behavior.dart';
@@ -77,7 +77,7 @@ class MyApp extends StatelessWidget {
           theme: buildMesclaLightTheme(),
           darkTheme: buildMesclaDarkTheme(),
           themeMode: themeModeController.themeMode,
-          home: const LoginScreen(),
+          home: const AuthGateScreen(),
         );
       },
     );

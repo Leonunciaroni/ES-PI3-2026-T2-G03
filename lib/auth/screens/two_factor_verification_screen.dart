@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../catalog/services/startup_catalog_list_cache.dart';
+import '../services/session_persistence_service.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -65,12 +66,15 @@ class _OtpPasteFormatter extends TextInputFormatter {
   }
 }
 
-class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScreen> {
+class _TwoFactorVerificationScreenState
+    extends State<TwoFactorVerificationScreen> {
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
   static const _errorCircle = Color(0xFFD32F2F);
 
-  final List<TextEditingController> _digitControllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _digitControllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _digitFocusNodes = List.generate(6, (_) => FocusNode());
 
   late final TapGestureRecognizer _resendRecognizer;
@@ -136,13 +140,16 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
       await _twoFactorService.verifyCode(_code);
       if (!mounted) return;
       setState(() => _step = _TwoFactorStep.success);
-      Future<void>.delayed(const Duration(milliseconds: 2400), () {
+      Future<void>.delayed(const Duration(milliseconds: 2400), () async {
         if (!mounted) return;
         if (widget.replaceStackWithDashboard) {
           StartupCatalogListCache.instance.clear();
+          await SessionPersistenceService.recordSessionAfterLogin();
+          final int tab = await SessionPersistenceService.getLastNavIndex();
+          if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil<void>(
             MaterialPageRoute<void>(
-              builder: (_) => const DashboardScreen(),
+              builder: (_) => DashboardScreen(initialMainNavIndex: tab),
             ),
             (route) => false,
           );
@@ -184,9 +191,7 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(TwoFactorService.messageForError(error)),
-        ),
+        SnackBar(content: Text(TwoFactorService.messageForError(error))),
       );
     }
   }
@@ -221,8 +226,10 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
               _digitFocusNodes[index - 1].requestFocus();
               final prev = _digitControllers[index - 1].text;
               if (prev.isNotEmpty) {
-                _digitControllers[index - 1].text =
-                    prev.substring(0, prev.length - 1);
+                _digitControllers[index - 1].text = prev.substring(
+                  0,
+                  prev.length - 1,
+                );
               }
               return KeyEventResult.handled;
             },
@@ -480,7 +487,10 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 20,
+                  ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight - 40,
@@ -492,8 +502,10 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                         const MesclaAuthHeaderLogo(),
                         const SizedBox(height: 28),
                         switch (_step) {
-                          _TwoFactorStep.input =>
-                            _buildInputCard(theme, colorScheme),
+                          _TwoFactorStep.input => _buildInputCard(
+                            theme,
+                            colorScheme,
+                          ),
                           _TwoFactorStep.success => _buildSuccessCard(theme),
                           _TwoFactorStep.failure => _buildFailureCard(theme),
                         },
@@ -502,8 +514,9 @@ class _TwoFactorVerificationScreenState extends State<TwoFactorVerificationScree
                           _footerTrust,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.secondaryLabel(theme)
-                                .withValues(alpha: 0.9),
+                            color: AppColors.secondaryLabel(
+                              theme,
+                            ).withValues(alpha: 0.9),
                             letterSpacing: 0.6,
                             height: 1.4,
                           ),

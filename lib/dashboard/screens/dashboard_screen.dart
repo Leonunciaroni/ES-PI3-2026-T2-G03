@@ -8,6 +8,9 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../auth/screens/login_screen.dart';
+import '../../auth/services/user_firestore_service.dart';
+import '../../auth/services/session_persistence_service.dart';
 import '../../balcao/screens/balcao_tab_screen.dart';
 import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/models/catalog_startup.dart';
@@ -25,19 +28,26 @@ import '../../widgets/mescla_main_shell.dart';
 ///
 /// O ícone de olho apenas oculta valores sensíveis localmente ([setState]).
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.initialMainNavIndex = 0})
+    : assert(
+        initialMainNavIndex >= 0 && initialMainNavIndex < kMesclaMainTabCount,
+      );
+
+  /// Índice inicial da barra inferior (restaurado após login).
+  final int initialMainNavIndex;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   /// Quando true, valores monetários e percentuais aparecem mascarados.
   bool _hideValues = false;
 
   /// Índice da barra inferior (Figma): 0 Início, 1 Carteira, 2 Balcão,
   /// 3 Catálogo, 4 Perfil.
-  int _mainNavIndex = 0;
+  late int _mainNavIndex;
 
   /// Startup a abrir na mesa do Balcão (via "Investir Agora" no detalhe).
   CatalogStartup? _balcaoStartup;
@@ -53,15 +63,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _mainNavIndex = widget.initialMainNavIndex.clamp(
+      0,
+      kMesclaMainTabCount - 1,
+    );
+    unawaited(SessionPersistenceService.setLastNavIndex(_mainNavIndex));
     // Primeiro quadro garante [mounted] antes de usar [precacheImage] nos logos do catálogo.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _preloadCatalogLogoBitmaps());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _preloadCatalogLogoBitmaps(),
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_enforceSessionOnResume());
+    }
+  }
+
+  Future<void> _enforceSessionOnResume() async {
+    if (!mounted) {
+      return;
+    }
+    final bool hasDeadline =
+        await SessionPersistenceService.hasSessionDeadline();
+    if (!mounted) {
+      return;
+    }
+    if (!hasDeadline && FirebaseAuth.instance.currentUser != null) {
+      await SessionPersistenceService.recordSessionAfterLogin();
+      return;
+    }
+    final bool valid = await SessionPersistenceService.isRecordedSessionValid();
+    if (!mounted || valid) {
+      return;
+    }
+    try {
+      await UserFirestoreService.signOut();
+    } catch (_) {
+      // Segue para o login mesmo se o sign-out falhar.
+    }
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   /// Dispara logo o primeiro `listStartups` ([StartupCatalogListCache.fullList]); quando a lista
   /// regressa com sucesso agendamos descarga dos logos em segundo plano (sem bloquear a UI).
   void _preloadCatalogLogoBitmaps() {
     final service = StartupCatalogFunctionsService();
-    StartupCatalogListCache.instance.fullList(service).then((List<CatalogStartup> list) {
+    StartupCatalogListCache.instance.fullList(service).then((
+      List<CatalogStartup> list,
+    ) {
       if (!mounted) return;
       StartupLogoPrecacheService.schedulePreloadForStartupList(context, list);
     });
@@ -71,10 +135,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const _heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xFF6234EA),
-      Color(0xFF4F46E5),
-    ],
+    colors: [Color(0xFF6234EA), Color(0xFF4F46E5)],
   );
 
   static const _walletIconColor = Color(0xFF92400E);
@@ -99,10 +160,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (i == _mainNavIndex) {
       return;
     }
+    unawaited(SessionPersistenceService.setLastNavIndex(i));
     if (i == 1) {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        MesclaNavigationPrefetch.scheduleWalletFirestoreForCarteiraTab(user.uid);
+        MesclaNavigationPrefetch.scheduleWalletFirestoreForCarteiraTab(
+          user.uid,
+        );
       }
     }
     if (i == 3) {
@@ -159,10 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            'BOM DIA, RICARDO',
-            style: labelCaps,
-          ),
+          Text('BOM DIA, RICARDO', style: labelCaps),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -184,9 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       : Icons.visibility_outlined,
                   color: AppColors.secondaryLabel(theme),
                 ),
-                tooltip: _hideValues
-                    ? 'Mostrar valores'
-                    : 'Ocultar valores',
+                tooltip: _hideValues ? 'Mostrar valores' : 'Ocultar valores',
               ),
             ],
           ),
@@ -382,7 +441,10 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(999),
