@@ -13,7 +13,8 @@
  * - `startupId`: string (documento em `startups/{id}`).
  *
  * Saída:
- * - `{ data: { changePct24h, min24hBrl, max24hBrl, seriesDiario: [{ tIso, priceBrl }], footnote } }`
+ * - `{ data: { tokenPriceBrl, changePct24h, min24hBrl, max24hBrl, seriesDiario, footnote } }`
+ *   (`tokenPriceBrl` = `preco_token`, sempre presente quando a startup existe.)
  */
 
 import {
@@ -65,6 +66,7 @@ export const getStartupMarketStats = onCall({region: REGION}, async (request) =>
     return {
       data: {
         startupId,
+        tokenPriceBrl: precoAtual,
         changePct24h: null as number | null,
         min24hBrl: null as number | null,
         max24hBrl: null as number | null,
