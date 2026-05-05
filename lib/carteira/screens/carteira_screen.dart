@@ -254,7 +254,18 @@ ValuationChartSeries saldoBrlEvolucaoSeries({
   );
 }
 
-// --- Modelos simples (mock) ---------------------------------------------------
+ValuationChartSeries? chartSeriesFromWalletTokenPerf(
+  Map<String, dynamic> data,
+) {
+  final times = data['sampleTimesIso'];
+  final vals = data['valuesBrl'];
+  if (times is! List || vals is! List) return null;
+  if (times.length != vals.length || times.isEmpty) return null;
+  return ValuationChartSeries(
+    valuationMillions: vals.map((e) => (e as num).toDouble()).toList(),
+    sampleTimes: times.map((e) => DateTime.parse(e as String)).toList(),
+  );
+}
 
 /// Uma linha da lista “Minhas Movimentações”.
 class _MovimentacaoMock {
@@ -968,23 +979,15 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         final saldoErro = balSnap.hasError;
         final brlNow = saldoErro ? 0.0 : (balSnap.data ?? 0.0);
 
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
-          builder: (context, snap) {
-            if (snap.hasError) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(
-                  'Gráfico indisponível (${snap.error}).',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.secondaryLabel(theme),
-                  ),
-                ),
-              );
-            }
-            if (snap.connectionState == ConnectionState.waiting &&
-                !snap.hasData) {
+        return FutureBuilder<Map<String, dynamic>?>(
+          key: ValueKey<Object>('wtp_${uid}_$_periodo'),
+          future: SimulatedWalletService.fetchWalletTokenPerformance(
+            period: _periodo.name,
+          ),
+          builder: (context, perfSnap) {
+            if (perfSnap.connectionState == ConnectionState.waiting &&
+                perfSnap.data == null &&
+                perfSnap.error == null) {
               return SizedBox(
                 height: 280,
                 child: Center(
@@ -993,25 +996,74 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               );
             }
 
-            final now = DateTime.now();
-            final series = saldoBrlEvolucaoSeries(
-              docsNewestFirst: snap.data?.docs ?? const [],
-              periodo: _periodo,
-              now: now,
-              brlNow: brlNow,
-            );
+            final perf = perfSnap.data;
+            final chartFromServer =
+                perf != null ? chartSeriesFromWalletTokenPerf(perf) : null;
 
-            return ValuationEvolutionChartCard(
-              selected: _periodo,
-              onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
-              series: series,
-              primary: colorScheme.primary,
-              title: tituloGrafico,
-              footnote: '',
-              formatYAxis: formatBrl,
-              formatTooltip: formatBrl,
-              touchListenerKey:
-                  const ValueKey<String>('carteira_saldo_chart_touch'),
+            if (chartFromServer != null &&
+                chartFromServer.valuationMillions.length >= 2) {
+              final fn = (perf!['footnote'] as String?) ?? '';
+              return ValuationEvolutionChartCard(
+                selected: _periodo,
+                onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
+                series: chartFromServer,
+                primary: colorScheme.primary,
+                title: 'Valorização dos tokens',
+                footnote: fn,
+                formatYAxis: formatBrl,
+                formatTooltip: formatBrl,
+                touchListenerKey:
+                    const ValueKey<String>('carteira_saldo_chart_touch'),
+              );
+            }
+
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'Gráfico indisponível (${snap.error}).',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.secondaryLabel(theme),
+                      ),
+                    ),
+                  );
+                }
+                if (snap.connectionState == ConnectionState.waiting &&
+                    !snap.hasData) {
+                  return SizedBox(
+                    height: 280,
+                    child: Center(
+                      child: CircularProgressIndicator(color: colorScheme.primary),
+                    ),
+                  );
+                }
+
+                final now = DateTime.now();
+                final series = saldoBrlEvolucaoSeries(
+                  docsNewestFirst: snap.data?.docs ?? const [],
+                  periodo: _periodo,
+                  now: now,
+                  brlNow: brlNow,
+                );
+
+                return ValuationEvolutionChartCard(
+                  selected: _periodo,
+                  onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
+                  series: series,
+                  primary: colorScheme.primary,
+                  title: tituloGrafico,
+                  footnote:
+                      'Sem valorização de tokens no servidor — saldo em BRL.',
+                  formatYAxis: formatBrl,
+                  formatTooltip: formatBrl,
+                  touchListenerKey:
+                      const ValueKey<String>('carteira_saldo_chart_touch'),
+                );
+              },
             );
           },
         );
