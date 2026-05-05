@@ -51,10 +51,11 @@ const _mesesAbrPt = <String>[
 
 /// Formato unificado para o cartão de leitura: `16 abr 2026 · 17:42`.
 String formatChartSampleDateTime(DateTime dt) {
-  final d = dt.day.toString().padLeft(2, '0');
-  final mes = _mesesAbrPt[dt.month - 1];
-  final y = dt.year.toString();
-  final h = dt.hour.toString().padLeft(2, '0');
-  final min = dt.minute.toString().padLeft(2, '0');
+  final loc = dt.toLocal();
+  final d = loc.day.toString().padLeft(2, '0');
+  final mes = _mesesAbrPt[loc.month - 1];
+  final y = loc.year.toString();
+  final h = loc.hour.toString().padLeft(2, '0');
+  final min = loc.minute.toString().padLeft(2, '0');
   return '$d $mes $y · $h:$min';
 }
