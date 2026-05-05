@@ -15,6 +15,7 @@ import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../balcao_format.dart';
+import '../balcao_official_price.dart';
 import '../models/balcao_operacao_tipo.dart';
 import '../models/balcao_transacao.dart';
 import 'balcao_transacao_detalhe_screen.dart';
@@ -133,8 +134,45 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
         );
       }
 
+      final fid = widget.startup.firestoreId!;
+      final precoOficial = await fetchPrecoTokenOficialBrl(fid);
+      if (!mounted) return;
+
+      if (precoOficial == null) {
+        setState(() {
+          _erro =
+              'Cotação indisponível no servidor. Tente novamente em instantes.';
+          _enviando = false;
+        });
+        return;
+      }
+
+      if (!balcaoAmountMatchesTrade(
+        widget.valorReaisOperacao,
+        _quantidadeTokensNegocio,
+        precoOficial,
+      )) {
+        setState(() {
+          _erro =
+              'A cotação no servidor atualizou-se. Volte e confira o valor total antes de repetir.';
+          _enviando = false;
+        });
+        return;
+      }
+
       switch (widget.operacao) {
         case BalcaoOperacaoTipo.compra:
+          final saldo =
+              await SimulatedWalletService.fetchBrlBalance(user.uid);
+          if (!mounted) return;
+          if (widget.valorReaisOperacao > saldo + balcaoEpsilonBrl) {
+            setState(() {
+              _erro =
+                  'Saldo atualizado: o disponível não cobre mais este total. Volte ao passo anterior.';
+              _enviando = false;
+            });
+            return;
+          }
           await SimulatedWalletService.tradeBuy(
             startup: widget.startup,
             valorReais: widget.valorReaisOperacao,
@@ -142,6 +180,20 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
           );
           break;
         case BalcaoOperacaoTipo.venda:
+          final held = await SimulatedWalletService.fetchTokensHeld(
+            user.uid,
+            fid,
+          );
+          if (!mounted) return;
+          final h = held ?? 0;
+          if (_quantidadeTokensNegocio > h + 1e-9) {
+            setState(() {
+              _erro =
+                  'Sua posição mudou desde o passo anterior. Volte para ajustar a quantidade.';
+              _enviando = false;
+            });
+            return;
+          }
           await SimulatedWalletService.tradeSell(
             startup: widget.startup,
             valorReais: widget.valorReaisOperacao,
