@@ -6,6 +6,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:mescla_invest/catalog/data/chart_sample_time_axis.dart';
 import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
 import 'package:mescla_invest/catalog/models/catalog_startup.dart';
 import 'package:mescla_invest/catalog/models/startup_detail_load_state.dart';
@@ -110,7 +111,10 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
     valuationTrendText: valuationTrend,
-    chartSeriesByPeriod: _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
+    chartSeriesByPeriod: _alignDetailChartSeriesForNow(
+      _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
+      interpolateValues: true,
+    ),
     headquarters: headquarters,
     foundedLabel: foundedLabel,
     missionQuote: descricao.isEmpty
@@ -174,6 +178,112 @@ String _headquartersFromFirestore(Map<String, dynamic> d) {
   return '—';
 }
 
+DateTime? _chartInstantFromFirestoreValue(Object? v) {
+  if (v == null) {
+    return null;
+  }
+  if (v is Timestamp) {
+    return v.toDate();
+  }
+  if (v is String) {
+    final String s = v.trim();
+    if (s.isEmpty) {
+      return null;
+    }
+    final DateTime? parsed = DateTime.tryParse(s);
+    return parsed?.toLocal();
+  }
+  if (v is DateTime) {
+    return v.toLocal();
+  }
+  if (v is int) {
+    return DateTime.fromMillisecondsSinceEpoch(v, isUtc: true).toLocal();
+  }
+  if (v is double) {
+    final int ms = v.round();
+    return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+  }
+  return null;
+}
+
+double _interpolateValuationAlongSeries(
+  List<DateTime> tAsc,
+  List<double> v,
+  DateTime x,
+) {
+  if (tAsc.isEmpty) {
+    return 0;
+  }
+  if (tAsc.length != v.length || v.isEmpty) {
+    return v.isNotEmpty ? v.last : 0;
+  }
+  if (x.isBefore(tAsc.first) || x.isAtSameMomentAs(tAsc.first)) {
+    return v.first;
+  }
+  if (!x.isBefore(tAsc.last)) {
+    return v.last;
+  }
+  final int xms = x.millisecondsSinceEpoch;
+  for (var i = 0; i < tAsc.length - 1; i++) {
+    final int t0 = tAsc[i].millisecondsSinceEpoch;
+    final int t1 = tAsc[i + 1].millisecondsSinceEpoch;
+    if (xms >= t0 && xms <= t1) {
+      if (t1 <= t0) {
+        return v[i];
+      }
+      final double w = (xms - t0) / (t1 - t0);
+      return v[i] * (1 - w) + v[i + 1] * w;
+    }
+  }
+  return v.last;
+}
+
+/// Ancora [sampleTimes] em [DateTime.now] por período (§5.4). Com
+/// [interpolateValues], recalcula Y por interpolação linear na série antiga —
+/// uso típico para dados Firestore; mocks usam `false` (só reposicionam o eixo).
+Map<ValuationPeriod, ValuationChartSeries> _alignDetailChartSeriesForNow(
+  Map<ValuationPeriod, ValuationChartSeries> input, {
+  required bool interpolateValues,
+}) {
+  final DateTime now = DateTime.now();
+  final Map<ValuationPeriod, ValuationChartSeries> out =
+      <ValuationPeriod, ValuationChartSeries>{};
+  for (final MapEntry<ValuationPeriod, ValuationChartSeries> e
+      in input.entries) {
+    final ValuationChartSeries s = e.value;
+    final List<double> ys = s.valuationMillions;
+    final List<DateTime> oldT = s.sampleTimes;
+    final int n = ys.length;
+    if (n == 0) {
+      out[e.key] = s;
+      continue;
+    }
+    final List<DateTime> newTimes = chartEvenlySpacedTimes(
+      chartWindowStartForPeriodIndex(e.key.index, now),
+      now,
+      n,
+    );
+    final List<double> newYs;
+    if (interpolateValues &&
+        oldT.length == n &&
+        n >= 2 &&
+        !oldT.first.isAtSameMomentAs(oldT.last)) {
+      newYs = newTimes
+          .map(
+            (DateTime tx) => _interpolateValuationAlongSeries(oldT, ys, tx),
+          )
+          .toList();
+    } else {
+      newYs = List<double>.from(ys);
+    }
+    out[e.key] = ValuationChartSeries(
+      valuationMillions: newYs,
+      sampleTimes: newTimes,
+    );
+  }
+  return out;
+}
+
 Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
   Map<String, dynamic> d,
   CatalogStartup catalog,
@@ -209,31 +319,30 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
     if (value is! List) {
       return null;
     }
-    final List<DateTime> times = [];
-    final List<double> vals = [];
+    final pairs = <({DateTime t, double v})>[];
     for (final Object? item in value) {
       final Map<String, dynamic>? m = _asStringKeyMap(item);
       if (m == null) {
         continue;
       }
-      final String t = readFirestoreString(m, 't');
-      final double? v =
+      final DateTime? dt = _chartInstantFromFirestoreValue(m['t']) ??
+          _chartInstantFromFirestoreValue(m['T']);
+      final double? val =
           readFirestoreOptionalDouble(m, 'v') ??
           readFirestoreOptionalDouble(m, 'valor');
-      if (v == null) {
+      if (dt == null || val == null) {
         continue;
       }
-      final DateTime? dt = DateTime.tryParse(t);
-      if (dt == null) {
-        continue;
-      }
-      times.add(dt);
-      vals.add(v);
+      pairs.add((t: dt, v: val));
     }
-    if (times.isEmpty || times.length != vals.length) {
+    if (pairs.isEmpty) {
       return null;
     }
-    return ValuationChartSeries(valuationMillions: vals, sampleTimes: times);
+    pairs.sort((a, b) => a.t.compareTo(b.t));
+    return ValuationChartSeries(
+      valuationMillions: pairs.map((e) => e.v).toList(),
+      sampleTimes: pairs.map((e) => e.t).toList(),
+    );
   }
 
   final Map<ValuationPeriod, ValuationChartSeries> out = {};
