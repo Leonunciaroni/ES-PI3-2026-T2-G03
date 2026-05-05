@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 
-import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
+import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
 
 /// Estado de carregamento do detalhe (evita spinner infinito quando o doc não existe).
 sealed class StartupDetailLoadState {

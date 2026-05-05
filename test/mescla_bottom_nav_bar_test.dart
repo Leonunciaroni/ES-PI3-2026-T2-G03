@@ -7,8 +7,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/theme/app_colors.dart';
-import 'package:pi_iii/widgets/mescla_bottom_nav_bar.dart';
+import 'package:mescla_invest/theme/app_colors.dart';
+import 'package:mescla_invest/widgets/mescla_bottom_nav_bar.dart';
 
 /// “Arnês” de teste: um [StatefulWidget] mínimo que contém a navbar + um texto
 /// com o índice atual. Assim conseguimos provar que [onItemTap] foi chamado.

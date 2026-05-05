@@ -4,8 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/session_persistence_service.dart';
 import '../services/user_firestore_service.dart';
 import '../services/two_factor_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
@@ -87,9 +89,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
 
       if (!twoFaOn) {
+        StartupCatalogListCache.instance.clear();
+        await SessionPersistenceService.recordSessionAfterLogin();
+        final int tab = await SessionPersistenceService.getLastNavIndex();
+        if (!mounted) {
+          return;
+        }
         await Navigator.of(context).pushAndRemoveUntil<void>(
           MaterialPageRoute<void>(
-            builder: (_) => const DashboardScreen(),
+            builder: (_) => DashboardScreen(initialMainNavIndex: tab),
           ),
           (route) => false,
         );
@@ -227,15 +235,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(
-                                      fieldStroke,
-                                    ),
+                                    enabledBorder: _stadiumBorder(fieldStroke),
                                     focusedBorder: _stadiumBorder(
                                       colorScheme.primary,
                                     ),
-                                    border: _stadiumBorder(
-                                      fieldStroke,
-                                    ),
+                                    border: _stadiumBorder(fieldStroke),
                                   ),
                                 ),
                                 const SizedBox(height: 20),
@@ -308,15 +312,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                       horizontal: 20,
                                       vertical: 16,
                                     ),
-                                    enabledBorder: _stadiumBorder(
-                                      fieldStroke,
-                                    ),
+                                    enabledBorder: _stadiumBorder(fieldStroke),
                                     focusedBorder: _stadiumBorder(
                                       colorScheme.primary,
                                     ),
-                                    border: _stadiumBorder(
-                                      fieldStroke,
-                                    ),
+                                    border: _stadiumBorder(fieldStroke),
                                   ),
                                 ),
                                 const SizedBox(height: 28),

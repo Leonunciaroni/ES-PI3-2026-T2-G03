@@ -313,7 +313,8 @@ const SocioDetailViewData kSocioMockJulianaPrado = SocioDetailViewData(
   shortBio:
       'Fundadora da CyberMesh. Especialista em segurança para PMEs e resposta a incidentes.',
   linkedinUrl: 'https://www.linkedin.com/in/example-juliana-prado',
-  academicBackground: 'Ciência da Computação; especialização em Segurança da Informação',
+  academicBackground:
+      'Ciência da Computação; especialização em Segurança da Informação',
   mainInstitution: 'UNICAMP',
   specialties: ['SOC', 'Threat intel', 'Conformidade', 'Liderança técnica'],
   marketExperience: '12 anos em cibersegurança e infraestrutura crítica.',
@@ -324,7 +325,8 @@ const SocioDetailViewData kSocioMockJulianaPrado = SocioDetailViewData(
   skills: ['Python', 'Playbooks', 'Gestão de crise', 'Mentoria de times'],
   strategicEdge:
       'Correlação automática de telemetria com feeds abertos, reduzindo tempo de deteção para PMEs.',
-  responsibilities: 'Produto, visão de longo prazo, grandes contas e fundraising.',
+  responsibilities:
+      'Produto, visão de longo prazo, grandes contas e fundraising.',
   highlights: ['SOC simulado usado em 40+ empresas piloto'],
   certifications: ['CompTIA Security+'],
   languages: ['Português (nativo)', 'Inglês (fluente)'],
@@ -363,6 +365,7 @@ class StartupTeamMember {
     required this.role,
     required this.avatarColor,
     this.detailPreview,
+    this.firestoreFields,
   });
 
   final String name;
@@ -373,6 +376,9 @@ class StartupTeamMember {
 
   /// Quando não é null (só no mock), a linha abre a [SocioDetailScreen].
   final SocioDetailViewData? detailPreview;
+
+  /// Objeto bruto do array `socios` no Firestore (todos os campos da print).
+  final Map<String, dynamic>? firestoreFields;
 }
 
 /// Linha de pergunta e resposta pública (§5.2).
@@ -421,8 +427,12 @@ class StartupDetailViewData {
     required this.executiveSummary,
     required this.societaryLines,
     required this.publicQa,
+    this.investorQa = const [],
+    this.canSelectQuestionVisibility = false,
+    this.canViewInvestorQuestions = false,
     required this.demoVideoTitle,
     this.demoVideoUrl,
+    this.fullFirestoreDocument,
   });
 
   /// Dados já mostrados no catálogo (ícone, cor, nome curto, etc.).
@@ -470,11 +480,23 @@ class StartupDetailViewData {
   /// Perguntas e respostas públicas (§5.2).
   final List<StartupPublicQa> publicQa;
 
+  /// Perguntas privadas (visíveis apenas para investidores).
+  final List<StartupPublicQa> investorQa;
+
+  /// Quando `true`, o utilizador pode escolher entre pergunta pública e privada.
+  final bool canSelectQuestionVisibility;
+
+  /// Quando `true`, a UI mostra as perguntas privadas de investidores.
+  final bool canViewInvestorQuestions;
+
   /// Título placeholder para vídeo demonstrativo (§5.2).
   final String demoVideoTitle;
 
   /// URL do vídeo (ex.: YouTube) quando existir no Firestore.
   final String? demoVideoUrl;
+
+  /// Snapshot normalizado do documento `startups/{id}` — todos os campos para outras telas.
+  final Map<String, dynamic>? fullFirestoreDocument;
 }
 
 /// Curvas fictícias 0–1 (7 pontos) — escalamos para milhões de R$ no fallback.
@@ -891,7 +913,9 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
 ///    as secções da ficha antes de mapear campos no `startup_firestore_schema`.
 SocioDetailViewData socioDetailForTeamMember(StartupTeamMember member) {
   final SocioDetailViewData? rich = member.detailPreview;
-  if (rich != null) return rich;
+  if (rich != null) {
+    return rich;
+  }
   return _placeholderSocioDetailFromListRow(member);
 }
 
@@ -909,8 +933,9 @@ SocioDetailViewData _placeholderSocioDetailFromListRow(StartupTeamMember m) {
 
   if (role.startsWith('Sócio')) {
     listRoleLine = 'Sócio';
-    final RegExpMatch? match =
-        RegExp(r'^Sócio\s*[—–-]\s*(.+)$').firstMatch(role);
+    final RegExpMatch? match = RegExp(
+      r'^Sócio\s*[—–-]\s*(.+)$',
+    ).firstMatch(role);
     final String pct = match?.group(1)?.trim() ?? '';
     participationLabel = pct.isEmpty
         ? 'Participação societária em definição.'
@@ -971,10 +996,38 @@ SocioDetailViewData _placeholderSocioDetailFromListRow(StartupTeamMember m) {
       '[Mock] Certificação opcional 1.',
       '[Mock] Certificação opcional 2.',
     ],
-    languages: [
-      'Português (exemplo)',
-      'Inglês — nível a definir no Firestore',
-    ],
+    languages: ['Português (exemplo)', 'Inglês — nível a definir no Firestore'],
+  );
+}
+
+/// Mesmo que [startupDetailFor], com [canSelectQuestionVisibility] ativo (ex.: testes de UI).
+StartupDetailViewData startupDetailForWithPrivateQuestions(CatalogStartup c) {
+  final d = startupDetailFor(c);
+  return StartupDetailViewData(
+    catalog: d.catalog,
+    categoryDisplay: d.categoryDisplay,
+    longDescription: d.longDescription,
+    captureHeadline: d.captureHeadline,
+    captureProgressFraction: d.captureProgressFraction,
+    captureProgressLabel: d.captureProgressLabel,
+    valuationHeadline: d.valuationHeadline,
+    valuationRoundLabel: d.valuationRoundLabel,
+    valuationTrendText: d.valuationTrendText,
+    chartSeriesByPeriod: d.chartSeriesByPeriod,
+    headquarters: d.headquarters,
+    foundedLabel: d.foundedLabel,
+    missionQuote: d.missionQuote,
+    teamMembers: d.teamMembers,
+    performanceMetrics: d.performanceMetrics,
+    executiveSummary: d.executiveSummary,
+    societaryLines: d.societaryLines,
+    publicQa: d.publicQa,
+    investorQa: d.investorQa,
+    canSelectQuestionVisibility: true,
+    canViewInvestorQuestions: d.canViewInvestorQuestions,
+    demoVideoTitle: d.demoVideoTitle,
+    demoVideoUrl: d.demoVideoUrl,
+    fullFirestoreDocument: d.fullFirestoreDocument,
   );
 }
 
@@ -1001,8 +1054,12 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
     executiveSummary: template.executiveSummary,
     societaryLines: template.societaryLines,
     publicQa: template.publicQa,
+    investorQa: template.investorQa,
+    canSelectQuestionVisibility: template.canSelectQuestionVisibility,
+    canViewInvestorQuestions: template.canViewInvestorQuestions,
     demoVideoTitle: template.demoVideoTitle,
     demoVideoUrl: template.demoVideoUrl,
+    fullFirestoreDocument: template.fullFirestoreDocument,
   );
 }
 

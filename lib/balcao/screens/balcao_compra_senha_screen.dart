@@ -9,7 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../auth/services/auth_service.dart';
+import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
+import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../balcao_format.dart';
@@ -40,6 +42,12 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   String? _erro;
   bool _enviando = false;
 
+  double get _quantidadeTokensCalculada {
+    final p = widget.startup.tokenPrice;
+    if (p <= 0) return 0;
+    return widget.valorReaisOperacao / p;
+  }
+
   @override
   void dispose() {
     _senhaController.dispose();
@@ -52,12 +60,6 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
     final n = widget.startup.name;
     if (n.length <= 5) return n.toUpperCase();
     return n.substring(0, 4).toUpperCase();
-  }
-
-  double get _quantidadeTokens {
-    final p = widget.startup.tokenPrice;
-    if (p <= 0) return 0;
-    return widget.valorReaisOperacao / p;
   }
 
   /// Confere a senha com o Firebase: tem de ser a mesma do login (e-mail + senha).
@@ -119,21 +121,56 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
     }
 
     if (!mounted) return;
+
+    try {
+      if (widget.startup.firestoreId == null ||
+          widget.startup.firestoreId!.isEmpty) {
+        throw StateError(
+          'Esta startup não tem ID Firestore necessário ao balcão simulado.',
+        );
+      }
+
+      switch (widget.operacao) {
+        case BalcaoOperacaoTipo.compra:
+          await SimulatedWalletService.tradeBuy(
+            startup: widget.startup,
+            valorReais: widget.valorReaisOperacao,
+            quantidadeTokens: _quantidadeTokensCalculada,
+          );
+          break;
+        case BalcaoOperacaoTipo.venda:
+          await SimulatedWalletService.tradeSell(
+            startup: widget.startup,
+            valorReais: widget.valorReaisOperacao,
+            quantidadeTokens: _quantidadeTokensCalculada,
+          );
+          break;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _erro = SimulatedWalletService.messageForUser(e);
+        _enviando = false;
+      });
+      return;
+    }
+
     setState(() => _enviando = false);
+    if (!mounted) return;
 
     final agora = DateTime.now();
     final detalhe = BalcaoTransacaoDetalhe(
       operacao: widget.operacao,
       nomeToken: _nomeToken,
-      quantidadeTokens: _quantidadeTokens,
+      quantidadeTokens: _quantidadeTokensCalculada,
       valorReais: widget.valorReaisOperacao,
       dataHora: agora,
       status: 'Concluída',
     );
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (context) => BalcaoTransacaoDetalheScreen(detalhe: detalhe),
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) => BalcaoTransacaoDetalheScreen(detalhe: detalhe),
       ),
     );
   }
@@ -190,7 +227,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${formatBrl(widget.valorReaisOperacao)} ≈ ${formatQuantidadeTokensBr(_quantidadeTokens)} tokens',
+                '${formatBrl(widget.valorReaisOperacao)} ≈ ${formatQuantidadeTokensBr(_quantidadeTokensCalculada)} tokens',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.secondaryLabel(theme),
                 ),

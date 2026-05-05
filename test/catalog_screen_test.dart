@@ -2,14 +2,14 @@
 //
 // Correm com: flutter test test/catalog_screen_test.dart
 //
-// Usamos [CatalogScreen.startupsStreamForTesting] para não depender do Firestore.
+// Usamos [CatalogScreen.startupsFutureForTesting] para não depender das Functions.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
-import 'package:pi_iii/catalog/screens/catalog_screen.dart';
-import 'package:pi_iii/theme/app_colors.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/screens/catalog_screen.dart';
+import 'package:mescla_invest/theme/app_colors.dart';
 
 /// Mesmas três startups que existiam como mock na tela antes do Firestore.
 const List<CatalogStartup> kCatalogMockStartups = <CatalogStartup>[
@@ -64,7 +64,7 @@ Widget _wrapCatalogScreen() {
       colorScheme: colorScheme,
     ),
     home: CatalogScreen(
-      startupsStreamForTesting: Stream<List<CatalogStartup>>.value(
+      startupsFutureForTesting: Future<List<CatalogStartup>>.value(
         kCatalogMockStartups,
       ),
     ),

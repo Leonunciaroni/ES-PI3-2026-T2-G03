@@ -7,8 +7,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
-import '../../carteira/screens/adicionar_fundos_screen.dart';
+import '../../carteira/format/carteira_valor_input.dart';
+import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../balcao_format.dart';
@@ -120,39 +124,35 @@ class _BalcaoQuantidadeTokensScreenState
     }
   }
 
-  /// Devolve o valor da operação **sempre em reais** (para a tela de senha e detalhe).
-  double? _validarEntrada() {
-    setState(() => _erroValidacao = null);
-
-    if (widget.operacao == BalcaoOperacaoTipo.compra) {
-      return _validarValorReaisCompraOuVendaReais();
+  Future<double> _resolverMaxTokensParaVenda() async {
+    final u = FirebaseAuth.instance.currentUser;
+    final fid = widget.startup.firestoreId;
+    if (u == null || fid == null || fid.isEmpty) {
+      return _saldoTokensMesaMock(widget.startup);
     }
-
-    if (_vendaUnidade == BalcaoVendaUnidade.reais) {
-      return _validarValorReaisCompraOuVendaReais();
+    final t = await SimulatedWalletService.fetchTokensHeld(u.uid, fid);
+    if (!mounted) {
+      return _saldoTokensMesaMock(widget.startup);
     }
-
-    final q = _quantidadeTokensVendaParsed;
-    if (q == null) {
-      setState(() => _erroValidacao = 'Informe uma quantidade válida de tokens.');
-      return null;
-    }
-    if (q <= 0) {
-      setState(() => _erroValidacao = 'A quantidade deve ser maior que zero.');
-      return null;
-    }
-    final maxT = _saldoTokensMesaMock(widget.startup);
-    if (q > maxT) {
-      setState(
-        () => _erroValidacao =
-            'Disponível para venda: até ${formatQuantidadeTokensBr(maxT)} tokens.',
-      );
-      return null;
-    }
-    return q * widget.startup.tokenPrice;
+    return t ?? 0.0;
   }
 
-  double? _validarValorReaisCompraOuVendaReais() {
+  /// Devolve o valor da operação **sempre em reais** (para a tela de senha e detalhe).
+  Future<double?> _validarEntrada() async {
+    setState(() => _erroValidacao = null);
+
+    switch (widget.operacao) {
+      case BalcaoOperacaoTipo.compra:
+        return _validarCompraFuturo();
+      case BalcaoOperacaoTipo.venda:
+        if (_vendaUnidade == BalcaoVendaUnidade.reais) {
+          return _validarVendaReaisFuturo();
+        }
+        return _validarVendaTokensFuturo();
+    }
+  }
+
+  Future<double?> _validarCompraFuturo() async {
     final v = _valorReaisParsed;
     if (v == null) {
       setState(() => _erroValidacao = 'Informe um valor válido em reais.');
@@ -162,21 +162,103 @@ class _BalcaoQuantidadeTokensScreenState
       setState(() => _erroValidacao = 'O valor deve ser maior que zero.');
       return null;
     }
-    if (widget.operacao == BalcaoOperacaoTipo.venda) {
-      final maxReais = _saldoReaisMesaMock(widget.startup);
-      if (v > maxReais) {
-        setState(
-          () => _erroValidacao =
-              'Disponível para venda: até ${formatBrl(maxReais)}.',
-        );
-        return null;
-      }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(
+        () =>
+            _erroValidacao = 'Inicie sessão para usar o balcão com saldo fictício.',
+      );
+      return null;
+    }
+    final fid = widget.startup.firestoreId;
+    if (fid == null || fid.isEmpty) {
+      setState(
+        () => _erroValidacao =
+            'Esta startup não está registada no catálogo Firebase (sem ID).',
+      );
+      return null;
+    }
+    final saldoDisponivel = await SimulatedWalletService.fetchBrlBalance(user.uid);
+    if (!mounted) return null;
+    if (v > saldoDisponivel + 1e-6) {
+      setState(
+        () => _erroValidacao =
+            'Saldo disponível (${formatBrl(saldoDisponivel)}) insuficiente.',
+      );
+      return null;
     }
     return v;
   }
 
+  Future<double?> _validarVendaReaisFuturo() async {
+    final v = _valorReaisParsed;
+    if (v == null) {
+      setState(() => _erroValidacao = 'Informe um valor válido em reais.');
+      return null;
+    }
+    if (v <= 0) {
+      setState(() => _erroValidacao = 'O valor deve ser maior que zero.');
+      return null;
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final fid = widget.startup.firestoreId;
+      if (fid == null || fid.isEmpty) {
+        setState(
+          () => _erroValidacao =
+              'Esta startup não está registada no catálogo Firebase (sem ID).',
+        );
+        return null;
+      }
+    }
+    final tokensNecessarios = _tokensParaValorReais(v, widget.startup);
+    final maxT = await _resolverMaxTokensParaVenda();
+    if (!mounted) return null;
+    if (tokensNecessarios > maxT + 1e-9) {
+      setState(
+        () => _erroValidacao =
+            'Disponível para venda: até ${formatQuantidadeTokensBr(maxT)} tokens.',
+      );
+      return null;
+    }
+    return v;
+  }
+
+  Future<double?> _validarVendaTokensFuturo() async {
+    final q = _quantidadeTokensVendaParsed;
+    if (q == null) {
+      setState(() => _erroValidacao = 'Informe uma quantidade válida de tokens.');
+      return null;
+    }
+    if (q <= 0) {
+      setState(() => _erroValidacao = 'A quantidade deve ser maior que zero.');
+      return null;
+    }
+    final userLogged = FirebaseAuth.instance.currentUser;
+    if (userLogged != null) {
+      final fid = widget.startup.firestoreId;
+      if (fid == null || fid.isEmpty) {
+        setState(
+          () => _erroValidacao =
+              'Esta startup não está registada no catálogo Firebase (sem ID).',
+        );
+        return null;
+      }
+    }
+    final maxT = await _resolverMaxTokensParaVenda();
+    if (!mounted) return null;
+    if (q > maxT + 1e-12) {
+      setState(
+        () => _erroValidacao =
+            'Disponível para venda: até ${formatQuantidadeTokensBr(maxT)} tokens.',
+      );
+      return null;
+    }
+    return q * widget.startup.tokenPrice;
+  }
+
   Future<void> _onContinuar() async {
-    final valor = _validarEntrada();
+    final valor = await _validarEntrada();
     if (valor == null || !mounted) return;
 
     final confirmou = await showDialog<bool>(
@@ -246,8 +328,8 @@ class _BalcaoQuantidadeTokensScreenState
     if (!mounted || confirmou != true) return;
 
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => BalcaoCompraSenhaScreen(
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) => BalcaoCompraSenhaScreen(
           startup: widget.startup,
           operacao: widget.operacao,
           valorReaisOperacao: valor,

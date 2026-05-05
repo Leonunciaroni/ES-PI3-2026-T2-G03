@@ -1,9 +1,24 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Layout “logado” partilhado: gradiente Mescla, área segura, cinco painéis em
-// [IndexedStack] e [MesclaBottomNavBar]. Evita copiar o mesmo [Scaffold] em
-// cada ecrã — basta passar os cinco corpos dos separadores.
+// Layout “logado” partilhado: gradiente Mescla, área segura, cinco painéis e
+// [MesclaBottomNavBar]. Evita copiar o mesmo [Scaffold] em cada ecrã.
+//
+// ## Porque não usamos só [IndexedStack]?
+// O [IndexedStack] troca o painel **instantaneamente**. Para uma UX próxima das
+// apps grandes, animamos **opacidade + um micro-deslocamento vertical** (o mesmo
+// espírito do [MesclaFadeSlidePageTransitionsBuilder] em `app_theme.dart`).
+//
+// ## Estado preservado
+// Todas as abas permanecem **montadas** no [Stack] (como no [IndexedStack]).
+// Só a aba ativa recebe toques ([IgnorePointer]).
+//
+// ## Importante — não uses [TickerMode] aqui para “pausar” abas inativas
+// [AnimatedOpacity] e [AnimatedSlide] são animações **implícitas**: precisam de
+// ticker enquanto animam. Se desativares o ticker na aba que está a sair no
+// mesmo instante em que muda o índice, essa animação **congela** (ex.: opacity
+// fica em 1). O ecrã anterior continua pintado por baixo e, como muitas telas
+// têm fundos semi-transparentes, vês **dois ecrãs ao mesmo tempo** (overlap).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +30,9 @@ import 'mescla_bottom_nav_bar.dart';
 /// Catálogo, Perfil).
 const int kMesclaMainTabCount = 5;
 
+/// Duração do cruzamento entre separadores (alinhada às transições de rota).
+const Duration kMesclaTabSwitchDuration = Duration(milliseconds: 280);
+
 /// Shell com navegação inferior para o fluxo principal após autenticação.
 ///
 /// **Índices:** alinhados com [MesclaBottomNavBar] — 0 Início, 1 Carteira,
@@ -22,9 +40,7 @@ const int kMesclaMainTabCount = 5;
 ///
 /// Telas de autenticação em `lib/auth/screens`, dashboard em `lib/dashboard/screens`;
 /// carteira em `lib/carteira/screens`; catálogo em `lib/catalog/screens`.
-/// A tela Balcão pode ser placeholder no dashboard até a integração em `dev`.
-/// Rotas empurradas
-/// (ex.: detalhe da startup) ficam **fora** deste shell.
+/// Rotas empurradas (ex.: detalhe da startup) ficam **fora** deste shell.
 class MesclaMainShell extends StatelessWidget {
   const MesclaMainShell({
     super.key,
@@ -60,10 +76,34 @@ class MesclaMainShell extends StatelessWidget {
             child: Column(
               children: [
                 Expanded(
-                  child: IndexedStack(
-                    index: selectedIndex,
-                    sizing: StackFit.expand,
-                    children: tabBodies,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: List<Widget>.generate(tabBodies.length, (int i) {
+                      final bool ativa = i == selectedIndex;
+                      return Positioned.fill(
+                        child: ExcludeSemantics(
+                          excluding: !ativa,
+                          child: IgnorePointer(
+                            ignoring: !ativa,
+                            child: ClipRect(
+                              child: AnimatedSlide(
+                                duration: kMesclaTabSwitchDuration,
+                                curve: Curves.easeOutCubic,
+                                offset: ativa
+                                    ? Offset.zero
+                                    : const Offset(0, 0.03),
+                                child: AnimatedOpacity(
+                                  duration: kMesclaTabSwitchDuration,
+                                  curve: Curves.easeOutCubic,
+                                  opacity: ativa ? 1.0 : 0.0,
+                                  child: tabBodies[i],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
                   ),
                 ),
                 MesclaBottomNavBar(

@@ -5,6 +5,7 @@ class _MainInfoCard extends StatelessWidget {
     required this.data,
     required this.primary,
     required this.onWishlist,
+    required this.wishlistBusy,
     required this.onToggleWishlist,
     required this.onInvest,
   });
@@ -12,6 +13,7 @@ class _MainInfoCard extends StatelessWidget {
   final StartupDetailViewData data;
   final Color primary;
   final bool onWishlist;
+  final bool wishlistBusy;
   final VoidCallback onToggleWishlist;
   final VoidCallback onInvest;
 
@@ -94,7 +96,7 @@ class _MainInfoCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: FilledButton.tonal(
-                    onPressed: onToggleWishlist,
+                    onPressed: wishlistBusy ? null : onToggleWishlist,
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       backgroundColor: AppColors.themeMutedSurface(theme),
@@ -572,6 +574,195 @@ class _TeamMemberTile extends StatelessWidget {
             ),
             child: const Text('Saber mais'),
           ),
+      ],
+    );
+  }
+}
+
+/// Resultado do diálogo [_NovaPerguntaDialog]: texto e visibilidade escolhidos.
+final class _NovaPerguntaDialogResult {
+  const _NovaPerguntaDialogResult({
+    required this.text,
+    required this.isPrivate,
+  });
+
+  final String text;
+  final bool isPrivate;
+}
+
+/// Diálogo com ciclo de vida próprio: o [TextEditingController] é criado em
+/// [initState] e libertado em [dispose], evitando assert `_dependents.isEmpty`
+/// ao fechar o [AlertDialog] (ex.: com [SegmentedButton] / foco do teclado).
+class _NovaPerguntaDialog extends StatefulWidget {
+  const _NovaPerguntaDialog({required this.canSelectVisibility});
+
+  final bool canSelectVisibility;
+
+  @override
+  State<_NovaPerguntaDialog> createState() => _NovaPerguntaDialogState();
+}
+
+class _NovaPerguntaDialogState extends State<_NovaPerguntaDialog> {
+  late final TextEditingController _textController;
+  bool _isPrivate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _textController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  void _onEnviar() {
+    final t = _textController.text.trim();
+    if (t.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Digite uma pergunta antes de enviar.'),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).pop(
+      _NovaPerguntaDialogResult(text: _textController.text, isPrivate: _isPrivate),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    const fieldRadius = 16.0;
+
+    InputBorder outlineBorder(Color color, {double width = 1}) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(fieldRadius),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return AlertDialog(
+      icon: Icon(
+        Icons.chat_bubble_outline_rounded,
+        color: scheme.primary,
+        size: 28,
+      ),
+      iconPadding: const EdgeInsets.only(top: 16, bottom: 4),
+      title: Text(
+        'Nova pergunta',
+        style: theme.textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      titlePadding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+      contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _textController,
+              minLines: 4,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: 'Sua pergunta',
+                hintText: 'O que você gostaria de saber?',
+                alignLabelWithHint: true,
+                filled: true,
+                fillColor: AppColors.searchFieldFillForTheme(theme),
+                border: outlineBorder(AppColors.cardDivider(theme)),
+                enabledBorder: outlineBorder(AppColors.cardDivider(theme)),
+                focusedBorder: outlineBorder(scheme.primary, width: 2),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+              ),
+            ),
+            SizedBox(height: widget.canSelectVisibility ? 24 : 16),
+            if (widget.canSelectVisibility) ...[
+              Text(
+                'Visibilidade',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Pública: todos veem. Privada: apenas investidores da startup.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.secondaryLabel(theme),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                style: SegmentedButton.styleFrom(
+                  side: BorderSide(color: AppColors.cardDivider(theme)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  visualDensity: VisualDensity.standard,
+                ),
+                segments: const [
+                  ButtonSegment<bool>(
+                    value: false,
+                    label: Text('Pública'),
+                    tooltip: 'Visível para todos',
+                  ),
+                  ButtonSegment<bool>(
+                    value: true,
+                    label: Text('Privada'),
+                    tooltip: 'Somente investidores desta startup',
+                  ),
+                ],
+                selected: <bool>{_isPrivate},
+                onSelectionChanged: (Set<bool> selected) {
+                  setState(() => _isPrivate = selected.first);
+                },
+              ),
+            ] else
+              Text(
+                'Sua pergunta será pública e visível para todos.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.secondaryLabel(theme),
+                  height: 1.4,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            foregroundColor: scheme.primary,
+          ),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _onEnviar,
+          style: FilledButton.styleFrom(
+            shape: const StadiumBorder(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          ),
+          child: const Text('Enviar'),
+        ),
       ],
     );
   }

@@ -22,6 +22,15 @@ class SegurancaPrivacidadeScreen extends StatefulWidget {
 class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen> {
   bool _persisting = false;
 
+  /// Sem [Firebase.initializeApp] (ex.: alguns `flutter test`), evita lançar ao ler a sessão.
+  String? _currentUidOrNull() {
+    try {
+      return FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _onTwoFactorChanged(bool next) async {
     if (_persisting) return;
     setState(() => _persisting = true);
@@ -57,7 +66,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = _currentUidOrNull();
 
     return MesclaSubpageScaffold(
       title: 'Segurança e Privacidade',

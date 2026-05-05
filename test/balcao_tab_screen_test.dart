@@ -2,14 +2,14 @@
 //
 // Correm com: flutter test test/balcao_tab_screen_test.dart
 //
-// Usamos [BalcaoTabScreen.startupsStreamForTesting] para não depender do Firestore.
+// Usamos [BalcaoTabScreen.startupsFutureForTesting] para não depender das Functions.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/balcao/screens/balcao_tab_screen.dart';
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
-import 'package:pi_iii/theme/app_colors.dart';
+import 'package:mescla_invest/balcao/screens/balcao_tab_screen.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/theme/app_colors.dart';
 
 /// Duplicado do mock do catálogo — mantém o teste isolado e previsível.
 const List<CatalogStartup> _kBalcaoMockStartups = <CatalogStartup>[
@@ -53,7 +53,7 @@ Widget _wrapBalcaoTabScreen() {
       colorScheme: colorScheme,
     ),
     home: BalcaoTabScreen(
-      startupsStreamForTesting: Stream<List<CatalogStartup>>.value(
+      startupsFutureForTesting: Future<List<CatalogStartup>>.value(
         _kBalcaoMockStartups,
       ),
     ),
@@ -62,7 +62,7 @@ Widget _wrapBalcaoTabScreen() {
 
 void main() {
   group('BalcaoTabScreen', () {
-    testWidgets('mostra título Balcão e startups do stream mock', (tester) async {
+    testWidgets('mostra título Balcão e startups do mock', (tester) async {
       await tester.pumpWidget(_wrapBalcaoTabScreen());
       await tester.pumpAndSettle();
 

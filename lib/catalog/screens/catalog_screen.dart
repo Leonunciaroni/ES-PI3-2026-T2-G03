@@ -2,17 +2,19 @@
 // RA: 25005592
 //
 // Tela Explorar (catálogo de startups) — protótipo visual alinhado ao Figma.
-// A lista vem do Firestore via [StartupCatalogService]; em testes injeta-se um [Stream] fixo.
+// A lista vem da callable `listStartups` via [StartupCatalogFunctionsService];
+// em testes injeta-se [startupsFutureForTesting].
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/catalog_startup.dart';
-import '../services/startup_catalog_service.dart';
-import '../widgets/startup_logo_avatar.dart';
+import '../services/startup_catalog_functions_service.dart';
+import '../services/startup_catalog_list_cache.dart';
+import '../services/startup_logo_precache_service.dart';
+import '../widgets/catalog_startup_card.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
-import 'startup_detail_screen.dart';
 
 /// Qual chip está ativo na barra horizontal (filtro por estágio).
 ///
@@ -37,19 +39,20 @@ class CatalogScreen extends StatefulWidget {
   const CatalogScreen({
     super.key,
     this.wrapWithSafeArea = true,
-    this.startupsStreamForTesting,
-    this.catalogService,
+    this.startupsFutureForTesting,
+    this.catalogFunctionsService,
     this.onInvestir,
   });
 
   /// Evita SafeArea duplicado quando a tela é filha de um [SafeArea] maior (dashboard shell).
   final bool wrapWithSafeArea;
 
-  /// Quando não é null, a tela usa este stream em vez do Firestore (útil em `flutter test`).
-  final Stream<List<CatalogStartup>>? startupsStreamForTesting;
+  /// Quando não é null, a tela usa esta Future em vez da callable (útil em `flutter test`).
+  /// Chips e busca filtram **localmente** sobre esta lista.
+  final Future<List<CatalogStartup>>? startupsFutureForTesting;
 
-  /// Injecção opcional do serviço (testes / DI).
-  final StartupCatalogService? catalogService;
+  /// Injecção opcional da callable (testes / DI).
+  final StartupCatalogFunctionsService? catalogFunctionsService;
 
   /// Chamado quando o utilizador toca "Investir Agora" dentro do detalhe.
   /// O [DashboardScreen] usa este callback para abrir o Balcão na startup certa.
@@ -68,15 +71,90 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   static const _horizontalPadding = 20.0;
 
-  /// Stream único por ciclo de vida do State: evita nova subscrição a cada [build].
-  late final Stream<List<CatalogStartup>> _startupStream;
+  late final StartupCatalogFunctionsService _functionsService;
+
+  /// Pedido atual à callable (ou future de teste); novo objeto quando mudam chip/busca em produção.
+  Future<List<CatalogStartup>>? _loadFuture;
 
   @override
   void initState() {
     super.initState();
-    // Se o teste injetou dados, usa-os; senão abre o canal com o Firestore.
-    _startupStream = widget.startupsStreamForTesting ??
-        (widget.catalogService ?? StartupCatalogService()).watchStartups();
+    _functionsService =
+        widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
+    _loadFuture = _createLoadFuture();
+    _kickLogoPrefetchWhenListReady();
+  }
+
+  /// Após cada regressão ao backend (callable ou cache global), aquece fotos Storage em fundo
+  /// assim que há [mounted] ([StartupLogoPrecacheService]) para reduzir spinners mesmo indo já para Explorar.
+  void _kickLogoPrefetchWhenListReady() {
+    final fut = _loadFuture;
+    if (fut == null) return;
+    fut.then((list) {
+      if (!mounted) return;
+      StartupLogoPrecacheService.schedulePreloadForStartupList(context, list);
+    });
+  }
+
+  /// Monta o [Future] conforme modo teste vs produção.
+  Future<List<CatalogStartup>> _createLoadFuture() {
+    if (widget.startupsFutureForTesting != null) {
+      return widget.startupsFutureForTesting!;
+    }
+    final bool useSharedFullList = _chipFilter == _ChipFilter.todas &&
+        _searchController.text.trim().isEmpty;
+    if (useSharedFullList) {
+      return StartupCatalogListCache.instance.fullList(_functionsService);
+    }
+    return _functionsService.listStartups(
+      stage: _stageForChip(_chipFilter),
+      search: _searchQueryForApi,
+    );
+  }
+
+  /// Texto da busca ou null se vazio (enviado à Function).
+  String? get _searchQueryForApi {
+    final t = _searchController.text.trim();
+    return t.isEmpty ? null : t;
+  }
+
+  /// Converte o chip da UI no estágio esperado pela API (`null` = todas).
+  StartupStage? _stageForChip(_ChipFilter f) {
+    switch (f) {
+      case _ChipFilter.todas:
+        return null;
+      case _ChipFilter.novas:
+        return StartupStage.nova;
+      case _ChipFilter.emOperacao:
+        return StartupStage.emOperacao;
+      case _ChipFilter.emExpansao:
+        return StartupStage.emExpansao;
+    }
+  }
+
+  /// Troca estágio pelo chip bar e refaz lista em produção; em testes filtra apenas localmente.
+  void _updateChipSelection(_ChipFilter chip) {
+    setState(() {
+      _chipFilter = chip;
+      if (widget.startupsFutureForTesting != null) {
+        return;
+      }
+      _loadFuture = _createLoadFuture();
+    });
+    if (widget.startupsFutureForTesting == null) {
+      _kickLogoPrefetchWhenListReady();
+    }
+  }
+
+  /// Em produção, novo pedido ao mudar chip ou texto; em teste só [setState] local.
+  void _reloadFromBackendIfNeeded() {
+    if (widget.startupsFutureForTesting != null) {
+      return;
+    }
+    setState(() {
+      _loadFuture = _createLoadFuture();
+    });
+    _kickLogoPrefetchWhenListReady();
   }
 
   @override
@@ -114,21 +192,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
   /// Lista visível após aplicar chip + texto de busca sobre [all].
   List<CatalogStartup> _visibleFrom(List<CatalogStartup> all) {
     return all.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
-  }
-
-  /// Formata preço em estilo BR: "R$ 15,30" (sem separador de milhar nestes exemplos).
-  String _formatTokenPrice(double value) {
-    final fixed = value.toStringAsFixed(2);
-    final parts = fixed.split('.');
-    return 'R\$ ${parts[0]},${parts[1]}';
-  }
-
-  /// Quando o preço ainda não existe no backend usamos 0.0 e mostramos traço no card.
-  String _tokenPriceLabel(CatalogStartup s) {
-    if (s.tokenPrice <= 0) {
-      return '—';
-    }
-    return _formatTokenPrice(s.tokenPrice);
   }
 
   /// Borda arredondada tipo "pílula" para o campo de busca.
@@ -190,8 +253,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         // Campo de busca: cor de fundo #E2E2E2 definida em [AppColors.searchFieldFill].
                         TextField(
                           controller: _searchController,
-                          // Cada tecla dispara setState para atualizar a lista filtrada.
-                          onChanged: (_) => setState(() {}),
+                          onChanged: (_) {
+                            if (widget.startupsFutureForTesting != null) {
+                              setState(() {});
+                            } else {
+                              _reloadFromBackendIfNeeded();
+                            }
+                          },
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             hintText: 'Buscar startups, setores...',
@@ -220,45 +288,44 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               _FilterChip(
                                 label: 'Todas',
                                 selected: _chipFilter == _ChipFilter.todas,
-                                onSelected: () =>
-                                    setState(() => _chipFilter = _ChipFilter.todas),
+                                onSelected: () => _updateChipSelection(_ChipFilter.todas),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Novas',
                                 selected: _chipFilter == _ChipFilter.novas,
-                                onSelected: () =>
-                                    setState(() => _chipFilter = _ChipFilter.novas),
+                                onSelected: () => _updateChipSelection(_ChipFilter.novas),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Em operação',
                                 selected: _chipFilter == _ChipFilter.emOperacao,
-                                onSelected: () => setState(
-                                  () => _chipFilter = _ChipFilter.emOperacao,
-                                ),
+                                onSelected: () =>
+                                    _updateChipSelection(_ChipFilter.emOperacao),
                               ),
                               const SizedBox(width: 8),
                               _FilterChip(
                                 label: 'Em expansão',
                                 selected: _chipFilter == _ChipFilter.emExpansao,
-                                onSelected: () => setState(
-                                  () => _chipFilter = _ChipFilter.emExpansao,
-                                ),
+                                onSelected: () =>
+                                    _updateChipSelection(_ChipFilter.emExpansao),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 20),
-                        // O StreamBuilder reage ao Firestore: loading, erro ou lista.
-                        StreamBuilder<List<CatalogStartup>>(
-                          stream: _startupStream,
+                        FutureBuilder<List<CatalogStartup>>(
+                          future: _loadFuture,
                           builder: (context, snapshot) {
                             if (snapshot.hasError) {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 24),
                                 child: Text(
-                                  'Não foi possível carregar o catálogo. Verifique a rede e o Firebase.',
+                                  widget.startupsFutureForTesting != null
+                                      ? 'Erro ao carregar dados de teste.'
+                                      : StartupCatalogFunctionsService.messageForError(
+                                          snapshot.error!,
+                                        ),
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: AppColors.textSecondary,
@@ -266,7 +333,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 ),
                               );
                             }
-                            if (!snapshot.hasData) {
+                            if (snapshot.connectionState !=
+                                    ConnectionState.done ||
+                                !snapshot.hasData) {
                               return const Padding(
                                 padding: EdgeInsets.only(top: 48),
                                 child: Center(
@@ -274,18 +343,21 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                 ),
                               );
                             }
+                            final List<CatalogStartup> raw = snapshot.data!;
                             final List<CatalogStartup> visible =
-                                _visibleFrom(snapshot.data!);
+                                widget.startupsFutureForTesting != null
+                                    ? _visibleFrom(raw)
+                                    : raw;
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 ...visible.map(
                                   (s) => Padding(
                                     padding: const EdgeInsets.only(bottom: 12),
-                                    child: _CatalogStartupCard(
+                                    child: CatalogStartupCard(
                                       startup: s,
-                                      tokenPriceFormatted: _tokenPriceLabel(s),
                                       primary: colorScheme.primary,
+                                      functionsService: _functionsService,
                                       onInvestir: widget.onInvestir,
                                     ),
                                   ),
@@ -389,208 +461,3 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// Card com informações da startup (superfície alinhada ao Perfil no tema escuro).
-class _CatalogStartupCard extends StatelessWidget {
-  const _CatalogStartupCard({
-    required this.startup,
-    required this.tokenPriceFormatted,
-    required this.primary,
-    this.onInvestir,
-  });
-
-  final CatalogStartup startup;
-  final String tokenPriceFormatted;
-  final Color primary;
-  final void Function(CatalogStartup)? onInvestir;
-
-  /// Texto curto do badge conforme o estágio (para o utilizador ler rápido).
-  String _stageBadgeLabel(StartupStage stage) {
-    switch (stage) {
-      case StartupStage.nova:
-        return 'Nova';
-      case StartupStage.emOperacao:
-        return 'Em operação';
-      case StartupStage.emExpansao:
-        return 'Em expansão';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final pct = (startup.captureProgress * 100).round();
-
-    return Material(
-      color: AppColors.themeCardSurface(theme),
-      borderRadius: BorderRadius.circular(18),
-      elevation: 3,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () async {
-          final result = await Navigator.of(context).push<CatalogStartup>(
-            MaterialPageRoute<CatalogStartup>(
-              builder: (context) => StartupDetailScreen(catalog: startup),
-            ),
-          );
-          if (result != null) {
-            onInvestir?.call(result);
-          }
-        },
-        child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                StartupLogoAvatar(
-                  logoPath: startup.logoPath,
-                  fallbackColor: startup.logoColor,
-                  fallbackIcon: startup.logoIcon,
-                  size: 48,
-                  borderRadius: 12,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              startup.name,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Badge com contorno roxo (estágio).
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: primary.withValues(alpha: 0.5)),
-                            ),
-                            child: Text(
-                              _stageBadgeLabel(startup.stage),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: primary,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        startup.category,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Métricas à direita: rendimento (cor de destaque) e preço do token.
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'RENDIMENTO',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.secondaryLabel(theme),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        fontSize: 9,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      startup.yieldPercentLabel,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: primary,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'VALOR DO TOKEN',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.secondaryLabel(theme),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        fontSize: 9,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tokenPriceFormatted,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              startup.description,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryLabel(theme),
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Progresso da captação',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppColors.secondaryLabel(theme),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Text(
-                  '$pct%',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: AppColors.secondaryLabel(theme),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // [ClipRRect] arredonda a barra; senão o progresso seria quadrado.
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: startup.captureProgress,
-                minHeight: 8,
-                backgroundColor: AppColors.progressTrack(theme),
-                color: primary,
-              ),
-            ),
-          ],
-        ),
-        ),
-      ),
-    );
-  }
-}

@@ -6,7 +6,7 @@
 export 'startup_firestore_schema.dart';
 
 import 'package:flutter/material.dart';
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
 
 import 'startup_firestore_schema.dart';
 
@@ -66,11 +66,10 @@ String? _siglaFromFirestore(Map<String, dynamic> d) {
   final Map<String, dynamic>? tokens = _asStringKeyMap(d[kFieldTokensEmitidos]);
   if (tokens == null) return null;
 
-  // No console, o campo tem aparecido como map com "sigla" ou "nome".
-  final String raw = (readFirestoreString(tokens, 'sigla').trim().isNotEmpty
-          ? readFirestoreString(tokens, 'sigla')
-          : readFirestoreString(tokens, 'nome'))
-      .trim();
+  // Apenas a chave `sigla` conta como ticker; `nome` é o nome comercial do token
+  // (muitas vezes longo) e não deve preencher [CatalogStartup.sigla] — senão o Balcão
+  // e outras UIs exibem "nome" onde deveria aparecer a sigla.
+  final String raw = readFirestoreString(tokens, 'sigla').trim();
   if (raw.isEmpty) return null;
   return raw.toUpperCase();
 }

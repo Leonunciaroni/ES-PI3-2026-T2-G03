@@ -11,6 +11,8 @@ service cloud.firestore {
 
     // Perfil do utilizador: dono do documento; leitura por e-mail alinha com
     // a query de limpeza de campo legacy (`emailLowercase` == e-mail da sessão).
+    // Campos como `chavesPix` (array de mapas) são gravados pelo cliente no
+    // próprio `users/{uid}` — sem Cloud Function; só o dono pode atualizar.
     match /users/{userId} {
       function isSignedIn() {
         return request.auth != null;
@@ -29,6 +31,21 @@ service cloud.firestore {
       allow create: if isOwner();
       allow update: if isOwner() || matchesAuthEmail();
       allow delete: if isOwner();
+    }
+
+    // Carteira simulada (PI): apenas o dono pode **ler**. Escritos só via Cloud Functions
+    // [simulateWallet] (Admin bypassa regras).
+    match /sim_wallet/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+      match /ledger/{txnId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+      match /positions/{startupDocId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // `two_factor_codes` e outras coleções: sem acesso direto do cliente (Admin SDK nas Functions).

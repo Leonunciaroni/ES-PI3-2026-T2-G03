@@ -3,12 +3,22 @@
 //
 // Dashboard (protótipo visual) — layout conforme Figma, sem backend.
 
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../auth/screens/login_screen.dart';
+import '../../auth/services/user_firestore_service.dart';
+import '../../auth/services/session_persistence_service.dart';
 import '../../balcao/screens/balcao_tab_screen.dart';
 import '../../carteira/screens/carteira_screen.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/screens/catalog_screen.dart';
+import '../../catalog/services/startup_catalog_functions_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
+import '../../catalog/services/startup_logo_precache_service.dart';
+import '../../navigation/mescla_navigation.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
@@ -18,19 +28,26 @@ import '../../widgets/mescla_main_shell.dart';
 ///
 /// O ícone de olho apenas oculta valores sensíveis localmente ([setState]).
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.initialMainNavIndex = 0})
+    : assert(
+        initialMainNavIndex >= 0 && initialMainNavIndex < kMesclaMainTabCount,
+      );
+
+  /// Índice inicial da barra inferior (restaurado após login).
+  final int initialMainNavIndex;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with WidgetsBindingObserver {
   /// Quando true, valores monetários e percentuais aparecem mascarados.
   bool _hideValues = false;
 
   /// Índice da barra inferior (Figma): 0 Início, 1 Carteira, 2 Balcão,
   /// 3 Catálogo, 4 Perfil.
-  int _mainNavIndex = 0;
+  late int _mainNavIndex;
 
   /// Startup a abrir na mesa do Balcão (via "Investir Agora" no detalhe).
   CatalogStartup? _balcaoStartup;
@@ -43,14 +60,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _mainNavIndex = widget.initialMainNavIndex.clamp(
+      0,
+      kMesclaMainTabCount - 1,
+    );
+    unawaited(SessionPersistenceService.setLastNavIndex(_mainNavIndex));
+    // Primeiro quadro garante [mounted] antes de usar [precacheImage] nos logos do catálogo.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _preloadCatalogLogoBitmaps(),
+    );
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_enforceSessionOnResume());
+    }
+  }
+
+  Future<void> _enforceSessionOnResume() async {
+    if (!mounted) {
+      return;
+    }
+    final bool hasDeadline =
+        await SessionPersistenceService.hasSessionDeadline();
+    if (!mounted) {
+      return;
+    }
+    if (!hasDeadline && FirebaseAuth.instance.currentUser != null) {
+      await SessionPersistenceService.recordSessionAfterLogin();
+      return;
+    }
+    final bool valid = await SessionPersistenceService.isRecordedSessionValid();
+    if (!mounted || valid) {
+      return;
+    }
+    try {
+      await UserFirestoreService.signOut();
+    } catch (_) {
+      // Segue para o login mesmo se o sign-out falhar.
+    }
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  /// Dispara logo o primeiro `listStartups` ([StartupCatalogListCache.fullList]); quando a lista
+  /// regressa com sucesso agendamos descarga dos logos em segundo plano (sem bloquear a UI).
+  void _preloadCatalogLogoBitmaps() {
+    final service = StartupCatalogFunctionsService();
+    StartupCatalogListCache.instance.fullList(service).then((
+      List<CatalogStartup> list,
+    ) {
+      if (!mounted) return;
+      StartupLogoPrecacheService.schedulePreloadForStartupList(context, list);
+    });
+  }
+
   /// Roxo → azul do card principal (Figma).
   static const _heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xFF6234EA),
-      Color(0xFF4F46E5),
-    ],
+    colors: [Color(0xFF6234EA), Color(0xFF4F46E5)],
   );
 
   static const _walletIconColor = Color(0xFF92400E);
@@ -67,6 +152,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _toggleVisibility() {
     setState(() => _hideValues = !_hideValues);
+  }
+
+  /// Troca de separador na barra inferior: dispara pré-cargas úteis em paralelo
+  /// com a perceção do utilizador (sem `await` — não bloqueia a animação).
+  void _onMainNavIndexChanged(int i) {
+    if (i == _mainNavIndex) {
+      return;
+    }
+    unawaited(SessionPersistenceService.setLastNavIndex(i));
+    if (i == 1) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        MesclaNavigationPrefetch.scheduleWalletFirestoreForCarteiraTab(
+          user.uid,
+        );
+      }
+    }
+    if (i == 3) {
+      final service = StartupCatalogFunctionsService();
+      unawaited(StartupCatalogListCache.instance.fullList(service));
+    }
+    setState(() => _mainNavIndex = i);
   }
 
   String _money(double value) {
@@ -116,10 +223,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(
-            'BOM DIA, RICARDO',
-            style: labelCaps,
-          ),
+          Text('BOM DIA, RICARDO', style: labelCaps),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -141,9 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       : Icons.visibility_outlined,
                   color: AppColors.secondaryLabel(theme),
                 ),
-                tooltip: _hideValues
-                    ? 'Mostrar valores'
-                    : 'Ocultar valores',
+                tooltip: _hideValues ? 'Mostrar valores' : 'Ocultar valores',
               ),
             ],
           ),
@@ -255,7 +357,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return MesclaMainShell(
       selectedIndex: _mainNavIndex,
-      onNavIndexChanged: (i) => setState(() => _mainNavIndex = i),
+      onNavIndexChanged: _onMainNavIndexChanged,
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
         CarteiraScreen(
@@ -275,7 +377,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           wrapWithSafeArea: false,
           onInvestir: _abrirBalcaoParaStartup,
         ),
-        const PerfilScreen(wrapWithSafeArea: false),
+        PerfilScreen(
+          wrapWithSafeArea: false,
+          onInvestir: _abrirBalcaoParaStartup,
+        ),
       ],
     );
   }
@@ -336,7 +441,10 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(999),

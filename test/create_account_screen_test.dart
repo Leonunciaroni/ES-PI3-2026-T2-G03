@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pi_iii/auth/screens/create_account_screen.dart';
+import 'package:mescla_invest/auth/screens/create_account_screen.dart';
 
 void main() {
   Widget buildScreen() {

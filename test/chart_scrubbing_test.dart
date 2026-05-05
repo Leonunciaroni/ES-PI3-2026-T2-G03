@@ -5,7 +5,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/widgets/chart_scrubbing.dart';
+import 'package:mescla_invest/widgets/chart_scrubbing.dart';
 
 void main() {
   group('scalarAtT', () {

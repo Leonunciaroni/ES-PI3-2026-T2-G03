@@ -6,8 +6,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pi_iii/auth/screens/two_factor_verification_screen.dart';
-import 'package:pi_iii/auth/services/two_factor_service.dart';
+import 'package:mescla_invest/auth/screens/two_factor_verification_screen.dart';
+import 'package:mescla_invest/auth/services/two_factor_service.dart';
 
 /// Simula o backend: código "123456" é válido; qualquer outro lança Exception.
 class _FakeTwoFactorService extends TwoFactorService {

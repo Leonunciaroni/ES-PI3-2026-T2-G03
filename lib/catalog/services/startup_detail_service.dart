@@ -6,16 +6,31 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:pi_iii/catalog/data/startup_detail_mock.dart';
-import 'package:pi_iii/catalog/models/catalog_startup.dart';
-import 'package:pi_iii/catalog/models/startup_detail_load_state.dart';
+import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
+import 'package:mescla_invest/catalog/models/catalog_startup.dart';
+import 'package:mescla_invest/catalog/models/startup_detail_load_state.dart';
 
+import 'startup_detail_document.dart';
 import 'startup_firestore_mapper.dart';
+
+export 'socio_firestore_mapper.dart'
+    show
+        socioDetailViewDataFromFirestoreSocioMap,
+        resolveSocioDetailForTeamMember;
+export 'startup_detail_document.dart'
+    show
+        normalizeStartupDetailDocument,
+        buildNormalizedSociosEntries,
+        enrichSociosListPreservingFields,
+        socioNomeParaExibicao,
+        socioParticipacaoParaExibicao,
+        pickFirstDocumentField,
+        estruturaSocietariaRawFromDocument;
 
 /// Ouve um único documento; emite [StartupDetailNotFound] se foi apagado ou inválido.
 class StartupDetailService {
   StartupDetailService({FirebaseFirestore? firestore})
-      : _db = firestore ?? FirebaseFirestore.instance;
+    : _db = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _db;
 
@@ -25,48 +40,63 @@ class StartupDetailService {
         .doc(documentId)
         .snapshots()
         .map((DocumentSnapshot<Map<String, dynamic>> snap) {
-      if (!snap.exists) {
-        return const StartupDetailNotFound();
-      }
-      final Map<String, dynamic>? raw = snap.data();
-      if (raw == null) {
-        return const StartupDetailNotFound();
-      }
-      final CatalogStartup? catalog =
-          catalogStartupFromFirestoreMap(snap.id, raw);
-      if (catalog == null) {
-        return const StartupDetailNotFound();
-      }
-      return StartupDetailReady(_detailFromFirestoreMap(raw, catalog));
-    });
+          if (!snap.exists) {
+            return const StartupDetailNotFound();
+          }
+          final Map<String, dynamic>? raw = snap.data();
+          if (raw == null) {
+            return const StartupDetailNotFound();
+          }
+          final CatalogStartup? catalog = catalogStartupFromFirestoreMap(
+            snap.id,
+            raw,
+          );
+          if (catalog == null) {
+            return const StartupDetailNotFound();
+          }
+          return StartupDetailReady(
+            detailViewDataFromFirestoreMap(raw, catalog),
+          );
+        });
   }
 }
 
-StartupDetailViewData _detailFromFirestoreMap(
+/// Monta [StartupDetailViewData] a partir dos campos do documento (Firestore **ou** JSON da Function).
+///
+/// Exportada para reutilizar no fluxo via callable sem duplicar regras de layout.
+StartupDetailViewData detailViewDataFromFirestoreMap(
   Map<String, dynamic> d,
-  CatalogStartup catalog,
-) {
-  final String descricao = readFirestoreString(d, kFieldDescricao);
-  final String setorRaw = readFirestoreString(d, kFieldSetor);
+  CatalogStartup catalog, {
+  List<StartupPublicQa> publicQa = const <StartupPublicQa>[],
+  List<StartupPublicQa> investorQa = const <StartupPublicQa>[],
+  bool canSelectQuestionVisibility = false,
+  bool canViewInvestorQuestions = false,
+}) {
+  final Map<String, dynamic> dNorm = normalizeStartupDetailDocument(d);
+  final String descricao = readFirestoreString(dNorm, kFieldDescricao);
+  final String setorRaw = readFirestoreString(dNorm, kFieldSetor);
   final String categoryDisplay = setorRaw.trim().isEmpty
       ? catalog.category
       : '${setorRaw.toUpperCase()} & ECOSYSTEM';
-  final int? ano = _readOptionalInt(d, kFieldAnoDeInicio);
+  final int? ano = _readOptionalInt(dNorm, kFieldAnoDeInicio);
   final String foundedLabel = ano != null
       ? 'Ano de início: $ano'
       : 'Ano de início em definição.';
-  final List<StartupTeamMember> team = _teamFromFirestore(d);
-  final List<String> societary = _societaryLinesFromFirestore(d);
-  final List<StartupPerformanceMetric> metrics = _metricsFromFirestore(d);
-  final String? videoUrl = readFirestoreOptionalString(d, kFieldVideoDemo);
-  final String videoTitle = _videoTitleFromFirestore(d, catalog);
-  final double captureFraction = captureProgressFractionFromFirestore(d);
-  final String captureHeadline = _captureHeadlineFromFirestore(d);
-  final String valuationHeadline = _valuationHeadlineFromFirestore(d);
-  final String rodadaRaw = readFirestoreString(d, kFieldValuationRodada).trim();
+  final List<StartupTeamMember> team = _teamFromFirestore(dNorm);
+  final List<String> societary = _societaryLinesFromFirestore(dNorm);
+  final List<StartupPerformanceMetric> metrics = _metricsFromFirestore(dNorm);
+  final String? videoUrl = readFirestoreOptionalString(dNorm, kFieldVideoDemo);
+  final String videoTitle = _videoTitleFromFirestore(dNorm, catalog);
+  final double captureFraction = captureProgressFractionFromFirestore(dNorm);
+  final String captureHeadline = _captureHeadlineFromFirestore(dNorm);
+  final String valuationHeadline = _valuationHeadlineFromFirestore(dNorm);
+  final String rodadaRaw = readFirestoreString(
+    dNorm,
+    kFieldValuationRodada,
+  ).trim();
   final String valuationRound = rodadaRaw.isEmpty ? 'VALUATION' : rodadaRaw;
-  final String valuationTrend = _valuationTrendFromFirestore(d);
-  final String headquarters = _headquartersFromFirestore(d);
+  final String valuationTrend = _valuationTrendFromFirestore(dNorm);
+  final String headquarters = _headquartersFromFirestore(dNorm);
 
   return StartupDetailViewData(
     catalog: catalog,
@@ -80,29 +110,32 @@ StartupDetailViewData _detailFromFirestoreMap(
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
     valuationTrendText: valuationTrend,
-    chartSeriesByPeriod: _chartSeriesFromFirestoreOrFallback(d, catalog),
+    chartSeriesByPeriod: _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
     headquarters: headquarters,
     foundedLabel: foundedLabel,
     missionQuote: descricao.isEmpty
         ? 'Missão em definição.'
         : (descricao.length > 200
-            ? '${descricao.substring(0, 197)}…'
-            : descricao),
+              ? '${descricao.substring(0, 197)}…'
+              : descricao),
     teamMembers: team,
     performanceMetrics: metrics,
     executiveSummary: descricao.isEmpty
         ? 'Sumário executivo em elaboração.'
         : descricao,
     societaryLines: societary,
-    publicQa: const [],
+    publicQa: publicQa,
+    investorQa: investorQa,
+    canSelectQuestionVisibility: canSelectQuestionVisibility,
+    canViewInvestorQuestions: canViewInvestorQuestions,
     demoVideoTitle: videoTitle,
     demoVideoUrl: videoUrl,
+    fullFirestoreDocument: Map<String, dynamic>.from(dNorm),
   );
 }
 
 String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? direct =
-      readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
+  final String? direct = readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
   if (direct != null && direct.isNotEmpty) {
     return direct;
   }
@@ -118,8 +151,7 @@ String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
 }
 
 String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? h =
-      readFirestoreOptionalString(d, kFieldValuationHeadline);
+  final String? h = readFirestoreOptionalString(d, kFieldValuationHeadline);
   if (h != null && h.isNotEmpty) {
     return h;
   }
@@ -127,8 +159,7 @@ String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
 }
 
 String _valuationTrendFromFirestore(Map<String, dynamic> d) {
-  final String? t =
-      readFirestoreOptionalString(d, kFieldValuationTendencia);
+  final String? t = readFirestoreOptionalString(d, kFieldValuationTendencia);
   if (t != null && t.isNotEmpty) {
     return t;
   }
@@ -186,7 +217,8 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
         continue;
       }
       final String t = readFirestoreString(m, 't');
-      final double? v = readFirestoreOptionalDouble(m, 'v') ??
+      final double? v =
+          readFirestoreOptionalDouble(m, 'v') ??
           readFirestoreOptionalDouble(m, 'valor');
       if (v == null) {
         continue;
@@ -201,10 +233,7 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
     if (times.isEmpty || times.length != vals.length) {
       return null;
     }
-    return ValuationChartSeries(
-      valuationMillions: vals,
-      sampleTimes: times,
-    );
+    return ValuationChartSeries(valuationMillions: vals, sampleTimes: times);
   }
 
   final Map<ValuationPeriod, ValuationChartSeries> out = {};
@@ -246,7 +275,7 @@ Map<String, dynamic>? _asStringKeyMap(Object? item) {
 }
 
 List<String> _societaryLinesFromFirestore(Map<String, dynamic> d) {
-  final List<String> lines = [];
+  final List<String> lines = <String>[];
   final Object? socios = d[kFieldSocios];
   if (socios is List) {
     for (final Object? item in socios) {
@@ -254,24 +283,21 @@ List<String> _societaryLinesFromFirestore(Map<String, dynamic> d) {
       if (map == null) {
         continue;
       }
-      final String nome = readFirestoreString(map, 'nome');
-      final Object? pct = map['porcentagem'];
-      final String pctStr = pct is num
-          ? '${pct.round()}%'
-          : readFirestoreString(map, 'porcentagem');
+      final String nome = socioNomeParaExibicao(map);
+      final String pctStr = socioParticipacaoParaExibicao(map);
       if (nome.trim().isNotEmpty) {
-        lines.add('$nome — $pctStr');
+        lines.add(pctStr.isEmpty ? nome : '$nome — $pctStr');
       }
     }
   }
   if (lines.isEmpty) {
-    return const ['Estrutura societária em elaboração.'];
+    return const <String>['Estrutura societária em elaboração.'];
   }
   return lines;
 }
 
 List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
-  final List<StartupTeamMember> out = [];
+  final List<StartupTeamMember> out = <StartupTeamMember>[];
   final Object? socios = d[kFieldSocios];
   if (socios is List) {
     for (final Object? item in socios) {
@@ -279,20 +305,23 @@ List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
       if (map == null) {
         continue;
       }
-      final String nome = readFirestoreString(map, 'nome');
-      final Object? pct = map['porcentagem'];
-      final String pctStr = pct is num
-          ? '${pct.round()}%'
-          : readFirestoreString(map, 'porcentagem');
-      if (nome.trim().isNotEmpty) {
-        out.add(
-          StartupTeamMember(
-            name: nome.trim(),
-            role: 'Sócio — $pctStr',
-            avatarColor: _avatarColorForString(nome),
-          ),
-        );
+      final String nome = socioNomeParaExibicao(map);
+      final String pctStr = socioParticipacaoParaExibicao(map);
+      if (nome.trim().isEmpty) {
+        continue;
       }
+      final String cargo = readFirestoreString(map, 'Cargo').trim();
+      final String role = cargo.isNotEmpty
+          ? (pctStr.isNotEmpty ? '$cargo — $pctStr' : cargo)
+          : (pctStr.isNotEmpty ? 'Sócio — $pctStr' : 'Sócio');
+      out.add(
+        StartupTeamMember(
+          name: nome.trim(),
+          role: role,
+          avatarColor: _avatarColorForString(nome),
+          firestoreFields: Map<String, dynamic>.from(map),
+        ),
+      );
     }
   }
   final Object? mentores = d[kFieldMentoresConselho];
@@ -394,9 +423,11 @@ String _formatIntBR(int v) {
   return out.toString();
 }
 
-String _videoTitleFromFirestore(Map<String, dynamic> d, CatalogStartup catalog) {
-  final Map<String, dynamic>? tokens =
-      _asStringKeyMap(d[kFieldTokensEmitidos]);
+String _videoTitleFromFirestore(
+  Map<String, dynamic> d,
+  CatalogStartup catalog,
+) {
+  final Map<String, dynamic>? tokens = _asStringKeyMap(d[kFieldTokensEmitidos]);
   if (tokens != null) {
     final String n = readFirestoreString(tokens, 'nome');
     if (n.isNotEmpty) {
