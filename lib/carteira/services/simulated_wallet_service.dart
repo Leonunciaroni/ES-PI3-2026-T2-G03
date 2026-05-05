@@ -194,6 +194,56 @@ abstract final class SimulatedWalletService {
     }
   }
 
+  /// Valorização dos tokens por período — Cloud Function `getWalletTokenPerformance`.
+  ///
+  /// Pedido PI (§5.4): agrega compras/vendas do ledger simulado no servidor.
+  /// Devolve o mapa interno `data` ou `null` se a chamada falhar (ex.: função não deployada).
+  static Future<Map<String, dynamic>?> fetchWalletTokenPerformance({
+    required String period,
+  }) async {
+    try {
+      final result =
+          await _fn().httpsCallable('getWalletTokenPerformance').call(
+                <String, dynamic>{'period': period},
+              );
+      final raw = result.data;
+      if (raw is Map) {
+        final inner = raw['data'];
+        if (inner is Map) {
+          return Map<String, dynamic>.from(
+            inner.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Cotação/min/max “24h” no balcão — Cloud Function `getStartupMarketStats`.
+  static Future<BalcaoStartupMarketStats?> fetchStartupMarketStats(
+    String startupFirestoreId,
+  ) async {
+    final id = startupFirestoreId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final result = await _fn().httpsCallable('getStartupMarketStats').call(
+            <String, dynamic>{'startupId': id},
+          );
+      final raw = result.data;
+      if (raw is Map) {
+        final inner = raw['data'];
+        if (inner is Map) {
+          return BalcaoStartupMarketStats.tryParse(
+            Map<String, dynamic>.from(
+              inner.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static String messageForUser(Object error) {
     if (error is FirebaseFunctionsException) {
       switch (error.code) {
@@ -219,5 +269,27 @@ abstract final class SimulatedWalletService {
       return error.message;
     }
     return 'Não foi possível concluir a operação.';
+  }
+}
+
+/// Resultado de [SimulatedWalletService.fetchStartupMarketStats] (regra de negócio no Node).
+class BalcaoStartupMarketStats {
+  const BalcaoStartupMarketStats({
+    required this.changePct24h,
+    required this.min24hBrl,
+    required this.max24hBrl,
+  });
+
+  final double? changePct24h;
+  final double? min24hBrl;
+  final double? max24hBrl;
+
+  static BalcaoStartupMarketStats? tryParse(Map<String, dynamic>? m) {
+    if (m == null) return null;
+    return BalcaoStartupMarketStats(
+      changePct24h: (m['changePct24h'] as num?)?.toDouble(),
+      min24hBrl: (m['min24hBrl'] as num?)?.toDouble(),
+      max24hBrl: (m['max24hBrl'] as num?)?.toDouble(),
+    );
   }
 }
