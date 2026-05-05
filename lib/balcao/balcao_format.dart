@@ -45,6 +45,21 @@ bool _balcaoImpliedAmountOk(
   return (amountBrl - implied).abs() <= balcaoEpsilonBrl + 1e-12;
 }
 
+/// Espelha `assertAmountMatchesTrade` nas Cloud Functions (`EPSILON_BRL`).
+///
+/// Usado antes de chamar `simulateWallet` (ex.: após reautenticar) com cotação
+/// lida em tempo real do Firestore.
+bool balcaoAmountMatchesTrade(
+  double amountBrl,
+  double tokens,
+  double tokenPriceBrl,
+) {
+  if (tokens <= 0 || !tokens.isFinite) return false;
+  if (!(tokenPriceBrl > 0) || !tokenPriceBrl.isFinite) return false;
+  if (!amountBrl.isFinite) return false;
+  return _balcaoImpliedAmountOk(amountBrl, tokens, tokenPriceBrl);
+}
+
 /// À mercado definido por **valor em reais** (compra ou venda em R$).
 BalcaoMercadoResolved balcaoResolveMercadoDesdeBrl(
   double valorBrlInformado,
