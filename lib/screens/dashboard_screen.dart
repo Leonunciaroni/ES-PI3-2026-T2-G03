@@ -12,7 +12,9 @@ import '../theme/app_colors.dart';
 ///
 /// O ícone de olho apenas oculta valores sensíveis localmente ([setState]).
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, required this.nomeCompletoUsuario});
+
+  final String nomeCompletoUsuario;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -22,13 +24,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// Quando true, valores monetários e percentuais aparecem mascarados.
   bool _hideValues = false;
 
-  // Variável para armazenar o nome do usuário
-  String _nomeCompletoUsuario = 'Ricardo Silva';
-
   // Lógica para extrair apenas o primeiro nome em caixa alta
   String get _primeiroNome {
-    return _nomeCompletoUsuario.trim().split(' ').first.toUpperCase();
+    final nome = widget.nomeCompletoUsuario.trim();
+    if (nome.isEmpty) return 'USUARIO';
+    return nome.split(RegExp(r'\s+')).first.toUpperCase();
   }
+
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
@@ -36,10 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   static const _heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xFF6234EA),
-      Color(0xFF4F46E5),
-    ],
+    colors: [Color(0xFF6234EA), Color(0xFF4F46E5)],
   );
 
   static const _summaryCardColor = Color(0xFFF3F4F6);
@@ -95,10 +94,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [
-                AppColors.gradientTop,
-                AppColors.gradientBottom,
-              ],
+              colors: [AppColors.gradientTop, AppColors.gradientBottom],
             ),
           ),
           child: SafeArea(
@@ -120,7 +116,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Text(
                           'BOM DIA, $_primeiroNome', // Aqui o código chama o getter acima
                           style: labelCaps,
-                          ),
+                        ),
                         const SizedBox(height: 8),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -349,7 +345,10 @@ class _HeroCard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(999),
@@ -726,11 +725,11 @@ class _NavItem extends StatelessWidget {
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                      fontSize: 10,
-                    ),
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
