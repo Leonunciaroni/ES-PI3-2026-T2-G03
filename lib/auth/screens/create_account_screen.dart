@@ -323,8 +323,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9()\-\s]')),
-                      LengthLimitingTextInputFormatter(15),
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(11),
                     ],
                     decoration: _fieldDecoration(
                       context: context,
@@ -339,6 +339,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _cpfController,
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.next,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(11),
+                      ],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: '000.000.000-00',
