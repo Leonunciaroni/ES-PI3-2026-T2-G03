@@ -3,12 +3,14 @@
  * RA: 25005592
  */
 
+import {Timestamp} from "firebase-admin/firestore";
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
   cotacaoBrlFromValuationSeries,
   interpolatePriceBrl,
+  parseGraficoValuationDiario,
   statsLastWindowHours,
 } from "./startupMarketMath.js";
 
@@ -46,4 +48,18 @@ test("interpolatePriceBrl returns midpoint", () => {
   ];
   const p = interpolatePriceBrl(series, mid);
   assert.ok(p != null && Math.abs(p - 50) < 1e-9);
+});
+
+test("parseGraficoValuationDiario aceita Timestamp do Firestore em t", () => {
+  const t1 = Timestamp.fromDate(new Date("2026-04-01T10:00:00.000Z"));
+  const t2 = Timestamp.fromDate(new Date("2026-04-03T10:00:00.000Z"));
+  const parsed = parseGraficoValuationDiario({
+    diario: [
+      {t: t1, v: 10},
+      {t: t2, v: 20},
+    ],
+  });
+  assert.ok(parsed != null && parsed.length === 2);
+  assert.equal(parsed![0]?.v, 10);
+  assert.equal(parsed![1]?.v, 20);
 });
