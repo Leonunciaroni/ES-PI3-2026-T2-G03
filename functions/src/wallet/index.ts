@@ -6,4 +6,6 @@
  */
 
 export {simulateWallet} from "./handlers/simulateWallet.js";
+export {getWalletTokenPerformance} from "./handlers/getWalletTokenPerformance.js";
+export {getStartupMarketStats} from "./handlers/getStartupMarketStats.js";
 export type {SimWalletLedgerOp} from "./types/index.js";
