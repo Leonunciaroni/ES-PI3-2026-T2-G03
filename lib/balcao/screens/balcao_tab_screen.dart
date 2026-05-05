@@ -2,13 +2,17 @@
 // RA: 25005592
 //
 // Aba **Balcão** (índice 2 do [MesclaMainShell]): lista de startups pela callable
-// `listStartups` (como o Explorar), depois “mesa” com saldo mock, compra/venda, lista do dia
-// e fluxo quantidade → modal → senha → detalhe (§5.3 MesclaInvest).
+// `listStartups` (como o Explorar), depois mesa com saldo e histórico reais quando
+// há sessão + `firestoreId`, compra/venda à mercado e fluxo quantidade → modal → senha → detalhe (§5.3 MesclaInvest).
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../carteira/format/carteira_brl.dart';
+import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/data/startup_detail_mock.dart';
 import '../balcao_format.dart';
 import '../../navigation/mescla_material_route.dart';
@@ -38,10 +42,93 @@ String balcaoTickerParaStartup(CatalogStartup s) {
   return '${n.substring(0, 4).toUpperCase()}…';
 }
 
-/// Saldo em **tokens** na mesa (valor estável por startup para demonstração).
-double balcaoSaldoTokensMock(CatalogStartup s) {
-  final h = s.name.hashCode.abs() % 1000;
-  return 50 + h / 10.0;
+bool _balcaoMesmoDiaLocal(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+List<BalcaoTransacaoDia> _filtrarTradesLedgerHojePorStartup({
+  required QuerySnapshot<Map<String, dynamic>> ledgerSnap,
+  required String startupFirestoreId,
+  required DateTime agoraLocal,
+}) {
+  final out = <BalcaoTransacaoDia>[];
+
+  for (final doc in ledgerSnap.docs) {
+    final d = doc.data();
+    final ts = d['createdAt'];
+
+    DateTime? whenLocal;
+    if (ts is Timestamp) {
+      whenLocal = ts.toDate();
+    }
+    if (whenLocal == null || !_balcaoMesmoDiaLocal(whenLocal, agoraLocal)) {
+      continue;
+    }
+
+    final op = d['op'] as String?;
+    if (op != 'trade_buy' && op != 'trade_sell') continue;
+
+    final sid = d['startupId'];
+    final sidStr = sid is String ? sid : '';
+    if (sidStr.isEmpty || sidStr != startupFirestoreId) continue;
+
+    final amount = d['amountBrl'];
+    final vb = amount is num ? amount.toDouble() : 0.0;
+    if (!(vb > 0)) continue;
+
+    final tipo = op == 'trade_buy'
+        ? BalcaoOperacaoTipo.compra
+        : BalcaoOperacaoTipo.venda;
+
+    final headline =
+        clipLedgerHeadline(d['headline']) ?? 'Mercado · Balcão simulado';
+
+    out.add(
+      BalcaoTransacaoDia(
+        tipo: tipo,
+        resumo: headline,
+        valorReais: vb,
+        dataHora: whenLocal,
+      ),
+    );
+  }
+
+  out.sort((a, b) {
+    final ta =
+        a.dataHora ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final tb =
+        b.dataHora ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    return tb.compareTo(ta);
+  });
+
+  return out;
+}
+
+/// Headline auditorável truncada só para lista do dia na UI (evita texto vazio estranho).
+String? clipLedgerHeadline(dynamic raw) {
+  if (raw is! String || raw.trim().isEmpty) return null;
+  final s = raw.trim();
+  const maxLen = 80;
+  return s.length > maxLen ? '${s.substring(0, maxLen)}…' : s;
+}
+
+bool _mesaFirebaseAppsProntos() {
+  try {
+    return Firebase.apps.isNotEmpty;
+  } catch (_) {
+    return false;
+  }
+}
+
+String _balcaoLinhaSubtitleExtrato(BalcaoTransacaoDia item) {
+  final quando = item.dataHora;
+  if (quando == null) {
+    return item.resumo;
+  }
+  final h = quando.hour.toString().padLeft(2, '0');
+  final m = quando.minute.toString().padLeft(2, '0');
+  return '${item.resumo} · $h:$m';
 }
 
 /// Converte a série de valuation (mock) numa curva de **preço do token em BRL**,
@@ -86,27 +173,6 @@ double? balcaoVariacao24hPercentual(List<double> serie) {
 String balcaoBrlDisponivel(double valorReais, bool precoConhecido) {
   if (!precoConhecido || !valorReais.isFinite) return '—';
   return formatBrl(valorReais);
-}
-
-/// Lista de movimentações “de hoje” — valores fixos para demo.
-List<BalcaoTransacaoDia> balcaoTransacoesHojeMock(CatalogStartup s) {
-  return [
-    BalcaoTransacaoDia(
-      tipo: BalcaoOperacaoTipo.compra,
-      resumo: 'Balcão de negociação',
-      valorReais: s.tokenPrice * 4,
-    ),
-    BalcaoTransacaoDia(
-      tipo: BalcaoOperacaoTipo.venda,
-      resumo: 'Balcão de negociação',
-      valorReais: s.tokenPrice * 1.5,
-    ),
-    BalcaoTransacaoDia(
-      tipo: BalcaoOperacaoTipo.compra,
-      resumo: 'Balcão de negociação',
-      valorReais: s.tokenPrice * 2,
-    ),
-  ];
 }
 
 /// Tela principal do separador Balcão: primeiro escolhe startup, depois negocia.
@@ -240,6 +306,70 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
         (context) =>
             BalcaoQuantidadeTokensScreen(startup: startup, operacao: operacao),
       ),
+    );
+  }
+
+  /// Evita usar `FirebaseAuth` em testes de widget sem [Firebase.initializeApp].
+  Widget _balcaoMesaSemFirebaseAoVivo({
+    required ThemeData theme,
+    required ColorScheme scheme,
+    required Color onSurface,
+  }) {
+    final mesaStartup = _mesaStartup!;
+    final fut = _mesaDetailFuture;
+    const aviso =
+        'Carteira ao vivo indisponível (Firebase não inicializado neste contexto).';
+
+    Widget coluna(StartupDetailViewData detail) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _balcaoMesaTradingColumn(
+            theme: theme,
+            scheme: scheme,
+            s: mesaStartup,
+            detail: detail,
+            onPeriodo: (ValuationPeriod p) =>
+                setState(() => _periodoCotacao = p),
+            comprar: () =>
+                _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
+            vender: () =>
+                _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+            saldoTokensHeld: 0,
+            disponivelCarteiraBrlTexto: '—',
+            totalPosicaoBrlTexto: '—',
+          ),
+          const SizedBox(height: 28),
+          Text(
+            'Transações de hoje · mercado',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: onSurface,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            aviso,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: AppColors.secondaryLabel(theme),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (fut == null) {
+      return coluna(startupDetailFor(mesaStartup));
+    }
+    return FutureBuilder<StartupDetailViewData?>(
+      future: fut,
+      builder: (context, snapshot) {
+        final StartupDetailViewData detail =
+            snapshot.hasData && snapshot.data != null
+                ? snapshot.data!
+                : startupDetailFor(mesaStartup);
+        return coluna(detail);
+      },
     );
   }
 
@@ -407,62 +537,224 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
               ] else ...[
                 _BalcaoMesaTopRow(onBack: _limparMesa),
                 const SizedBox(height: 20),
-                Builder(
-                  builder: (context) {
-                    final s = _mesaStartup!;
-                    final fut = _mesaDetailFuture;
-                    if (fut == null) {
-                      return _balcaoMesaTradingColumn(
-                        theme: theme,
-                        scheme: scheme,
-                        s: s,
-                        detail: startupDetailFor(s),
-                        onPeriodo: (p) => setState(() => _periodoCotacao = p),
-                        comprar: () =>
-                            _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
-                        vender: () =>
-                            _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
+                if (!_mesaFirebaseAppsProntos())
+                  _balcaoMesaSemFirebaseAoVivo(
+                    theme: theme,
+                    scheme: scheme,
+                    onSurface: onSurface,
+                  )
+                else
+                  StreamBuilder<User?>(
+                  stream: FirebaseAuth.instance.authStateChanges(),
+                  builder: (context, authSnap) {
+                    final mesaStartup = _mesaStartup!;
+                    final fid = mesaStartup.firestoreId?.trim();
+                    final user = authSnap.data;
+                    final carteiraAoVivo =
+                        user != null &&
+                        fid != null &&
+                        fid.isNotEmpty;
+
+                    Widget montarPainelCarteiraStreams({
+                      required StartupDetailViewData detail,
+                      required double saldoTokensEmCarteira,
+                      required String disponivelBrlFmt,
+                      required String avisoConvidado,
+                    }) {
+                      final precoConhecido = mesaStartup.tokenPrice > 1e-9;
+                      final totalPosicaoFmt = !carteiraAoVivo
+                          ? '—'
+                          : !precoConhecido
+                              ? '—'
+                              : balcaoBrlDisponivel(
+                                  saldoTokensEmCarteira *
+                                      mesaStartup.tokenPrice,
+                                  true,
+                                );
+
+                      if (!carteiraAoVivo) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _balcaoMesaTradingColumn(
+                              theme: theme,
+                              scheme: scheme,
+                              s: mesaStartup,
+                              detail: detail,
+                              onPeriodo: (ValuationPeriod p) =>
+                                  setState(() => _periodoCotacao = p),
+                              comprar: () => _iniciarFluxoOperacao(
+                                BalcaoOperacaoTipo.compra,
+                              ),
+                              vender: () => _iniciarFluxoOperacao(
+                                BalcaoOperacaoTipo.venda,
+                              ),
+                              saldoTokensHeld: saldoTokensEmCarteira,
+                              disponivelCarteiraBrlTexto: disponivelBrlFmt,
+                              totalPosicaoBrlTexto: totalPosicaoFmt,
+                            ),
+                            const SizedBox(height: 28),
+                            Text(
+                              'Transações de hoje · mercado',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: onSurface,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              avisoConvidado,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: AppColors.secondaryLabel(theme),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      return StreamBuilder<
+                        QuerySnapshot<Map<String, dynamic>>
+                      >(
+                        stream: SimulatedWalletService.watchLedger(
+                          user!.uid,
+                          limit: 100,
+                        ),
+                        builder: (context, ledgerShot) {
+                          final txs = ledgerShot.hasData
+                              ? _filtrarTradesLedgerHojePorStartup(
+                                  ledgerSnap: ledgerShot.data!,
+                                  startupFirestoreId: fid!,
+                                  agoraLocal: DateTime.now(),
+                                )
+                              : const <BalcaoTransacaoDia>[];
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _balcaoMesaTradingColumn(
+                                theme: theme,
+                                scheme: scheme,
+                                s: mesaStartup,
+                                detail: detail,
+                                onPeriodo: (ValuationPeriod p) =>
+                                    setState(() => _periodoCotacao = p),
+                                comprar: () => _iniciarFluxoOperacao(
+                                  BalcaoOperacaoTipo.compra,
+                                ),
+                                vender: () => _iniciarFluxoOperacao(
+                                  BalcaoOperacaoTipo.venda,
+                                ),
+                                saldoTokensHeld: saldoTokensEmCarteira,
+                                disponivelCarteiraBrlTexto: disponivelBrlFmt,
+                                totalPosicaoBrlTexto: totalPosicaoFmt,
+                              ),
+                              const SizedBox(height: 28),
+                              Text(
+                                'Transações de hoje · mercado',
+                                style:
+                                    theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: onSurface,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              if (ledgerShot.connectionState ==
+                                      ConnectionState.waiting &&
+                                  !ledgerShot.hasData)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child:
+                                      Center(child: CircularProgressIndicator()),
+                                )
+                              else if (txs.isEmpty)
+                                Text(
+                                  'Nenhuma compra ou venda neste par hoje.',
+                                  style:
+                                      theme.textTheme.bodyMedium?.copyWith(
+                                    color:
+                                        AppColors.secondaryLabel(theme),
+                                  ),
+                                )
+                              else
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (final tx in txs) ...[
+                                      _TransacaoDiaTile(
+                                        item: tx,
+                                        primary: scheme.primary,
+                                        theme: theme,
+                                      ),
+                                      const SizedBox(height: 10),
+                                    ],
+                                  ],
+                                ),
+                            ],
+                          );
+                        },
                       );
+                    }
+
+                    Widget tradingComCarteiraAoVivo(
+                      StartupDetailViewData detail,
+                    ) {
+                      final u = user!;
+                      return StreamBuilder<double>(
+                        stream: SimulatedWalletService.watchTokensHeld(
+                          u.uid,
+                          fid!,
+                        ),
+                        builder: (context, posShot) {
+                          return StreamBuilder<double>(
+                            stream: SimulatedWalletService.watchBrlBalance(
+                              u.uid,
+                            ),
+                            builder: (context, brlShot) {
+                              final saldoT = posShot.data ?? 0;
+                              final brlSaldoCarteira =
+                                  brlShot.data ?? 0;
+                              return montarPainelCarteiraStreams(
+                                detail: detail,
+                                saldoTokensEmCarteira: saldoT,
+                                disponivelBrlFmt: formatBrl(
+                                  brlSaldoCarteira,
+                                ),
+                                avisoConvidado: '',
+                              );
+                            },
+                          );
+                        },
+                      );
+                    }
+
+                    final fut = _mesaDetailFuture;
+                    if (!carteiraAoVivo) {
+                      final detail = startupDetailFor(mesaStartup);
+                      return montarPainelCarteiraStreams(
+                        detail: detail,
+                        saldoTokensEmCarteira: 0,
+                        disponivelBrlFmt: '—',
+                        avisoConvidado:
+                            'Para ver tokens e extrato ligados ao Balcão, entre com conta e-mail neste equipamento.',
+                      );
+                    }
+                    if (fut == null) {
+                      final detail = startupDetailFor(mesaStartup);
+                      return tradingComCarteiraAoVivo(detail);
                     }
                     return FutureBuilder<StartupDetailViewData?>(
                       future: fut,
                       builder: (context, snapshot) {
                         final StartupDetailViewData detail =
                             snapshot.hasData && snapshot.data != null
-                            ? snapshot.data!
-                            : startupDetailFor(s);
-                        return _balcaoMesaTradingColumn(
-                          theme: theme,
-                          scheme: scheme,
-                          s: s,
-                          detail: detail,
-                          onPeriodo: (p) => setState(() => _periodoCotacao = p),
-                          comprar: () =>
-                              _iniciarFluxoOperacao(BalcaoOperacaoTipo.compra),
-                          vender: () =>
-                              _iniciarFluxoOperacao(BalcaoOperacaoTipo.venda),
-                        );
+                                ? snapshot.data!
+                                : startupDetailFor(mesaStartup);
+                        return tradingComCarteiraAoVivo(detail);
                       },
                     );
                   },
                 ),
-                const SizedBox(height: 28),
-                Text(
-                  'Transações de hoje',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: onSurface,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                for (final tx in balcaoTransacoesHojeMock(_mesaStartup!)) ...[
-                  _TransacaoDiaTile(
-                    item: tx,
-                    primary: scheme.primary,
-                    theme: theme,
-                  ),
-                  const SizedBox(height: 10),
-                ],
               ],
             ],
           ),
@@ -500,6 +792,9 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     required ValueChanged<ValuationPeriod> onPeriodo,
     required VoidCallback comprar,
     required VoidCallback vender,
+    required double saldoTokensHeld,
+    required String disponivelCarteiraBrlTexto,
+    required String totalPosicaoBrlTexto,
   }) {
     final cotacao = _serieCotacaoTokenBrl(
       detail.chartSeriesByPeriod[_periodoCotacao]!,
@@ -511,11 +806,18 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     );
     final p24 = diarioBrl.valuationMillions;
     final precoConhecido = s.tokenPrice > 1e-9;
-    final saldoTok = balcaoSaldoTokensMock(s);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text(
+          'Ordem à mercado · execução imediata pela cotação publicada.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: AppColors.secondaryLabel(theme),
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 14),
         _MesaTokenCard(
           pairLabel: '${balcaoTickerParaStartup(s).toUpperCase()} / BRL',
           nomeStartup: s.name,
@@ -528,14 +830,20 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           max24h: p24.isEmpty
               ? '—'
               : formatBrl(p24.reduce((a, b) => a > b ? a : b)),
-          saldoTokens: saldoTok,
-          saldoReaisTexto: balcaoBrlDisponivel(
-            saldoTok * s.tokenPrice,
-            precoConhecido,
-          ),
+          saldoTokens: saldoTokensHeld,
+          disponivelCarteiraBrlTexto: disponivelCarteiraBrlTexto,
+          totalPosicaoBrlTexto: totalPosicaoBrlTexto,
           corLogo: s.logoColor,
           icone: s.logoIcon,
           logoPath: s.logoPath,
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'Comprar usa o disponível na carteira; vender debita apenas desta startup.',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: AppColors.secondaryLabel(theme),
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 20),
         Row(
@@ -553,7 +861,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text('Comprar'),
+                child: const Text('Comprar mercado'),
               ),
             ),
             const SizedBox(width: 12),
@@ -569,7 +877,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text('Vender'),
+                child: const Text('Vender mercado'),
               ),
             ),
           ],
@@ -736,7 +1044,8 @@ class _MesaTokenCard extends StatelessWidget {
     required this.min24h,
     required this.max24h,
     required this.saldoTokens,
-    required this.saldoReaisTexto,
+    required this.disponivelCarteiraBrlTexto,
+    required this.totalPosicaoBrlTexto,
     required this.corLogo,
     required this.icone,
     this.logoPath,
@@ -756,7 +1065,11 @@ class _MesaTokenCard extends StatelessWidget {
   final String min24h;
   final String max24h;
   final double saldoTokens;
-  final String saldoReaisTexto;
+  /// Saldo livre em BRL na carteira simulada (compras à mercado).
+  final String disponivelCarteiraBrlTexto;
+
+  /// Posição token × cotação atual (estimativa instantânea para o par).
+  final String totalPosicaoBrlTexto;
   final Color corLogo;
   final IconData icone;
   final String? logoPath;
@@ -888,7 +1201,26 @@ class _MesaTokenCard extends StatelessWidget {
                   Container(height: 1, color: AppColors.cardDivider(theme)),
                   const SizedBox(height: 12),
                   Text(
-                    'Saldo (quantidade)',
+                    'Disponível para compras (BRL)',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.secondaryLabel(theme),
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.55,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    disponivelCarteiraBrlTexto,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: onSurface,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(height: 1, color: AppColors.cardDivider(theme)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Saldo tokens (posição nesta startup)',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
@@ -904,7 +1236,7 @@ class _MesaTokenCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Saldo em reais',
+                    'Total estimado da posição (BRL)',
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: AppColors.secondaryLabel(theme),
                       fontWeight: FontWeight.w600,
@@ -912,7 +1244,7 @@ class _MesaTokenCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    saldoReaisTexto,
+                    totalPosicaoBrlTexto,
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: onSurface,
                       fontWeight: FontWeight.w600,
@@ -967,7 +1299,7 @@ class _TransacaoDiaTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.resumo,
+                    _balcaoLinhaSubtitleExtrato(item),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppColors.secondaryLabel(theme),
                     ),

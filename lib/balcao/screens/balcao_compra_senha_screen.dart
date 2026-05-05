@@ -26,11 +26,17 @@ class BalcaoCompraSenhaScreen extends StatefulWidget {
     required this.startup,
     required this.operacao,
     required this.valorReaisOperacao,
+    required this.quantidadeTokensNegocio,
   });
 
   final CatalogStartup startup;
   final BalcaoOperacaoTipo operacao;
+
+  /// Total em reais já alinhado ao contrato do backend ([balcaoResolveMercadoDesdeBrl] ou quantidade).
   final double valorReaisOperacao;
+
+  /// Quantidade de tokens enviada ao `simulateWallet`.
+  final double quantidadeTokensNegocio;
 
   @override
   State<BalcaoCompraSenhaScreen> createState() => _BalcaoCompraSenhaScreenState();
@@ -42,11 +48,8 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   String? _erro;
   bool _enviando = false;
 
-  double get _quantidadeTokensCalculada {
-    final p = widget.startup.tokenPrice;
-    if (p <= 0) return 0;
-    return widget.valorReaisOperacao / p;
-  }
+  double get _quantidadeTokensNegocio =>
+      widget.quantidadeTokensNegocio;
 
   @override
   void dispose() {
@@ -135,14 +138,14 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
           await SimulatedWalletService.tradeBuy(
             startup: widget.startup,
             valorReais: widget.valorReaisOperacao,
-            quantidadeTokens: _quantidadeTokensCalculada,
+            quantidadeTokens: _quantidadeTokensNegocio,
           );
           break;
         case BalcaoOperacaoTipo.venda:
           await SimulatedWalletService.tradeSell(
             startup: widget.startup,
             valorReais: widget.valorReaisOperacao,
-            quantidadeTokens: _quantidadeTokensCalculada,
+            quantidadeTokens: _quantidadeTokensNegocio,
           );
           break;
       }
@@ -162,7 +165,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
     final detalhe = BalcaoTransacaoDetalhe(
       operacao: widget.operacao,
       nomeToken: _nomeToken,
-      quantidadeTokens: _quantidadeTokensCalculada,
+      quantidadeTokens: _quantidadeTokensNegocio,
       valorReais: widget.valorReaisOperacao,
       dataHora: agora,
       status: 'Concluída',
@@ -227,7 +230,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${formatBrl(widget.valorReaisOperacao)} ≈ ${formatQuantidadeTokensBr(_quantidadeTokensCalculada)} tokens',
+                '${formatBrl(widget.valorReaisOperacao)} · ${formatQuantidadeTokensBr(_quantidadeTokensNegocio)} tokens',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.secondaryLabel(theme),
                 ),

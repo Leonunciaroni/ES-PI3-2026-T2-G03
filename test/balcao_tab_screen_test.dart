@@ -71,7 +71,7 @@ void main() {
       expect(find.text('CyberMesh'), findsOneWidget);
     });
 
-    testWidgets('toque na startup abre mesa com Comprar e lista do dia', (tester) async {
+    testWidgets('toque na startup abre mesa mercado e mensagem de login', (tester) async {
       await tester.pumpWidget(_wrapBalcaoTabScreen());
       await tester.pumpAndSettle();
 
@@ -81,13 +81,17 @@ void main() {
       expect(find.text('GFLO / BRL'), findsOneWidget);
       expect(find.text('GreenFlow'), findsWidgets);
       expect(find.text('Histórico de cotação'), findsOneWidget);
-      expect(find.text('Comprar'), findsOneWidget);
-      expect(find.text('Vender'), findsOneWidget);
-      expect(find.text('Transações de hoje'), findsOneWidget);
+      expect(find.text('Comprar mercado'), findsOneWidget);
+      expect(find.text('Vender mercado'), findsOneWidget);
+      expect(find.textContaining('Transações de hoje'), findsOneWidget);
+      expect(
+        find.textContaining('Carteira ao vivo indisponível'),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
-      'Comprar abre quantidade, Continuar, modal e senha',
+      'Continuar compra pede sessão quando não há login',
       (tester) async {
       await tester.pumpWidget(_wrapBalcaoTabScreen());
       await tester.pumpAndSettle();
@@ -95,27 +99,21 @@ void main() {
       await tester.tap(find.text('GFLO').first);
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('Comprar'));
+      await tester.ensureVisible(find.text('Comprar mercado'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Comprar'));
+      await tester.tap(find.text('Comprar mercado'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Valor do investimento'), findsOneWidget);
+      expect(find.textContaining('Valor do investimento'), findsOneWidget);
       expect(find.text('Continuar'), findsOneWidget);
 
       await tester.tap(find.text('Continuar'));
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('Deseja confirmar o investimento de'),
+        find.textContaining('Inicie sessão para usar o balcão'),
         findsOneWidget,
       );
-
-      await tester.tap(find.text('Confirmar'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Confirmar compra'), findsWidgets);
-      expect(find.text('Senha do login'), findsOneWidget);
     });
   });
 }
