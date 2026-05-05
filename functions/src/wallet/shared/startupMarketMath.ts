@@ -10,6 +10,8 @@
  * Isto aproxima o visual de uma corretora sem usar blockchain real (fora do §5.6).
  */
 
+import {Timestamp} from "firebase-admin/firestore";
+
 export type PricePoint = { readonly t: Date; readonly priceBrl: number };
 
 /**
@@ -147,6 +149,35 @@ function readOptionalNumber(v: unknown): number | undefined {
   return undefined;
 }
 
+/** Lê `t` / `T` como no Firestore: [Timestamp], ISO string ou epoch ms. */
+export function readChartInstant(v: unknown): Date | null {
+  if (v instanceof Timestamp) {
+    return v.toDate();
+  }
+  if (
+    v &&
+    typeof v === "object" &&
+    "toDate" in (v as object) &&
+    typeof (v as {toDate: () => unknown}).toDate === "function"
+  ) {
+    try {
+      const d = (v as {toDate: () => Date}).toDate();
+      return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+    } catch {
+      return null;
+    }
+  }
+  if (typeof v === "string") {
+    const d = new Date(v.trim());
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
 /**
  * Extrai lista (t, v) do mapa `grafico_valuation` na chave `diario` (ou `Diario`).
  */
@@ -167,12 +198,8 @@ export function parseGraficoValuationDiario(
       continue;
     }
     const m = item as Record<string, unknown>;
-    const ts = m["t"];
-    if (typeof ts !== "string") {
-      continue;
-    }
-    const t = new Date(ts);
-    if (Number.isNaN(t.getTime())) {
+    const t = readChartInstant(m["t"]) ?? readChartInstant(m["T"]);
+    if (!t) {
       continue;
     }
     const v =
