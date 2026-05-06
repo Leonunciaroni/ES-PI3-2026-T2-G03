@@ -42,20 +42,10 @@ import 'sacar_valor_screen.dart';
 DateTime _carteiraInicioDiaLocal(DateTime now) =>
     DateTime(now.year, now.month, now.day);
 
-/// Início da **semana civil** local (segunda-feira 00:00), como em `weekday` do Dart.
-DateTime _carteiraInicioSemanaLocal(DateTime now) {
+/// Início da janela **deslizante** de [dias] dias civis (00:00 local há [dias] dias).
+DateTime _carteiraInicioJanelaDeslizante(DateTime now, int dias) {
   final sod = _carteiraInicioDiaLocal(now);
-  return sod.subtract(Duration(days: now.weekday - 1));
-}
-
-/// Início do **mês civil** local (dia 1, 00:00).
-DateTime _carteiraInicioMesLocal(DateTime now) =>
-    DateTime(now.year, now.month, 1);
-
-/// Início da janela **6 meses** (aprox. 183 dias até ao fim do dia de hoje).
-DateTime _carteiraInicioSeisMesesLocal(DateTime now) {
-  final sod = _carteiraInicioDiaLocal(now);
-  return sod.subtract(const Duration(days: 183));
+  return sod.subtract(Duration(days: dias));
 }
 
 List<DateTime> _carteiraAmostrasTempoEntre({
@@ -108,22 +98,22 @@ ValuationChartSeries carteiraSaldoSeries(ValuationPeriod p, [DateTime? agora]) {
   );
 }
 
-/// Início da janela temporal de cada chip do gráfico (inclusivo), alinhado ao rótulo:
-/// - **DIÁRIO**: apenas o dia civil corrente (desde 00:00 local).
-/// - **SEMANAL**: desde a segunda-feira da semana corrente (00:00 local).
-/// - **MENSAL**: desde o dia 1 do mês corrente.
-/// - **6 MESES**: últimos 183 dias (início no começo desse dia).
-/// - **YTD**: 1 de janeiro do ano corrente.
+/// Início da janela temporal de cada chip do gráfico (inclusivo):
+/// - **DIÁRIO**: dia civil corrente (desde 00:00 local até agora).
+/// - **SEMANAL**: últimos 7 dias (desde 00:00 local há 7 dias).
+/// - **MENSAL**: últimos 30 dias (desde 00:00 local há 30 dias).
+/// - **6 MESES**: últimos 180 dias (desde 00:00 local há 180 dias).
+/// - **YTD**: 1 de janeiro do ano corrente (00:00 local).
 DateTime _carteiraInicioPeriodo(ValuationPeriod p, DateTime now) {
   switch (p) {
     case ValuationPeriod.diario:
       return _carteiraInicioDiaLocal(now);
     case ValuationPeriod.semanal:
-      return _carteiraInicioSemanaLocal(now);
+      return _carteiraInicioJanelaDeslizante(now, 7);
     case ValuationPeriod.mensal:
-      return _carteiraInicioMesLocal(now);
+      return _carteiraInicioJanelaDeslizante(now, 30);
     case ValuationPeriod.seisMeses:
-      return _carteiraInicioSeisMesesLocal(now);
+      return _carteiraInicioJanelaDeslizante(now, 180);
     case ValuationPeriod.ytd:
       return DateTime(now.year, 1, 1);
   }
@@ -252,19 +242,6 @@ ValuationChartSeries saldoBrlEvolucaoSeries({
   return ValuationChartSeries(
     valuationMillions: values,
     sampleTimes: times,
-  );
-}
-
-ValuationChartSeries? chartSeriesFromWalletTokenPerf(
-  Map<String, dynamic> data,
-) {
-  final times = data['sampleTimesIso'];
-  final vals = data['valuesBrl'];
-  if (times is! List || vals is! List) return null;
-  if (times.length != vals.length || times.isEmpty) return null;
-  return ValuationChartSeries(
-    valuationMillions: vals.map((e) => (e as num).toDouble()).toList(),
-    sampleTimes: times.map((e) => DateTime.parse(e as String)).toList(),
   );
 }
 
@@ -980,15 +957,26 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         final saldoErro = balSnap.hasError;
         final brlNow = saldoErro ? 0.0 : (balSnap.data ?? 0.0);
 
-        return FutureBuilder<Map<String, dynamic>?>(
-          key: ValueKey<Object>('wtp_${uid}_$_periodo'),
-          future: SimulatedWalletService.fetchWalletTokenPerformance(
-            period: _periodo.name,
+        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: SimulatedWalletService.watchLedgerRecentForChart(
+            uid,
+            limit: 2000,
           ),
-          builder: (context, perfSnap) {
-            if (perfSnap.connectionState == ConnectionState.waiting &&
-                perfSnap.data == null &&
-                perfSnap.error == null) {
+          builder: (context, snap) {
+            if (snap.hasError) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Gráfico indisponível (${snap.error}).',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
+                ),
+              );
+            }
+            if (snap.connectionState == ConnectionState.waiting &&
+                !snap.hasData) {
               return SizedBox(
                 height: 280,
                 child: Center(
@@ -997,74 +985,25 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               );
             }
 
-            final perf = perfSnap.data;
-            final chartFromServer =
-                perf != null ? chartSeriesFromWalletTokenPerf(perf) : null;
+            final now = DateTime.now();
+            final series = saldoBrlEvolucaoSeries(
+              docsNewestFirst: snap.data?.docs ?? const [],
+              periodo: _periodo,
+              now: now,
+              brlNow: brlNow,
+            );
 
-            if (chartFromServer != null &&
-                chartFromServer.valuationMillions.length >= 2) {
-              final fn = (perf!['footnote'] as String?) ?? '';
-              return ValuationEvolutionChartCard(
-                selected: _periodo,
-                onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
-                series: chartFromServer,
-                primary: colorScheme.primary,
-                title: 'Valorização dos tokens',
-                footnote: fn,
-                formatYAxis: formatBrl,
-                formatTooltip: formatBrl,
-                touchListenerKey:
-                    const ValueKey<String>('carteira_saldo_chart_touch'),
-              );
-            }
-
-            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
-              builder: (context, snap) {
-                if (snap.hasError) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'Gráfico indisponível (${snap.error}).',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.secondaryLabel(theme),
-                      ),
-                    ),
-                  );
-                }
-                if (snap.connectionState == ConnectionState.waiting &&
-                    !snap.hasData) {
-                  return SizedBox(
-                    height: 280,
-                    child: Center(
-                      child: CircularProgressIndicator(color: colorScheme.primary),
-                    ),
-                  );
-                }
-
-                final now = DateTime.now();
-                final series = saldoBrlEvolucaoSeries(
-                  docsNewestFirst: snap.data?.docs ?? const [],
-                  periodo: _periodo,
-                  now: now,
-                  brlNow: brlNow,
-                );
-
-                return ValuationEvolutionChartCard(
-                  selected: _periodo,
-                  onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
-                  series: series,
-                  primary: colorScheme.primary,
-                  title: tituloGrafico,
-                  footnote:
-                      'Sem valorização de tokens no servidor — saldo em BRL.',
-                  formatYAxis: formatBrl,
-                  formatTooltip: formatBrl,
-                  touchListenerKey:
-                      const ValueKey<String>('carteira_saldo_chart_touch'),
-                );
-              },
+            return ValuationEvolutionChartCard(
+              selected: _periodo,
+              onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
+              series: series,
+              primary: colorScheme.primary,
+              title: tituloGrafico,
+              footnote: '',
+              formatYAxis: formatBrl,
+              formatTooltip: formatBrl,
+              touchListenerKey:
+                  const ValueKey<String>('carteira_saldo_chart_touch'),
             );
           },
         );
