@@ -128,13 +128,21 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
+  /// Celular BR: 11 dígitos (DDD + 9 + 8), com 9 após o DDD (padrão atual).
+  bool _isValidBrazilMobilePhone(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 11) return false;
+    if (digits[2] != '9') return false;
+    return true;
+  }
+
   bool _isValidCPF(String value) {
     final cpf = value.replaceAll(RegExp(r'[^0-9]'), '');
-    
+
     if (cpf.isEmpty) return false;
     if (cpf.length != 11) return false;
-    
-    if (RegExp(r'^(\d)\1{10}$').hasMatch(cpf)) return false; 
+
+    if (RegExp(r'^(\d)\1{10}$').hasMatch(cpf)) return false;
 
     int sum = 0;
     for (int i = 0; i < 9; i++) {
@@ -170,6 +178,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     if (name.isEmpty || email.isEmpty || phone.isEmpty || cpf.isEmpty) {
       _showFeatureMessage('Preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    if (!_isValidBrazilMobilePhone(phone)) {
+      _showFeatureMessage(
+        'Telefone celular inválido. Informe DDD + 9 dígitos, no formato '
+        '(XX) 9XXXX-XXXX.',
+      );
       return;
     }
 
@@ -210,18 +226,23 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
+    final phoneDigits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final cpfDigits = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+
     setState(() => _isSubmitting = true);
     try {
       await UserFirestoreService.createUserWithEmailAndPassword(
         name: name,
         email: email,
-        phone: phone,
-        cpf: cpf,
+        phone: phoneDigits,
+        cpf: cpfDigits,
         password: password,
       );
 
       if (!mounted) return;
-      _showFeatureMessage('Conta criada com sucesso. Faça login para continuar.');
+      _showFeatureMessage(
+        'Conta criada com sucesso. Faça login para continuar.',
+      );
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
       );
@@ -333,8 +354,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
-                    inputFormatters: 
-                    [_phoneFormatter],
+                    inputFormatters: [_phoneFormatter],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: 'Ex: (19) 99999-9999',
@@ -348,8 +368,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _cpfController,
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.next,
-                      inputFormatters: 
-                         [_cpfFormatter],
+                    inputFormatters: [_cpfFormatter],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: '000.000.000-00',
