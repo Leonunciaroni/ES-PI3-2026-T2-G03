@@ -45,13 +45,30 @@ String balcaoTickerParaStartup(CatalogStartup s) {
   return '${n.substring(0, 4).toUpperCase()}…';
 }
 
-bool _balcaoMesmoDiaLocal(DateTime a, DateTime b) =>
-    a.year == b.year && a.month == b.month && a.day == b.day;
+DateTime _balcaoDiaCivilLocal(DateTime d) =>
+    DateTime(d.year, d.month, d.day);
 
-List<BalcaoTransacaoDia> _filtrarTradesLedgerHojePorStartup({
+bool _balcaoTransacaoNoIntervaloDias({
+  required DateTime whenLocal,
+  required DateTime inicioDiaInclusive,
+  required DateTime fimDiaInclusive,
+}) {
+  final dia = _balcaoDiaCivilLocal(whenLocal);
+  final a = _balcaoDiaCivilLocal(inicioDiaInclusive);
+  final b = _balcaoDiaCivilLocal(fimDiaInclusive);
+  return !dia.isBefore(a) && !dia.isAfter(b);
+}
+
+String _balcaoFmtDataCurta(DateTime d) =>
+    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+/// Compras/vendas à mercado no ledger, filtradas pela startup e por **dias civis**
+/// locais `[inicioDiaLocalInclusive, fimDiaLocalInclusive]`.
+List<BalcaoTransacaoDia> _filtrarTradesLedgerPorStartupEIntervalo({
   required QuerySnapshot<Map<String, dynamic>> ledgerSnap,
   required String startupFirestoreId,
-  required DateTime agoraLocal,
+  required DateTime inicioDiaLocalInclusive,
+  required DateTime fimDiaLocalInclusive,
 }) {
   final out = <BalcaoTransacaoDia>[];
 
@@ -63,7 +80,12 @@ List<BalcaoTransacaoDia> _filtrarTradesLedgerHojePorStartup({
     if (ts is Timestamp) {
       whenLocal = ts.toDate();
     }
-    if (whenLocal == null || !_balcaoMesmoDiaLocal(whenLocal, agoraLocal)) {
+    if (whenLocal == null ||
+        !_balcaoTransacaoNoIntervaloDias(
+          whenLocal: whenLocal,
+          inicioDiaInclusive: inicioDiaLocalInclusive,
+          fimDiaInclusive: fimDiaLocalInclusive,
+        )) {
       continue;
     }
 
@@ -129,9 +151,10 @@ String _balcaoLinhaSubtitleExtrato(BalcaoTransacaoDia item) {
   if (quando == null) {
     return item.resumo;
   }
+  final data = _balcaoFmtDataCurta(quando);
   final h = quando.hour.toString().padLeft(2, '0');
   final m = quando.minute.toString().padLeft(2, '0');
-  return '${item.resumo} · $h:$m';
+  return '${item.resumo} · $data · $h:$m';
 }
 
 /// Variação % na série 24h — [null] se não for calculável (ex.: cotação base ~0, evita NaN%).
@@ -204,6 +227,10 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
   /// Filtro do gráfico de cotação (mesmos períodos do detalhe da startup).
   ValuationPeriod _periodoCotacao = ValuationPeriod.mensal;
 
+  /// Primeiro e último dia civil (local) para listar compras/vendas na mesa (inclusive).
+  late DateTime _mesaExtratoFiltroInicioDia;
+  late DateTime _mesaExtratoFiltroFimDia;
+
   static const _horizontalPadding = 20.0;
 
   /// Scroll do corpo: ao alternar lista ↔ mesa, voltamos ao topo (evita offset estranho).
@@ -233,6 +260,10 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
         mesa!.firestoreId!,
       );
     }
+    final n = DateTime.now();
+    final hoje = DateTime(n.year, n.month, n.day);
+    _mesaExtratoFiltroInicioDia = hoje;
+    _mesaExtratoFiltroFimDia = hoje;
     _syncMesaMarketRefreshTimer();
   }
 
@@ -296,9 +327,44 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
       _mesaDetailFuture = s.firestoreId != null
           ? _functionsService.fetchStartupDetail(s.firestoreId!)
           : null;
+      final n = DateTime.now();
+      final hoje = DateTime(n.year, n.month, n.day);
+      _mesaExtratoFiltroInicioDia = hoje;
+      _mesaExtratoFiltroFimDia = hoje;
     });
     _syncMesaMarketRefreshTimer();
     _jumpBodyScrollTop();
+  }
+
+  /// Intervalo de datas do extrato da mesa (compras/vendas à mercado).
+  Future<void> _mesaEscolherPeriodoExtrato() async {
+    final now = DateTime.now();
+    final hoje = DateTime(now.year, now.month, now.day);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: hoje,
+      initialDateRange: DateTimeRange(
+        start: _mesaExtratoFiltroInicioDia,
+        end: _mesaExtratoFiltroFimDia,
+      ),
+    );
+    if (!mounted || picked == null) return;
+    setState(() {
+      _mesaExtratoFiltroInicioDia =
+          DateTime(picked.start.year, picked.start.month, picked.start.day);
+      _mesaExtratoFiltroFimDia =
+          DateTime(picked.end.year, picked.end.month, picked.end.day);
+    });
+  }
+
+  void _mesaExtratoResetHoje() {
+    final n = DateTime.now();
+    final hoje = DateTime(n.year, n.month, n.day);
+    setState(() {
+      _mesaExtratoFiltroInicioDia = hoje;
+      _mesaExtratoFiltroFimDia = hoje;
+    });
   }
 
   /// Mesma regra do catálogo: nome, categoria, descrição, sigla.
@@ -633,7 +699,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                             ),
                             const SizedBox(height: 28),
                             Text(
-                              'Transações de hoje · mercado',
+                              'Transações · mercado',
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: onSurface,
@@ -653,16 +719,18 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                       return StreamBuilder<
                         QuerySnapshot<Map<String, dynamic>>
                       >(
-                        stream: SimulatedWalletService.watchLedger(
+                        stream: SimulatedWalletService.watchLedgerRecentForChart(
                           user.uid,
-                          limit: 100,
+                          limit: 500,
                         ),
                         builder: (context, ledgerShot) {
                           final txs = ledgerShot.hasData
-                              ? _filtrarTradesLedgerHojePorStartup(
+                              ? _filtrarTradesLedgerPorStartupEIntervalo(
                                   ledgerSnap: ledgerShot.data!,
                                   startupFirestoreId: fid,
-                                  agoraLocal: DateTime.now(),
+                                  inicioDiaLocalInclusive:
+                                      _mesaExtratoFiltroInicioDia,
+                                  fimDiaLocalInclusive: _mesaExtratoFiltroFimDia,
                                 )
                               : const <BalcaoTransacaoDia>[];
 
@@ -689,13 +757,44 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                                 marketStats: marketStats,
                               ),
                               const SizedBox(height: 28),
-                              Text(
-                                'Transações de hoje · mercado',
-                                style:
-                                    theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: onSurface,
-                                ),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Transações · mercado',
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: onSurface,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${_balcaoFmtDataCurta(_mesaExtratoFiltroInicioDia)} – ${_balcaoFmtDataCurta(_mesaExtratoFiltroFimDia)}',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: AppColors.secondaryLabel(
+                                              theme,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _mesaEscolherPeriodoExtrato,
+                                    child: const Text('Período'),
+                                  ),
+                                  TextButton(
+                                    onPressed: _mesaExtratoResetHoje,
+                                    child: const Text('Hoje'),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 12),
                               if (ledgerShot.connectionState ==
@@ -708,7 +807,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                                 )
                               else if (txs.isEmpty)
                                 Text(
-                                  'Nenhuma compra ou venda neste par hoje.',
+                                  'Nenhuma compra ou venda neste par no período.',
                                   style:
                                       theme.textTheme.bodyMedium?.copyWith(
                                     color:
@@ -1384,7 +1483,7 @@ class _MesaTokenCard extends StatelessWidget {
   }
 }
 
-/// Uma linha da lista “transações do dia”.
+/// Uma linha da lista de transações à mercado (compra/venda).
 class _TransacaoDiaTile extends StatelessWidget {
   const _TransacaoDiaTile({
     required this.item,
