@@ -297,6 +297,7 @@ class _StartupMock {
     required this.categoria,
     required this.rendimentoLabel,
     required this.totalInvestido,
+    required this.valorMercadoAtualBrl,
     required this.corLogo,
     required this.icone,
     this.logoPath,
@@ -306,6 +307,9 @@ class _StartupMock {
   final String categoria;
   final String rendimentoLabel;
   final double totalInvestido;
+
+  /// Posição em BRL ao preço atual (mock convidado) — alinhado ao sentido de [rendimentoLabel].
+  final double valorMercadoAtualBrl;
   final Color corLogo;
   final IconData icone;
 
@@ -316,7 +320,7 @@ class _StartupMock {
 String _carteiraFmtDataPortugues(DateTime dt) =>
     '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
 
-/// Roxo (primário) = ~0 % ou sem dado; verde = ganho; vermelho = perda (coerente com movimentações).
+/// Roxo (primário) = ~0 % ou sem dado no **rendimento**; verde/vermelho = ganho/perda.
 Color _carteiraCorRendimentoInvestido({
   required CarteiraInvestidoYieldTone tone,
   required Color schemePrimary,
@@ -332,10 +336,48 @@ Color _carteiraCorRendimentoInvestido({
   }
 }
 
-/// Curva fictícia para o mini gráfico no modo convidado (proporcional ao total investido).
-List<double> _carteiraGuestSparkline(double totalInvestido) {
-  final base = totalInvestido;
-  return List<double>.generate(7, (i) => base * (0.94 + i * 0.015));
+/// Cor do montante **Valor atual** (preto = igual ao investido; verde ↑; vermelho ↓).
+Color _carteiraCorValorAtualMontante({
+  required ThemeData theme,
+  required CarteiraInvestidoYieldTone tone,
+}) {
+  switch (tone) {
+    case CarteiraInvestidoYieldTone.positivo:
+      return const Color(0xFF16A34A);
+    case CarteiraInvestidoYieldTone.negativo:
+      return const Color(0xFFDC2626);
+    case CarteiraInvestidoYieldTone.neutro:
+      return theme.colorScheme.onSurface;
+    case CarteiraInvestidoYieldTone.indefinido:
+      return AppColors.secondaryLabel(theme);
+  }
+}
+
+/// Mini gráfico: mesma lógica de sinal que o valor atual (roxo só sem dados).
+Color _carteiraCorSparklineInvestido({
+  required Color schemePrimary,
+  required CarteiraInvestidoYieldTone tone,
+}) {
+  switch (tone) {
+    case CarteiraInvestidoYieldTone.positivo:
+      return const Color(0xFF16A34A);
+    case CarteiraInvestidoYieldTone.negativo:
+      return const Color(0xFFDC2626);
+    case CarteiraInvestidoYieldTone.neutro:
+    case CarteiraInvestidoYieldTone.indefinido:
+      return schemePrimary;
+  }
+}
+
+/// Curva fictícia do convidado: evolução do custo até ao valor de mercado atual.
+List<double> _carteiraGuestSparkline(double custoBrl, double valorAtualMercadoBrl) {
+  if (!(custoBrl > 0) || !custoBrl.isFinite) {
+    return List<double>.filled(7, valorAtualMercadoBrl);
+  }
+  return List<double>.generate(7, (i) {
+    final t = i / 6.0;
+    return custoBrl + (valorAtualMercadoBrl - custoBrl) * t;
+  });
 }
 
 _MovimentacaoMock _ledgerFirestoreParaLinha(Map<String, dynamic> m) {
@@ -393,11 +435,15 @@ _StartupMock _docPosicaoParaMock(
     tokenPriceBrl: px,
   );
 
+  final valorMercadoAtualBrl =
+      (px > 1e-9 && held.isFinite && held >= 0) ? held * px : cost;
+
   return _StartupMock(
     nome: nome,
     categoria: setor.toUpperCase(),
     rendimentoLabel: rendimentoLabel,
     totalInvestido: cost,
+    valorMercadoAtualBrl: valorMercadoAtualBrl,
     corLogo: catalogMatch?.logoColor ?? firestoreColorForSector(setor),
     icone: catalogMatch?.logoIcon ?? firestoreIconForSector(setor),
     logoPath: catalogMatch?.logoPath,
@@ -533,6 +579,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       categoria: 'AGROTECH',
       rendimentoLabel: '+18.5%',
       totalInvestido: 4200,
+      valorMercadoAtualBrl: 4977,
       corLogo: Color(0xFF22C55E),
       icone: Icons.eco_outlined,
     ),
@@ -541,6 +588,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       categoria: 'CYBERSECURITY',
       rendimentoLabel: '+12.3%',
       totalInvestido: 3150,
+      valorMercadoAtualBrl: 3537,
       corLogo: Color(0xFF18181B),
       icone: Icons.security_outlined,
     ),
@@ -549,6 +597,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       categoria: 'HEALTHTECH',
       rendimentoLabel: '+9.8%',
       totalInvestido: 2800,
+      valorMercadoAtualBrl: 3074,
       corLogo: Color(0xFF14B8A6),
       icone: Icons.favorite_outline,
     ),
@@ -1259,6 +1308,13 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     return formatBrl(value);
   }
 
+  /// Valor de mercado (tokens × cotação): mascarado, `—` se indisponível.
+  String _mercadoBrlParaExibicao(double? value) {
+    if (_hideValues) return 'R\$ ••••••';
+    if (value == null || !value.isFinite) return '—';
+    return formatBrl(value);
+  }
+
   /// Percentagem ou texto de tendência: mascarado ou o texto original.
   String _percentParaExibicao(String value) {
     if (_hideValues) return '•••';
@@ -1441,7 +1497,12 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                   hideValues: _hideValues,
                   rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
                   investidoExibicao: _brlParaExibicao(s.totalInvestido),
-                  sparklineValues: _carteiraGuestSparkline(s.totalInvestido),
+                  valorAtualExibicao:
+                      _mercadoBrlParaExibicao(s.valorMercadoAtualBrl),
+                  sparklineValues: _carteiraGuestSparkline(
+                    s.totalInvestido,
+                    s.valorMercadoAtualBrl,
+                  ),
                   rendimentoTone:
                       carteiraYieldToneFromFormattedLabel(s.rendimentoLabel),
                 ),
@@ -1605,6 +1666,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     tokensHeld: held,
                     tokenPriceBrl: px,
                   );
+                  final mvBrl = (px > 1e-9 && held.isFinite && held >= 0)
+                      ? held * px
+                      : null;
                   final spark = carteiraSingleStartupSparklineValues(
                     trades,
                     startupId: doc.id,
@@ -1620,6 +1684,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                       rendimentoExibicao:
                           _percentParaExibicao(startup.rendimentoLabel),
                       investidoExibicao: _brlParaExibicao(cost),
+                      valorAtualExibicao: _mercadoBrlParaExibicao(mvBrl),
                       sparklineValues: spark,
                       rendimentoTone: rendTone,
                     ),
@@ -2177,6 +2242,7 @@ class _StartupInvestidaCard extends StatelessWidget {
     required this.hideValues,
     required this.rendimentoExibicao,
     required this.investidoExibicao,
+    required this.valorAtualExibicao,
     required this.sparklineValues,
     required this.rendimentoTone,
   });
@@ -2191,6 +2257,9 @@ class _StartupInvestidaCard extends StatelessWidget {
   final String rendimentoExibicao;
   final String investidoExibicao;
 
+  /// Posição em BRL ao preço atual (tokens × cotação), mascarado ou `—`.
+  final String valorAtualExibicao;
+
   /// Evolução da posição em BRL (mesma janela temporal que o gráfico da carteira).
   final List<double> sparklineValues;
 
@@ -2203,6 +2272,14 @@ class _StartupInvestidaCard extends StatelessWidget {
     final corRend = _carteiraCorRendimentoInvestido(
       tone: rendimentoTone,
       schemePrimary: primary,
+    );
+    final corValorAtual = _carteiraCorValorAtualMontante(
+      theme: theme,
+      tone: rendimentoTone,
+    );
+    final corSpark = _carteiraCorSparklineInvestido(
+      schemePrimary: primary,
+      tone: rendimentoTone,
     );
     return Material(
       color: AppColors.themeCardSurface(theme),
@@ -2298,10 +2375,31 @@ class _StartupInvestidaCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Valor atual',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        valorAtualExibicao,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: corValorAtual,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 if (!hideValues)
                   CarteiraInvestedSparkline(
                     values: sparklineValues,
-                    color: corRend,
+                    color: corSpark,
                   ),
               ],
             ),
