@@ -20,7 +20,13 @@ import 'package:flutter/material.dart';
 
 import '../../auth/services/user_firestore_service.dart';
 import '../../catalog/data/startup_detail_mock.dart';
+// Catálogo (`listStartups` via cache): cruzar posições Firestore com `firestoreId`
+// para logo em Storage/URL e metadados — mesmo critério que Explorar/Balcão.
+import '../../catalog/models/catalog_startup.dart';
+import '../../catalog/services/startup_catalog_functions_service.dart';
+import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../catalog/services/startup_firestore_mapper.dart';
+import '../../catalog/widgets/startup_logo_avatar.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/brazil_flag_icon.dart';
@@ -37,6 +43,11 @@ import 'carteira_movimentacao_detalhe_screen.dart';
 import 'sacar_valor_screen.dart';
 
 // --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
+//
+// Regras de produto aqui: (1) o gráfico da carteira é **saldo disponível em BRL**
+// reconstruído a partir do ledger, não valorização de tokens; (2) os chips de período
+// usam janelas **deslizantes** (7 / 30 / 180 dias), **hoje** e **YTD**, ver
+// [_carteiraInicioPeriodo].
 
 /// Início do **dia civil** local (00:00).
 DateTime _carteiraInicioDiaLocal(DateTime now) =>
@@ -194,6 +205,9 @@ String _carteiraVariacaoSaldoMesLabel({
 }
 
 /// Evolução do **saldo disponível** (BRL) no período, coerente com o ledger e [brlNow].
+///
+/// O intervalo temporal vem de [_carteiraInicioPeriodo] (alinhado aos chips §5.4).
+/// Pontos no tempo = início da janela, cada `createdAt` do ledger no intervalo, e “agora”.
 ValuationChartSeries saldoBrlEvolucaoSeries({
   required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
   required ValuationPeriod periodo,
@@ -272,6 +286,9 @@ class _MovimentacaoMock {
 }
 
 /// Dados de um card “Minhas Startups Investidas”.
+///
+/// Convidado: só cor + ícone (sem rede). Logado: [logoPath] preenchido quando o doc
+/// da posição faz match no catálogo — ver [_docPosicaoParaMock].
 class _StartupMock {
   const _StartupMock({
     required this.nome,
@@ -280,6 +297,7 @@ class _StartupMock {
     required this.totalInvestido,
     required this.corLogo,
     required this.icone,
+    this.logoPath,
   });
 
   final String nome;
@@ -288,6 +306,9 @@ class _StartupMock {
   final double totalInvestido;
   final Color corLogo;
   final IconData icone;
+
+  /// Mesmo critério que [CatalogStartup.logoPath]: Storage ou URL; null → só ícone.
+  final String? logoPath;
 }
 
 String _carteiraFmtDataPortugues(DateTime dt) =>
@@ -320,21 +341,49 @@ double _somaCustosPosicoes(
   return sum;
 }
 
+/// Monta o modelo de UI a partir do doc `positions/{startupId}` em `sim_wallet`.
+///
+/// Se [catalogMatch] existir (lista `listStartups` em [StartupCatalogListCache]),
+/// reutiliza nome, categoria, cores/ícone do catálogo, `yieldPercentLabel` e [logoPath].
+/// Sem match: só dados gravados na posição + [firestoreColorForSector]/[firestoreIconForSector].
 _StartupMock _docPosicaoParaMock(
-  QueryDocumentSnapshot<Map<String, dynamic>> d,
-) {
+  QueryDocumentSnapshot<Map<String, dynamic>> d, {
+  CatalogStartup? catalogMatch,
+}) {
   final m = d.data();
-  final nome = ((m['startupName'] as String?) ?? '').trim();
-  final cat = ((m['category'] as String?) ?? '—').trim();
-  final setor = cat.isEmpty ? '—' : cat;
+  final nomeFs = ((m['startupName'] as String?) ?? '').trim();
+  final nome = (catalogMatch?.name.trim().isNotEmpty ?? false)
+      ? catalogMatch!.name.trim()
+      : (nomeFs.isNotEmpty ? nomeFs : 'Startup');
+
+  final catRaw =
+      ((catalogMatch?.category ?? (m['category'] as String?)) ?? '—').trim();
+  final setor = catRaw.isEmpty ? '—' : catRaw;
+
   return _StartupMock(
-    nome: nome.isNotEmpty ? nome : 'Startup',
+    nome: nome,
     categoria: setor.toUpperCase(),
-    rendimentoLabel: 'N/D',
+    rendimentoLabel: catalogMatch?.yieldPercentLabel ?? 'N/D',
     totalInvestido: (m['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
-    corLogo: firestoreColorForSector(setor),
-    icone: firestoreIconForSector(setor),
+    corLogo: catalogMatch?.logoColor ?? firestoreColorForSector(setor),
+    icone: catalogMatch?.logoIcon ?? firestoreIconForSector(setor),
+    logoPath: catalogMatch?.logoPath,
   );
+}
+
+/// Resolve o `CatalogStartup` cuja [CatalogStartup.firestoreId] coincide com a posição.
+///
+/// O ID da posição é o **document id** (`simulateWallet` grava em `positions.doc(startupId)`).
+CatalogStartup? _catalogMatchParaPosicaoDoc(
+  QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  Map<String, CatalogStartup> byFirestoreId,
+) {
+  final m = doc.data();
+  final sid = doc.id.trim().isNotEmpty
+      ? doc.id
+      : ((m['startupId'] as String?) ?? '').trim();
+  if (sid.isEmpty) return null;
+  return byFirestoreId[sid];
 }
 
 // --- Tela pública --------------------------------------------------------------
@@ -391,6 +440,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
 
   /// Lista de movimentações expandida (`true`) ou só as 3 mais recentes (`false`).
   bool _movimentacoesVerTodas = false;
+
+  /// Callable `listStartups` — alinhado ao Explorar/Balcão para logos e metadados.
+  late final StartupCatalogFunctionsService _catalogFunctionsService;
 
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
@@ -465,6 +517,13 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       icone: Icons.favorite_outline,
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Cliente HTTP das Cloud Functions; partilha o mesmo contrato que [CatalogScreen]/[BalcaoTabScreen].
+    _catalogFunctionsService = StartupCatalogFunctionsService();
+  }
 
   /// Mensagem rápida: ações ainda sem backend nesta branch.
   void _emBreve(String acao) {
@@ -941,6 +1000,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       );
     }
 
+    // Sessão autenticada: gráfico = **evolução do saldo BRL** (ledger + saldo atual em tempo real).
+    // Não acoplar a `getWalletTokenPerformance` (valorização de tokens).
     return StreamBuilder<double>(
       stream: SimulatedWalletService.watchBrlBalance(uid),
       builder: (context, balSnap) {
@@ -957,6 +1018,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         final saldoErro = balSnap.hasError;
         final brlNow = saldoErro ? 0.0 : (balSnap.data ?? 0.0);
 
+        // Limite alto para janelas longas (ex.: YTD) com muitas linhas no extrato.
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: SimulatedWalletService.watchLedgerRecentForChart(
             uid,
@@ -1266,6 +1328,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
+  /// Lista de cards “Minhas Startups Investidas”: Firestore `positions` + enriquecimento opcional.
   Widget _listaStartupsInvestidasBloco({
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -1328,22 +1391,59 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             ),
           );
         }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final doc in docs) ...[
-              _StartupInvestidaCard(
-                startup: _docPosicaoParaMock(doc),
-                primary: primary,
-                hideValues: _hideValues,
-                rendimentoExibicao: _percentParaExibicao('N/D'),
-                investidoExibicao: _brlParaExibicao(
-                  (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
+        // Mesma lista em memória que Explorar/Balcão (`listStartups` deduplicado).
+        // Enquanto carrega: spinner; se falhar a callable, lista posições só com dados da wallet.
+        return FutureBuilder<List<CatalogStartup>>(
+          future: StartupCatalogListCache.instance.fullList(_catalogFunctionsService),
+          builder: (context, catalogSnap) {
+            if (catalogSnap.connectionState == ConnectionState.waiting &&
+                !catalogSnap.hasData &&
+                catalogSnap.error == null) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 36),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            // `hasError` → catálogo vazio: cards continuam com fallback só pelo Firestore da posição.
+            final catalog = catalogSnap.hasError
+                ? const <CatalogStartup>[]
+                : (catalogSnap.data ?? const <CatalogStartup>[]);
+            final byFirestoreId = <String, CatalogStartup>{};
+            for (final s in catalog) {
+              final id = s.firestoreId?.trim();
+              if (id != null && id.isNotEmpty) {
+                byFirestoreId[id] = s;
+              }
+            }
+
+            final children = <Widget>[];
+            for (final doc in docs) {
+              final match = _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
+              final startup = _docPosicaoParaMock(
+                doc,
+                catalogMatch: match,
+              );
+              children.addAll([
+                _StartupInvestidaCard(
+                  startup: startup,
+                  primary: primary,
+                  hideValues: _hideValues,
+                  rendimentoExibicao:
+                      _percentParaExibicao(startup.rendimentoLabel),
+                  investidoExibicao: _brlParaExibicao(
+                    (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ],
+                const SizedBox(height: 12),
+              ]);
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            );
+          },
         );
       },
     );
@@ -1927,6 +2027,7 @@ class _SecaoTituloComLink extends StatelessWidget {
 }
 
 // --- Card startup investida ---------------------------------------------------
+// Avatar: [StartupLogoAvatar] (logo Storage/URL ou fallback cor+ícone — igual Catálogo/Balcão).
 
 class _StartupInvestidaCard extends StatelessWidget {
   const _StartupInvestidaCard({
@@ -1963,14 +2064,13 @@ class _StartupInvestidaCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: startup.corLogo,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(startup.icone, color: Colors.white, size: 26),
+                // Mesmo widget e caches globais de URL/imagem que `catalog_startup_card` / Balcão.
+                StartupLogoAvatar(
+                  logoPath: startup.logoPath,
+                  fallbackColor: startup.corLogo,
+                  fallbackIcon: startup.icone,
+                  size: 48,
+                  borderRadius: 12,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
