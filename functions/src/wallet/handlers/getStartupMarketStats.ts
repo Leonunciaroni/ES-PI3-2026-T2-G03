@@ -4,17 +4,15 @@
  *
  * Callable HTTPS: `getStartupMarketStats`
  *
- * Calcula estatísticas de **cotação de mercado** (não confundir com P/L do investidor)
- * a partir de `preco_token` + `grafico_valuation.diario` no Firestore.
+ * Calcula estatísticas de **cotação de mercado** a partir de:
+ * 1. **Preferência:** `historico_cotacao_sim` — pontos gerados pelo job agendado
+ *    [tickStartupMarketPrices] (variação simulada do `preco_token`).
+ * 2. **Fallback:** `grafico_valuation.diario` escalado para BRL e ancorado em `preco_token`
+ *    (comportamento anterior, útil antes de existir histórico ou sem pontos suficientes).
  *
- * Referência de escopo: §5.3 Balcão + §5.6 (simulação em Firestore; sem chain real).
+ * Entrada: `startupId` (documento em `startups/{id}`).
  *
- * Entrada:
- * - `startupId`: string (documento em `startups/{id}`).
- *
- * Saída:
- * - `{ data: { tokenPriceBrl, changePct24h, min24hBrl, max24hBrl, seriesDiario, footnote } }`
- *   (`tokenPriceBrl` = `preco_token`, sempre presente quando a startup existe.)
+ * Saída: `{ data: { tokenPriceBrl, changePct24h, min24hBrl, max24hBrl, seriesDiario, footnote } }`
  */
 
 import {
@@ -24,7 +22,12 @@ import {
 import {HttpsError, onCall} from "firebase-functions/https";
 
 import {requireAuthenticatedUser} from "../../startups/shared/auth.js";
-import {REGION, STARTUPS_COLLECTION} from "../shared/constants.js";
+import {
+  REGION,
+  STARTUPS_COLLECTION,
+  STARTUP_FIELD_HISTORICO_COTACAO_SIM,
+} from "../shared/constants.js";
+import {parseHistoricoCotacaoSimArray} from "../shared/marketHistoricoParse.js";
 import {readRequiredStartupTokenPriceBrl} from "../shared/validation.js";
 import {
   cotacaoBrlFromValuationSeries,
@@ -55,12 +58,36 @@ export const getStartupMarketStats = onCall({region: REGION}, async (request) =>
   const data = snap.data() as DocumentData | undefined;
   const precoAtual = readRequiredStartupTokenPriceBrl(data);
 
+  const historicoPts = parseHistoricoCotacaoSimArray(data?.[STARTUP_FIELD_HISTORICO_COTACAO_SIM]);
+
+  if (historicoPts.length >= 2) {
+    const stats = statsLastWindowHours(historicoPts, 24);
+    const seriesDiario = historicoPts.map((p) => ({
+      tIso: p.t.toISOString(),
+      priceBrl: p.priceBrl,
+    }));
+    const footnote =
+      "Cotação simulada: pontos do campo historico_cotacao_sim (Scheduler atualiza preco_token). " +
+      "Min/máx 24h = janela móvel de 24h até ao último instante da série.";
+    return {
+      data: {
+        startupId,
+        tokenPriceBrl: precoAtual,
+        changePct24h: stats.changePct24h,
+        min24hBrl: stats.minBrl,
+        max24hBrl: stats.maxBrl,
+        seriesDiario,
+        footnote,
+      },
+    };
+  }
+
   const grafico = data?.["grafico_valuation"];
   const parsed = parseGraficoValuationDiario(grafico);
 
-  const footnote =
-    "Cotação simulada: série proporcional ao gráfico de valuation, ancorada em preco_token. " +
-    "Variação 24h usa janela móvel até ao último ponto da série.";
+  const footnoteFallback =
+    "Fallback: série proporcional a grafico_valuation.diario ancorada em preco_token. " +
+    "Após o job agendado gravar historico_cotacao_sim, o app pode mostrar variação mais realista.";
 
   if (!parsed || parsed.length < 2) {
     return {
@@ -72,8 +99,8 @@ export const getStartupMarketStats = onCall({region: REGION}, async (request) =>
         max24hBrl: null as number | null,
         seriesDiario: [] as { tIso: string; priceBrl: number }[],
         footnote:
-          footnote +
-          " Sem dados suficientes em grafico_valuation.diario — mostre apenas preco_token.",
+          footnoteFallback +
+          " Sem pontos suficientes no histórico simulado nem em grafico_valuation.diario.",
       },
     };
   }
@@ -96,7 +123,7 @@ export const getStartupMarketStats = onCall({region: REGION}, async (request) =>
       min24hBrl: stats.minBrl,
       max24hBrl: stats.maxBrl,
       seriesDiario,
-      footnote,
+      footnote: footnoteFallback + " Variação 24h usa janela móvel até ao último ponto.",
     },
   };
 });
