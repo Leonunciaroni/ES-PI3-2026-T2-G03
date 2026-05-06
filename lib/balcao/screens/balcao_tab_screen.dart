@@ -961,23 +961,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Ordem à mercado · execução imediata pela cotação publicada.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: AppColors.secondaryLabel(theme),
-            height: 1.35,
-          ),
-        ),
         const SizedBox(height: 14),
         mesaCard,
-        const SizedBox(height: 18),
-        Text(
-          'Comprar usa o disponível na carteira; vender debita apenas desta startup.',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: AppColors.secondaryLabel(theme),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
         const SizedBox(height: 20),
         Row(
           children: [
@@ -1022,9 +1007,6 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           series: cotacao,
           primary: scheme.primary,
           title: 'Histórico de cotação',
-          footnote:
-              'Eixo local; último ponto = cotação atual. Períodos como na Carteira: '
-              'DIÁRIO = hoje; SEMANAL/MENSAL/6 MESES = últimos 7/30/180 dias; YTD = ano civil.',
           formatYAxis: (v) => formatBrl(v),
           formatTooltip: (v) => formatBrl(v),
           touchListenerKey: const ValueKey<String>(
