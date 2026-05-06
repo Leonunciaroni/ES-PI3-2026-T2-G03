@@ -1306,9 +1306,13 @@ class _MesaTokenCard extends StatelessWidget {
   static const _min24hColor = Color(0xFFB91C1C);
   static const _max24hColor = Color(0xFF047857);
 
-  /// Tons discretos para variação % (verde / cinza).
-  static const _acimaRef = Color(0xFF047857);
-  static const _abaixoRef = Color(0xFF4B5563);
+  /// Mesmo critério que [balcaoFmtVariacaoPercentualPt] e Carteira (rendimento): verde ↑,
+  /// vermelho ↓, texto normal quando ~0 %.
+  static Color _corVariacaoPercent24h(ThemeData theme, double pct) {
+    if (pct > 0.05) return const Color(0xFF16A34A);
+    if (pct < -0.05) return const Color(0xFFDC2626);
+    return theme.colorScheme.onSurface;
+  }
 
   final String pairLabel;
   final String nomeStartup;
@@ -1414,9 +1418,10 @@ class _MesaTokenCard extends StatelessWidget {
                         Text(
                           '${balcaoFmtVariacaoPercentualPt(variacao24hPct!)}%',
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: variacao24hPct! >= 0
-                                ? _acimaRef
-                                : _abaixoRef,
+                            color: _corVariacaoPercent24h(
+                              theme,
+                              variacao24hPct!,
+                            ),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1482,7 +1487,7 @@ class _MesaTokenCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${formatQuantidadeTokensBr(saldoTokens)} tokens',
+                    '${formatQuantidadeTokensBr3(saldoTokens)} tokens',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: onSurface,
                       fontWeight: FontWeight.bold,
