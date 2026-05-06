@@ -169,6 +169,19 @@ double? balcaoVariacao24hPercentual(List<double> serie) {
   return pct;
 }
 
+/// Ex.: `+12,3%` / `-4,5%` / `0,0%` — uma casa decimal, alinhado ao resto da app.
+String balcaoFmtVariacaoPercentualPt(double pct) {
+  final x = (pct * 10).round() / 10.0;
+  final absStr = x.abs().toStringAsFixed(1).replaceAll('.', ',');
+  if (x > 0.05) {
+    return '+$absStr';
+  }
+  if (x < -0.05) {
+    return '-$absStr';
+  }
+  return '0,0';
+}
+
 /// Cotação ou saldo em reais: traço se o preço do token ainda não existe no back-end.
 String balcaoBrlDisponivel(double valorReais, bool precoConhecido) {
   if (!precoConhecido || !valorReais.isFinite) return '—';
@@ -889,17 +902,34 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                       );
                     }
                     return FutureBuilder<BalcaoStartupMarketStats?>(
+                      key: ValueKey<String>('mesa_market_$fid'),
                       future: SimulatedWalletService.fetchStartupMarketStats(
                         fid,
                       ),
                       builder: (context, statsSnap) {
                         final st = statsSnap.data;
                         final oficial = st?.tokenPriceBrl;
-                        final precoMercado = (oficial != null && oficial > 1e-9)
-                            ? oficial
-                            : (mesaStartup.tokenPrice > 1e-9
-                                ? mesaStartup.tokenPrice
-                                : 0.0);
+
+                        /// Sem snapshot ainda: não usar preço do catálogo (evita flash do valor
+                        /// “antigo” antes da cotação simulada no Firestore).
+                        final semSnapshot =
+                            statsSnap.connectionState ==
+                                    ConnectionState.waiting &&
+                                !statsSnap.hasData;
+
+                        final double precoMercado;
+                        if (oficial != null && oficial > 1e-9) {
+                          precoMercado = oficial;
+                        } else if (semSnapshot) {
+                          final prev = _mesaCotacaoOficialBrl;
+                          precoMercado =
+                              (prev != null && prev > 1e-9) ? prev : 0.0;
+                        } else {
+                          precoMercado =
+                              mesaStartup.tokenPrice > 1e-9
+                                  ? mesaStartup.tokenPrice
+                                  : 0.0;
+                        }
                         if (statsSnap.connectionState ==
                             ConnectionState.done) {
                           final next = (oficial != null && oficial > 1e-9)
@@ -1009,8 +1039,10 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
       detailFallback: detail,
     );
 
-    double? variacao = stats24?.changePct24h;
-    variacao ??= st?.changePct24h;
+    // Preferir o % da callable (histórico Firestore / mesmo critério do scheduler).
+    // O recálculo local pode divergir por interpolação na janela móvel de 24h.
+    double? variacao = st?.changePct24h;
+    variacao ??= stats24?.changePct24h;
     if (variacao == null && precoConhecido) {
       final diarioSerie = balcaoCotacaoSeriesForPeriod(
         period: ValuationPeriod.diario,
@@ -1380,8 +1412,7 @@ class _MesaTokenCard extends StatelessWidget {
                       if (variacao24hPct != null) ...[
                         const SizedBox(width: 10),
                         Text(
-                          '${variacao24hPct! >= 0 ? '+' : ''}${variacao24hPct!.toStringAsFixed(2)}%'
-                              .replaceAll('.', ','),
+                          '${balcaoFmtVariacaoPercentualPt(variacao24hPct!)}%',
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: variacao24hPct! >= 0
                                 ? _acimaRef
