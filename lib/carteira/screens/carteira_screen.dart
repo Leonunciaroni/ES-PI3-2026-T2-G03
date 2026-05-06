@@ -33,6 +33,8 @@ import '../../widgets/brazil_flag_icon.dart';
 import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
+import '../invested_startup_position_math.dart';
+import '../widgets/carteira_invested_sparkline.dart';
 import '../format/carteira_brl.dart';
 import '../format/pix_chave_input.dart';
 import '../models/carteira_movimentacao_detalhe.dart';
@@ -314,6 +316,28 @@ class _StartupMock {
 String _carteiraFmtDataPortugues(DateTime dt) =>
     '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
 
+/// Roxo (primário) = ~0 % ou sem dado; verde = ganho; vermelho = perda (coerente com movimentações).
+Color _carteiraCorRendimentoInvestido({
+  required CarteiraInvestidoYieldTone tone,
+  required Color schemePrimary,
+}) {
+  switch (tone) {
+    case CarteiraInvestidoYieldTone.positivo:
+      return const Color(0xFF16A34A);
+    case CarteiraInvestidoYieldTone.negativo:
+      return const Color(0xFFDC2626);
+    case CarteiraInvestidoYieldTone.neutro:
+    case CarteiraInvestidoYieldTone.indefinido:
+      return schemePrimary;
+  }
+}
+
+/// Curva fictícia para o mini gráfico no modo convidado (proporcional ao total investido).
+List<double> _carteiraGuestSparkline(double totalInvestido) {
+  final base = totalInvestido;
+  return List<double>.generate(7, (i) => base * (0.94 + i * 0.015));
+}
+
 _MovimentacaoMock _ledgerFirestoreParaLinha(Map<String, dynamic> m) {
   final entrada = (m['dir'] as String?) == 'in';
   final tipoLinha1 = entrada ? 'Entrada' : 'Saída';
@@ -360,11 +384,20 @@ _StartupMock _docPosicaoParaMock(
       ((catalogMatch?.category ?? (m['category'] as String?)) ?? '—').trim();
   final setor = catRaw.isEmpty ? '—' : catRaw;
 
+  final cost = (m['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
+  final held = (m['tokensHeld'] as num?)?.toDouble() ?? 0.0;
+  final px = catalogMatch?.tokenPrice ?? 0.0;
+  final rendimentoLabel = carteiraYieldPercentLabel(
+    costBasisBrl: cost,
+    tokensHeld: held,
+    tokenPriceBrl: px,
+  );
+
   return _StartupMock(
     nome: nome,
     categoria: setor.toUpperCase(),
-    rendimentoLabel: catalogMatch?.yieldPercentLabel ?? 'N/D',
-    totalInvestido: (m['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
+    rendimentoLabel: rendimentoLabel,
+    totalInvestido: cost,
     corLogo: catalogMatch?.logoColor ?? firestoreColorForSector(setor),
     icone: catalogMatch?.logoIcon ?? firestoreIconForSector(setor),
     logoPath: catalogMatch?.logoPath,
@@ -1375,6 +1408,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   Widget _blocoMinhasStartupsInvestidas({
     required ThemeData theme,
     required ColorScheme colorScheme,
+    required ValuationPeriod periodoCarteira,
   }) {
     final uid = _uidSessao;
     final primary = colorScheme.primary;
@@ -1407,6 +1441,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                   hideValues: _hideValues,
                   rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
                   investidoExibicao: _brlParaExibicao(s.totalInvestido),
+                  sparklineValues: _carteiraGuestSparkline(s.totalInvestido),
+                  rendimentoTone:
+                      carteiraYieldToneFromFormattedLabel(s.rendimentoLabel),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -1533,43 +1570,80 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               }
             }
 
-            final children = <Widget>[];
-            for (final doc in visDocs) {
-              final match = _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
-              final startup = _docPosicaoParaMock(
-                doc,
-                catalogMatch: match,
-              );
-              children.addAll([
-                _StartupInvestidaCard(
-                  startup: startup,
-                  primary: primary,
-                  hideValues: _hideValues,
-                  rendimentoExibicao:
-                      _percentParaExibicao(startup.rendimentoLabel),
-                  investidoExibicao: _brlParaExibicao(
-                    (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0,
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ]);
-            }
+            final agora = DateTime.now();
+            final inicio = _carteiraInicioPeriodo(periodoCarteira, agora);
+            final sampleTimes = _carteiraAmostrasTempoEntre(
+              inicio: inicio,
+              fim: agora,
+              pontos: 7,
+            );
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _tituloStartupsInvestidasRow(
-                  mostrarLinkVerTodas: mostrarLink,
-                  onSurface: onSurface,
-                  primary: primary,
-                  theme: theme,
-                ),
-                const SizedBox(height: 12),
-                Column(
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: SimulatedWalletService.watchLedgerRecentForChart(
+                uid,
+                limit: 500,
+              ),
+              builder: (context, ledgerSnap) {
+                final trades = ledgerSnap.hasData
+                    ? carteiraParseLedgerTradesAscending(ledgerSnap.data!)
+                    : const <CarteiraLedgerTradeRow>[];
+
+                final children = <Widget>[];
+                for (final doc in visDocs) {
+                  final match = _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
+                  final startup = _docPosicaoParaMock(
+                    doc,
+                    catalogMatch: match,
+                  );
+                  final held =
+                      (doc.data()['tokensHeld'] as num?)?.toDouble() ?? 0.0;
+                  final px = match?.tokenPrice ?? 0.0;
+                  final cost =
+                      (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
+                  final rendTone = carteiraYieldTone(
+                    costBasisBrl: cost,
+                    tokensHeld: held,
+                    tokenPriceBrl: px,
+                  );
+                  final spark = carteiraSingleStartupSparklineValues(
+                    trades,
+                    startupId: doc.id,
+                    fallbackPriceBrl: px,
+                    sampleTimes: sampleTimes,
+                    tokensHeldNowFromDoc: held,
+                  );
+                  children.addAll([
+                    _StartupInvestidaCard(
+                      startup: startup,
+                      primary: primary,
+                      hideValues: _hideValues,
+                      rendimentoExibicao:
+                          _percentParaExibicao(startup.rendimentoLabel),
+                      investidoExibicao: _brlParaExibicao(cost),
+                      sparklineValues: spark,
+                      rendimentoTone: rendTone,
+                    ),
+                    const SizedBox(height: 12),
+                  ]);
+                }
+
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: children,
-                ),
-              ],
+                  children: [
+                    _tituloStartupsInvestidasRow(
+                      mostrarLinkVerTodas: mostrarLink,
+                      onSurface: onSurface,
+                      primary: primary,
+                      theme: theme,
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: children,
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -1862,6 +1936,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                 _blocoMinhasStartupsInvestidas(
                   theme: theme,
                   colorScheme: colorScheme,
+                  periodoCarteira: _periodo,
                 ),
               ],
             ),
@@ -2102,21 +2177,33 @@ class _StartupInvestidaCard extends StatelessWidget {
     required this.hideValues,
     required this.rendimentoExibicao,
     required this.investidoExibicao,
+    required this.sparklineValues,
+    required this.rendimentoTone,
   });
 
   final _StartupMock startup;
   final Color primary;
 
-  /// Controla se as mini-barras decorativas desaparecem com os valores.
+  /// Controla se os valores e o mini-gráfico são mascarados com os demais números.
   final bool hideValues;
 
   /// Texto já passado pelo pai (pode estar mascarado).
   final String rendimentoExibicao;
   final String investidoExibicao;
 
+  /// Evolução da posição em BRL (mesma janela temporal que o gráfico da carteira).
+  final List<double> sparklineValues;
+
+  /// Verde / vermelho / roxo conforme o sinal do rendimento (ou ~0 % → roxo).
+  final CarteiraInvestidoYieldTone rendimentoTone;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final corRend = _carteiraCorRendimentoInvestido(
+      tone: rendimentoTone,
+      schemePrimary: primary,
+    );
     return Material(
       color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(18),
@@ -2168,7 +2255,7 @@ class _StartupInvestidaCard extends StatelessWidget {
                     Text(
                       rendimentoExibicao,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color: primary,
+                        color: corRend,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -2176,7 +2263,7 @@ class _StartupInvestidaCard extends StatelessWidget {
                     Text(
                       'RENDIMENTO',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: primary,
+                        color: corRend,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
                         fontSize: 9,
@@ -2211,41 +2298,16 @@ class _StartupInvestidaCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (!hideValues) const _MiniBarrasRoxas(),
+                if (!hideValues)
+                  CarteiraInvestedSparkline(
+                    values: sparklineValues,
+                    color: corRend,
+                  ),
               ],
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Mini gráfico em barras (decorativo) — só [Row] de [Container]s.
-class _MiniBarrasRoxas extends StatelessWidget {
-  const _MiniBarrasRoxas();
-
-  static final _heights = <double>[14, 22, 18, 28, 20, 32, 26];
-
-  @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        for (var i = 0; i < _heights.length; i++) ...[
-          Container(
-            width: 5,
-            height: _heights[i],
-            decoration: BoxDecoration(
-              color: primary.withValues(alpha: 0.35 + (i % 3) * 0.15),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          if (i < _heights.length - 1) const SizedBox(width: 3),
-        ],
-      ],
     );
   }
 }
