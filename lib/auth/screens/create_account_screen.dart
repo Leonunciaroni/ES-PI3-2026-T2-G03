@@ -1,6 +1,7 @@
 //Miguel Fernandes Costacurta - 25003110
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 import '../../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
@@ -25,6 +26,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _cpfController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  final _phoneFormatter = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+
+  final _cpfFormatter = MaskTextInputFormatter(
+    mask: '###.###.###-##',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -322,10 +333,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(11),
-                    ],
+                    inputFormatters: 
+                    [_phoneFormatter],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: 'Ex: (19) 99999-9999',
@@ -339,10 +348,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _cpfController,
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.next,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(11),
-                      ],
+                      inputFormatters: 
+                         [_cpfFormatter],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: '000.000.000-00',
