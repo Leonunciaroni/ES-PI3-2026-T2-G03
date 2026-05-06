@@ -8,4 +8,5 @@
 export {simulateWallet} from "./handlers/simulateWallet.js";
 export {getWalletTokenPerformance} from "./handlers/getWalletTokenPerformance.js";
 export {getStartupMarketStats} from "./handlers/getStartupMarketStats.js";
+export {tickStartupMarketPrices} from "./handlers/tickStartupMarketPrices.js";
 export type {SimWalletLedgerOp} from "./types/index.js";
