@@ -5,6 +5,8 @@
 // `listStartups` (como o Explorar), depois mesa com saldo e histórico reais quando
 // há sessão + `firestoreId`, compra/venda à mercado e fluxo quantidade → modal → senha → detalhe (§5.3 MesclaInvest).
 
+import 'dart:async' show Timer;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -187,8 +189,17 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
   /// Se null, mostramos a **lista**; se preenchido, mostramos a **mesa** dessa startup.
   CatalogStartup? _mesaStartup;
 
-  /// Último `tokenPriceBrl` de [getStartupMarketStats] (sessão + startup com `firestoreId`).
+  /// Cotação oficial (última leitura de [fetchStartupMarketStats]) para efeitos de UI.
   double? _mesaCotacaoOficialBrl;
+
+  /// ID da startup cuja mesa tem refresh periódico da cotação (alinhado ao Scheduler).
+  String? _mesaMarketRefreshStartupId;
+
+  /// Dispara [setState] a cada [_mesaMarketRefreshMinutes] enquanto a mesa estiver aberta.
+  Timer? _mesaMarketRefreshTimer;
+
+  /// Mesmo intervalo por defeito que o backend (`MARKET_TICK_SCHEDULE` ≈ 20 min).
+  static const int _mesaMarketRefreshMinutes = 20;
 
   /// Filtro do gráfico de cotação (mesmos períodos do detalhe da startup).
   ValuationPeriod _periodoCotacao = ValuationPeriod.mensal;
@@ -222,10 +233,46 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
         mesa!.firestoreId!,
       );
     }
+    _syncMesaMarketRefreshTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant BalcaoTabScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncMesaMarketRefreshTimer();
+  }
+
+  /// Mantém um timer que força novo [fetchStartupMarketStats] enquanto o utilizador
+  /// está na mesa (preço simulado no servidor evolui a cada ~20 min).
+  void _syncMesaMarketRefreshTimer() {
+    final mesa = _mesaStartup;
+    final fid = mesa?.firestoreId?.trim();
+    final activo = mesa != null &&
+        fid != null &&
+        fid.isNotEmpty &&
+        _mesaFirebaseAppsProntos();
+    if (!activo) {
+      _mesaMarketRefreshTimer?.cancel();
+      _mesaMarketRefreshTimer = null;
+      _mesaMarketRefreshStartupId = null;
+      return;
+    }
+    if (_mesaMarketRefreshStartupId == fid && _mesaMarketRefreshTimer != null) {
+      return;
+    }
+    _mesaMarketRefreshTimer?.cancel();
+    _mesaMarketRefreshStartupId = fid;
+    _mesaMarketRefreshTimer =
+        Timer.periodic(const Duration(minutes: _mesaMarketRefreshMinutes), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _mesaMarketRefreshTimer?.cancel();
     _searchController.dispose();
     _bodyScrollController.dispose();
     super.dispose();
@@ -250,6 +297,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           ? _functionsService.fetchStartupDetail(s.firestoreId!)
           : null;
     });
+    _syncMesaMarketRefreshTimer();
     _jumpBodyScrollTop();
   }
 
@@ -272,6 +320,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
       _periodoCotacao = ValuationPeriod.mensal;
       _mesaDetailFuture = null;
     });
+    _syncMesaMarketRefreshTimer();
     _jumpBodyScrollTop();
   }
 
@@ -974,8 +1023,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
           primary: scheme.primary,
           title: 'Histórico de cotação',
           footnote:
-              'Eixo temporal ao horário local; último ponto = cotação atual. '
-              'DIÁRIO = janela móvel de 24 h (min/máx alinhados).',
+              'Eixo local; último ponto = cotação atual. Períodos como na Carteira: '
+              'DIÁRIO = hoje; SEMANAL/MENSAL/6 MESES = últimos 7/30/180 dias; YTD = ano civil.',
           formatYAxis: (v) => formatBrl(v),
           formatTooltip: (v) => formatBrl(v),
           touchListenerKey: const ValueKey<String>(
@@ -1140,7 +1189,11 @@ class _MesaTokenCard extends StatelessWidget {
 
   static const _radius = 22.0;
 
-  /// Tons discretos para variação (evitam o visual “casa de apostas”).
+  /// Tons para mín / máx 24h (máx = verde, mín = vermelho).
+  static const _min24hColor = Color(0xFFB91C1C);
+  static const _max24hColor = Color(0xFF047857);
+
+  /// Tons discretos para variação % (verde / cinza).
   static const _acimaRef = Color(0xFF047857);
   static const _abaixoRef = Color(0xFF4B5563);
 
@@ -1265,7 +1318,8 @@ class _MesaTokenCard extends StatelessWidget {
                         child: Text(
                           'Máx. 24h  $max24h',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.secondaryLabel(theme),
+                            color: _max24hColor,
+                            fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1276,7 +1330,8 @@ class _MesaTokenCard extends StatelessWidget {
                           'Mín. 24h  $min24h',
                           textAlign: TextAlign.end,
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppColors.secondaryLabel(theme),
+                            color: _min24hColor,
+                            fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
