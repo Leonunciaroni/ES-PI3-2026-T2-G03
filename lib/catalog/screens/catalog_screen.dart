@@ -5,12 +5,15 @@
 // A lista vem da callable `listStartups` via [StartupCatalogFunctionsService];
 // em testes injeta-se [startupsFutureForTesting].
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/catalog_startup.dart';
 import '../services/startup_catalog_functions_service.dart';
 import '../services/startup_catalog_list_cache.dart';
+import '../services/startup_firestore_mapper.dart';
 import '../services/startup_logo_precache_service.dart';
 import '../widgets/catalog_startup_card.dart';
 import '../../theme/app_colors.dart';
@@ -24,6 +27,15 @@ enum _ChipFilter {
   novas,
   emOperacao,
   emExpansao,
+}
+
+/// Firebase inicializado (Firestore ao vivo para `preco_token`).
+bool _catalogFirebaseAoVivo() {
+  try {
+    return Firebase.apps.isNotEmpty;
+  } catch (_) {
+    return false;
+  }
 }
 
 // --- Tela principal ---------------------------------------------------------
@@ -194,6 +206,71 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return all.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
   }
 
+  /// Cards do Explorar; em produção com Firebase, o `preco_token` vem do snapshot
+  /// da coleção [kFirestoreStartupsCollection] (atualização contínua pelo scheduler).
+  Widget _catalogListaComPrecoAoVivo({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required List<CatalogStartup> raw,
+  }) {
+    final List<CatalogStartup> visible =
+        widget.startupsFutureForTesting != null
+            ? _visibleFrom(raw)
+            : raw;
+
+    Widget coluna(List<CatalogStartup> rows) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...rows.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: CatalogStartupCard(
+                startup: s,
+                primary: colorScheme.primary,
+                functionsService: _functionsService,
+                onInvestir: widget.onInvestir,
+              ),
+            ),
+          ),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: Text(
+                'Nenhuma startup encontrada.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    if (widget.startupsFutureForTesting != null || !_catalogFirebaseAoVivo()) {
+      return coluna(visible);
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(kFirestoreStartupsCollection)
+          .snapshots(),
+      builder: (context, fsSnap) {
+        List<CatalogStartup> merged = raw;
+        if (fsSnap.hasData) {
+          final m = <String, double>{};
+          for (final d in fsSnap.data!.docs) {
+            m[d.id] = tokenPriceFromFirestore(d.data());
+          }
+          merged = catalogMergeLivePrecoToken(raw, m);
+        }
+        final rows = merged;
+        return coluna(rows);
+      },
+    );
+  }
+
   /// Borda arredondada tipo "pílula" para o campo de busca.
   OutlineInputBorder _searchBorder(Color color) {
     return OutlineInputBorder(
@@ -344,36 +421,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               );
                             }
                             final List<CatalogStartup> raw = snapshot.data!;
-                            final List<CatalogStartup> visible =
-                                widget.startupsFutureForTesting != null
-                                    ? _visibleFrom(raw)
-                                    : raw;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                ...visible.map(
-                                  (s) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: CatalogStartupCard(
-                                      startup: s,
-                                      primary: colorScheme.primary,
-                                      functionsService: _functionsService,
-                                      onInvestir: widget.onInvestir,
-                                    ),
-                                  ),
-                                ),
-                                if (visible.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 32),
-                                    child: Text(
-                                      'Nenhuma startup encontrada.',
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                            return _catalogListaComPrecoAoVivo(
+                              theme: theme,
+                              colorScheme: colorScheme,
+                              raw: raw,
                             );
                           },
                         ),
