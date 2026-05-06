@@ -1065,8 +1065,9 @@ class _BalcaoStartupRowCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Nome comercial (ex.: Abacate Pay); o ticker fica à direita [ticker].
                     Text(
-                      startup.sigla ?? startup.name,
+                      startup.name,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
