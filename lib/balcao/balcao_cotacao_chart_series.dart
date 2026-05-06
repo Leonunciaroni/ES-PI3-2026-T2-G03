@@ -1,8 +1,8 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Séries de **cotação BRL/token** para o Balcão: janelas temporais coerentes com
-// o “agora” local (último ponto = preço corrente), alinhadas a §5.4 MesclaInvest.
+// Séries de **cotação BRL/token** para o Balcão. Janelas dos chips = mesma lógica
+// que a evolução de saldo na Carteira (dias civis e 7/30/180, YTD).
 // Quando existe `seriesDiario` da Cloud Function [getStartupMarketStats], usa-se
 // essa história; caso contrário gera-se eixo temporal sintético a partir do mock
 // de detalhe, evitando datas fixas de 2026 desalinhadas entre chips.
@@ -42,9 +42,26 @@ class BalcaoMarketPricePoint {
   final double priceBrl;
 }
 
-/// Início (inclusivo) da janela de cada chip, ancorada em [now] **local**.
-DateTime balcaoPeriodWindowStart(ValuationPeriod p, DateTime now) =>
-    chartWindowStartForPeriodIndex(p.index, now);
+/// Início (inclusivo) da janela de cada chip, **alinhada à Carteira** (dias civis
+/// e janelas deslizantes 7 / 30 / 180, YTD). Não usa [chartWindowStartForPeriodIndex]
+/// do detalhe do catálogo (24h/42d/…).
+DateTime balcaoPeriodWindowStart(ValuationPeriod p, DateTime now) {
+  DateTime inicioDiaCivil(DateTime n) => DateTime(n.year, n.month, n.day);
+  DateTime janelaDeslizanteDias(DateTime n, int dias) =>
+      inicioDiaCivil(n).subtract(Duration(days: dias));
+  switch (p) {
+    case ValuationPeriod.diario:
+      return inicioDiaCivil(now);
+    case ValuationPeriod.semanal:
+      return janelaDeslizanteDias(now, 7);
+    case ValuationPeriod.mensal:
+      return janelaDeslizanteDias(now, 30);
+    case ValuationPeriod.seisMeses:
+      return janelaDeslizanteDias(now, 180);
+    case ValuationPeriod.ytd:
+      return DateTime(now.year, 1, 1);
+  }
+}
 
 List<double> _scaleToAnchor(List<double> values, double anchorBrl) {
   if (values.isEmpty) return const [];
