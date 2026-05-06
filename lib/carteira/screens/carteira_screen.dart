@@ -441,6 +441,9 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   /// Lista de movimentações expandida (`true`) ou só as 3 mais recentes (`false`).
   bool _movimentacoesVerTodas = false;
 
+  /// Mesma lógica para “Minhas Startups Investidas”: até 3 cards; “Ver todas” expande.
+  bool _startupsInvestidasVerTodas = false;
+
   /// Callable `listStartups` — alinhado ao Explorar/Balcão para logos e metadados.
   late final StartupCatalogFunctionsService _catalogFunctionsService;
 
@@ -1328,30 +1331,88 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  /// Lista de cards “Minhas Startups Investidas”: Firestore `positions` + enriquecimento opcional.
-  Widget _listaStartupsInvestidasBloco({
+  Widget _tituloStartupsInvestidasRow({
+    required bool mostrarLinkVerTodas,
+    required Color onSurface,
+    required Color primary,
+    required ThemeData theme,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            'Minhas Startups Investidas',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: onSurface,
+            ),
+          ),
+        ),
+        if (mostrarLinkVerTodas)
+          TextButton(
+            onPressed: () => setState(
+              () => _startupsInvestidasVerTodas = !_startupsInvestidasVerTodas,
+            ),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              _startupsInvestidasVerTodas ? 'Ver menos' : 'Ver todas',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Startups investidas: Firestore `positions` + catálogo; até **3** cartões até “Ver todas”.
+  Widget _blocoMinhasStartupsInvestidas({
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
     final uid = _uidSessao;
     final primary = colorScheme.primary;
+    final onSurface = theme.colorScheme.onSurface;
+
     if (uid == null) {
-      final filhos = <Widget>[];
-      for (final s in _startups) {
-        filhos.addAll([
-          _StartupInvestidaCard(
-            startup: s,
-            primary: primary,
-            hideValues: _hideValues,
-            rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
-            investidoExibicao: _brlParaExibicao(s.totalInvestido),
-          ),
-          const SizedBox(height: 12),
-        ]);
-      }
+      final total = _startups.length;
+      final mostrarLink = total > 3;
+      final lista = _startupsInvestidasVerTodas || total <= 3
+          ? _startups
+          : _startups.take(3).toList();
+
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: filhos,
+        children: [
+          _tituloStartupsInvestidasRow(
+            mostrarLinkVerTodas: mostrarLink,
+            onSurface: onSurface,
+            primary: primary,
+            theme: theme,
+          ),
+          const SizedBox(height: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final s in lista) ...[
+                _StartupInvestidaCard(
+                  startup: s,
+                  primary: primary,
+                  hideValues: _hideValues,
+                  rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
+                  investidoExibicao: _brlParaExibicao(s.totalInvestido),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ),
+        ],
       );
     }
 
@@ -1359,38 +1420,81 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       stream: SimulatedWalletService.watchPositions(uid),
       builder: (context, snap) {
         if (snap.hasError) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'Posições não carregadas (${snap.error}).',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryLabel(theme),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tituloStartupsInvestidasRow(
+                mostrarLinkVerTodas: false,
+                onSurface: onSurface,
+                primary: primary,
+                theme: theme,
               ),
-            ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'Posições não carregadas (${snap.error}).',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                  ),
+                ),
+              ),
+            ],
           );
         }
         if (!snap.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 36),
-            child: Center(child: CircularProgressIndicator()),
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tituloStartupsInvestidasRow(
+                mostrarLinkVerTodas: false,
+                onSurface: onSurface,
+                primary: primary,
+                theme: theme,
+              ),
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 36),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
           );
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'Sem posições registadas — credite saldo pelo PIX e '
-              'compre tokens no Balcão.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.secondaryLabel(theme),
-                height: 1.4,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _tituloStartupsInvestidasRow(
+                mostrarLinkVerTodas: false,
+                onSurface: onSurface,
+                primary: primary,
+                theme: theme,
               ),
-            ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'Sem posições registadas — credite saldo pelo PIX e '
+                  'compre tokens no Balcão.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryLabel(theme),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           );
         }
+
+        final total = docs.length;
+        final mostrarLink = total > 3;
+        final visDocs = _startupsInvestidasVerTodas || total <= 3
+            ? docs
+            : docs.take(3).toList();
+
         // Mesma lista em memória que Explorar/Balcão (`listStartups` deduplicado).
         // Enquanto carrega: spinner; se falhar a callable, lista posições só com dados da wallet.
         return FutureBuilder<List<CatalogStartup>>(
@@ -1399,9 +1503,21 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             if (catalogSnap.connectionState == ConnectionState.waiting &&
                 !catalogSnap.hasData &&
                 catalogSnap.error == null) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 36),
-                child: Center(child: CircularProgressIndicator()),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _tituloStartupsInvestidasRow(
+                    mostrarLinkVerTodas: mostrarLink,
+                    onSurface: onSurface,
+                    primary: primary,
+                    theme: theme,
+                  ),
+                  const SizedBox(height: 12),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 36),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
               );
             }
 
@@ -1418,7 +1534,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             }
 
             final children = <Widget>[];
-            for (final doc in docs) {
+            for (final doc in visDocs) {
               final match = _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
               final startup = _docPosicaoParaMock(
                 doc,
@@ -1441,7 +1557,19 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: children,
+              children: [
+                _tituloStartupsInvestidasRow(
+                  mostrarLinkVerTodas: mostrarLink,
+                  onSurface: onSurface,
+                  primary: primary,
+                  theme: theme,
+                ),
+                const SizedBox(height: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                ),
+              ],
             );
           },
         );
@@ -1731,16 +1859,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: _sectionGap),
-                _SecaoTituloComLink(
-                  titulo: 'Minhas Startups Investidas',
-                  linkLabel: 'Ver todas',
-                  onLink: () => _emBreve('Ver todas as startups'),
-                  onSurface: onSurface,
-                  primary: colorScheme.primary,
-                  theme: theme,
-                ),
-                const SizedBox(height: 12),
-                _listaStartupsInvestidasBloco(
+                _blocoMinhasStartupsInvestidas(
                   theme: theme,
                   colorScheme: colorScheme,
                 ),
@@ -1970,59 +2089,6 @@ class _PillActionButton extends StatelessWidget {
     if (!expandWidth) return button;
 
     return SizedBox(width: double.infinity, child: button);
-  }
-}
-
-// --- Secções com título + “Ver todas” ----------------------------------------
-
-class _SecaoTituloComLink extends StatelessWidget {
-  const _SecaoTituloComLink({
-    required this.titulo,
-    required this.linkLabel,
-    required this.onLink,
-    required this.onSurface,
-    required this.primary,
-    required this.theme,
-  });
-
-  final String titulo;
-  final String linkLabel;
-  final VoidCallback onLink;
-  final Color onSurface;
-  final Color primary;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(
-            titulo,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: onSurface,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: onLink,
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(
-            linkLabel,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }
 
