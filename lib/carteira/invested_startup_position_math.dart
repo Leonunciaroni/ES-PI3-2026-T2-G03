@@ -161,6 +161,47 @@ double carteiraSingleStartupMarketValueBrl(
   return tok * px;
 }
 
+/// Valor de mercado da posição num instante (ledger + série diária ou fallback).
+///
+/// Usado pelo gráfico de **património** na Carteira e coerente com o mini-gráfico da startup.
+double carteiraValorMercadoPosicaoNumInstante({
+  required List<CarteiraLedgerTradeRow> tradesAsc,
+  required String startupId,
+  required DateTime instant,
+  required double fallbackCatalogPriceBrl,
+  required double tokensHeldNowFromDoc,
+  List<BalcaoMarketPricePoint>? marketSeriesDiario,
+  DateTime? anchorNow,
+}) {
+  final tok = tradesAsc.isEmpty
+      ? tokensHeldNowFromDoc
+      : carteiraTokensHeldForStartupAt(tradesAsc, startupId, instant);
+
+  List<BalcaoMarketPricePoint>? extended;
+  if (marketSeriesDiario != null &&
+      marketSeriesDiario.length >= 2 &&
+      fallbackCatalogPriceBrl > 1e-9 &&
+      anchorNow != null) {
+    final sorted = balcaoSortAndDedupePoints(marketSeriesDiario);
+    extended = balcaoExtendSeriesToNow(sorted, anchorNow, fallbackCatalogPriceBrl);
+  }
+
+  if (extended != null) {
+    final priceCurve = extended;
+    final px =
+        balcaoInterpolatePriceBrl(priceCurve, instant) ?? fallbackCatalogPriceBrl;
+    return tok * px;
+  }
+
+  return carteiraSingleStartupMarketValueBrl(
+    tradesAsc,
+    startupId,
+    instant,
+    fallbackCatalogPriceBrl,
+    tokensHeldNowFromDoc,
+  );
+}
+
 /// Valores em BRL nos instantes [sampleTimes].
 ///
 /// Quando [marketPriceSeries] tem pontos (`getStartupMarketStats` / `seriesDiario`),
