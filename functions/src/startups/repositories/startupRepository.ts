@@ -70,6 +70,8 @@ const kLogoPath = "logoPath";
 const kLogoPathSnake = "logo_path";
 const kPrecoToken = "preco_token";
 const kProgressoCaptacao = "progresso_captacao";
+const kCaptacaoEsperada = "captacao_esperada";
+const kValorCaptadoAcumulado = "valor_captado_acumulado_brl";
 const kRendimentoLabel = "rendimento_label";
 const startupsCollection = db.collection(STARTUPS_COLLECTION);
 
@@ -135,7 +137,20 @@ export function parseStageRaw(raw: string): StartupStage {
   return "nova";
 }
 
+/**
+ * Fração 0..1 da meta de captação.
+ * Prioridade: `valor_captado_acumulado_brl` ÷ `captacao_esperada` (soma de todos os investidores
+ * no balcão simulado, mantida pelo backend); senão `progresso_captacao`.
+ */
 function captureProgressFraction(d: Record<string, unknown>): number {
+  const esperada = readOptionalDouble(d, kCaptacaoEsperada);
+  const captado = readOptionalDouble(d, kValorCaptadoAcumulado);
+  if (esperada != null && esperada > 0 && captado != null && captado >= 0) {
+    const ratio = captado / esperada;
+    if (Number.isFinite(ratio)) {
+      return Math.min(1, Math.max(0, ratio));
+    }
+  }
   const v = readOptionalDouble(d, kProgressoCaptacao);
   if (v == null) {
     return 0;
