@@ -18,6 +18,7 @@ import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../balcao_format.dart';
+import '../balcao_official_price.dart';
 import '../models/balcao_operacao_tipo.dart';
 import 'balcao_compra_senha_screen.dart';
 
@@ -56,10 +57,14 @@ class BalcaoQuantidadeTokensScreen extends StatefulWidget {
     super.key,
     required this.startup,
     required this.operacao,
+    this.cotacaoOficialBrl,
   });
 
   final CatalogStartup startup;
   final BalcaoOperacaoTipo operacao;
+
+  /// Último `tokenPriceBrl` da mesa ([getStartupMarketStats]); senão lê-se `preco_token` na validação.
+  final double? cotacaoOficialBrl;
 
   @override
   State<BalcaoQuantidadeTokensScreen> createState() =>
@@ -100,10 +105,17 @@ class _BalcaoQuantidadeTokensScreenState
   double? get _quantidadeTokensVendaParsed =>
       _parseQuantidadeTokens(_tokensVendaController.text);
 
+  /// Pré-visualização síncrona: cotação vinda da mesa ou do catálogo.
+  double get _precoUiPreview {
+    final o = widget.cotacaoOficialBrl;
+    if (o != null && o > 1e-9) return o;
+    return widget.startup.tokenPrice;
+  }
+
   double get _tokensEquivalentesCompra {
     final v = _valorReaisParsed;
     if (v == null || v <= 0) return 0;
-    final p = widget.startup.tokenPrice;
+    final p = _precoUiPreview;
     if (!(p > 0)) return 0;
     return balcaoResolveMercadoDesdeBrl(v, p).tokens;
   }
@@ -111,9 +123,18 @@ class _BalcaoQuantidadeTokensScreenState
   double get _reaisEquivalentesVendaTokens {
     final q = _quantidadeTokensVendaParsed;
     if (q == null || q <= 0) return 0;
-    final p = widget.startup.tokenPrice;
+    final p = _precoUiPreview;
     if (!(p > 0)) return 0;
     return balcaoResolveMercadoDesdeQuantidadeTokens(q, p).amountBrl;
+  }
+
+  Future<double?> _resolverPrecoMercadoNegocio(String fid) async {
+    final o = widget.cotacaoOficialBrl;
+    if (o != null && o > 1e-9) return o;
+    final fromFs = await fetchPrecoTokenOficialBrl(fid);
+    if (fromFs != null && fromFs > 1e-9) return fromFs;
+    final c = widget.startup.tokenPrice;
+    return c > 1e-9 ? c : null;
   }
 
   Future<double> _consultarSaldoTokensPosicao() async {
@@ -130,7 +151,6 @@ class _BalcaoQuantidadeTokensScreenState
     setState(() => _erroValidacao = null);
     _resolvidoOperacaoMercado = null;
 
-    final preco = widget.startup.tokenPrice;
     final user = _balcaoAuthUserSeguro();
     final fid = widget.startup.firestoreId?.trim();
 
@@ -150,13 +170,16 @@ class _BalcaoQuantidadeTokensScreenState
           );
           return false;
         }
-        if (!(preco > 0)) {
+        final precoResolved = await _resolverPrecoMercadoNegocio(fid);
+        if (!mounted) return false;
+        if (precoResolved == null || !(precoResolved > 0)) {
           setState(
             () => _erroValidacao =
                 'Cotação do token indisponível. Atualize a lista e volte ao Balcão.',
           );
           return false;
         }
+        final preco = precoResolved;
         final v = _valorReaisParsed;
         if (v == null) {
           setState(
@@ -210,13 +233,16 @@ class _BalcaoQuantidadeTokensScreenState
           );
           return false;
         }
-        if (!(preco > 0)) {
+        final precoResolved = await _resolverPrecoMercadoNegocio(fid);
+        if (!mounted) return false;
+        if (precoResolved == null || !(precoResolved > 0)) {
           setState(
             () => _erroValidacao =
                 'Cotação do token indisponível.',
           );
           return false;
         }
+        final preco = precoResolved;
 
         late final BalcaoMercadoResolved rMercado;
 
@@ -287,8 +313,11 @@ class _BalcaoQuantidadeTokensScreenState
     final totalTxt = formatBrl(resolvido.amountBrl);
     switch (widget.operacao) {
       case BalcaoOperacaoTipo.compra:
+        final unit = resolvido.tokens > 1e-12
+            ? resolvido.amountBrl / resolvido.tokens
+            : _precoUiPreview;
         return 'Confirmar compra à mercado por um total de $totalTxt?\n'
-            '$tokTxt tokens (${formatBrl(widget.startup.tokenPrice)} / token).';
+            '$tokTxt tokens (${formatBrl(unit)} / token).';
 
       case BalcaoOperacaoTipo.venda:
         return _vendaUnidade == BalcaoVendaUnidade.tokens
@@ -434,7 +463,7 @@ class _BalcaoQuantidadeTokensScreenState
               ),
               const SizedBox(height: 4),
               Text(
-                'Preço à mercado (referência): ${formatBrl(widget.startup.tokenPrice)} / token',
+                'Preço à mercado (referência): ${formatBrl(_precoUiPreview)} / token',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: AppColors.secondaryLabel(theme),
                 ),
@@ -465,7 +494,7 @@ class _BalcaoQuantidadeTokensScreenState
                       ),
                       builder: (context, posSnap) {
                         final t = posSnap.data ?? 0;
-                        final p = widget.startup.tokenPrice;
+                        final p = _precoUiPreview;
                         final reaisFmt = !(p > 0)
                             ? '—'
                             : formatBrl(t * p);
@@ -627,7 +656,7 @@ class _BalcaoQuantidadeTokensScreenState
               if (!isVenda)
                 Text(
                   _valorReaisParsed != null && _valorReaisParsed! > 0
-                      ? 'Total estimado: ${formatBrl(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, widget.startup.tokenPrice).amountBrl)} · '
+                      ? 'Total estimado: ${formatBrl(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, _precoUiPreview).amountBrl)} · '
                           '${formatQuantidadeTokensBr(_tokensEquivalentesCompra)} tokens'
                       : 'Total estimado: —',
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -638,8 +667,8 @@ class _BalcaoQuantidadeTokensScreenState
               else if (_vendaUnidade == BalcaoVendaUnidade.reais)
                 Text(
                   _valorReaisParsed != null && _valorReaisParsed! > 0
-                      ? 'Total estimado: ${formatBrl(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, widget.startup.tokenPrice).amountBrl)} · '
-                          '${formatQuantidadeTokensBr(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, widget.startup.tokenPrice).tokens)} tokens'
+                      ? 'Total estimado: ${formatBrl(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, _precoUiPreview).amountBrl)} · '
+                          '${formatQuantidadeTokensBr(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, _precoUiPreview).tokens)} tokens'
                       : 'Total estimado: —',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,

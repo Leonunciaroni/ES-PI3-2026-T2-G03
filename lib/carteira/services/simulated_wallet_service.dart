@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
+import '../../balcao/balcao_cotacao_chart_series.dart';
 import '../../catalog/models/catalog_startup.dart';
 
 abstract final class SimulatedWalletPaths {
@@ -59,8 +60,11 @@ abstract final class SimulatedWalletService {
     if (id == null || id.isEmpty) {
       throw StateError('Startup sem identificador Firestore.');
     }
-    if (startup.tokenPrice <= 0) {
-      throw StateError('Cotação do token indisponível.');
+    if (!(valorReais > 0) || !valorReais.isFinite) {
+      throw StateError('Montante em reais inválido para negócio.');
+    }
+    if (!(quantidadeTokens > 0) || !quantidadeTokens.isFinite) {
+      throw StateError('Quantidade de tokens inválida para negócio.');
     }
     await _fn().httpsCallable('simulateWallet').call(<String, dynamic>{
       'action': 'trade_buy',
@@ -82,8 +86,11 @@ abstract final class SimulatedWalletService {
     if (id == null || id.isEmpty) {
       throw StateError('Startup sem identificador Firestore.');
     }
-    if (startup.tokenPrice <= 0) {
-      throw StateError('Cotação do token indisponível.');
+    if (!(valorReais > 0) || !valorReais.isFinite) {
+      throw StateError('Montante em reais inválido para negócio.');
+    }
+    if (!(quantidadeTokens > 0) || !quantidadeTokens.isFinite) {
+      throw StateError('Quantidade de tokens inválida para negócio.');
     }
     await _fn().httpsCallable('simulateWallet').call(<String, dynamic>{
       'action': 'trade_sell',
@@ -211,6 +218,56 @@ abstract final class SimulatedWalletService {
     }
   }
 
+  /// Valorização dos tokens por período — Cloud Function `getWalletTokenPerformance`.
+  ///
+  /// Pedido PI (§5.4): agrega compras/vendas do ledger simulado no servidor.
+  /// Devolve o mapa interno `data` ou `null` se a chamada falhar (ex.: função não deployada).
+  static Future<Map<String, dynamic>?> fetchWalletTokenPerformance({
+    required String period,
+  }) async {
+    try {
+      final result =
+          await _fn().httpsCallable('getWalletTokenPerformance').call(
+                <String, dynamic>{'period': period},
+              );
+      final raw = result.data;
+      if (raw is Map) {
+        final inner = raw['data'];
+        if (inner is Map) {
+          return Map<String, dynamic>.from(
+            inner.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Cotação/min/max “24h” no balcão — Cloud Function `getStartupMarketStats`.
+  static Future<BalcaoStartupMarketStats?> fetchStartupMarketStats(
+    String startupFirestoreId,
+  ) async {
+    final id = startupFirestoreId.trim();
+    if (id.isEmpty) return null;
+    try {
+      final result = await _fn().httpsCallable('getStartupMarketStats').call(
+            <String, dynamic>{'startupId': id},
+          );
+      final raw = result.data;
+      if (raw is Map) {
+        final inner = raw['data'];
+        if (inner is Map) {
+          return BalcaoStartupMarketStats.tryParse(
+            Map<String, dynamic>.from(
+              inner.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static String messageForUser(Object error) {
     if (error is FirebaseFunctionsException) {
       switch (error.code) {
@@ -241,5 +298,37 @@ abstract final class SimulatedWalletService {
       return error.message;
     }
     return 'Não foi possível concluir a operação.';
+  }
+}
+
+/// Resultado de [SimulatedWalletService.fetchStartupMarketStats] (regra de negócio no Node).
+class BalcaoStartupMarketStats {
+  const BalcaoStartupMarketStats({
+    this.tokenPriceBrl,
+    this.seriesDiarioPoints,
+    required this.changePct24h,
+    required this.min24hBrl,
+    required this.max24hBrl,
+  });
+
+  /// `preco_token` no Firestore — mesma base que [simulateWallet] em trades.
+  final double? tokenPriceBrl;
+
+  /// Série `seriesDiario` da callable (cotação BRL ao longo do tempo), já parseada.
+  final List<BalcaoMarketPricePoint>? seriesDiarioPoints;
+
+  final double? changePct24h;
+  final double? min24hBrl;
+  final double? max24hBrl;
+
+  static BalcaoStartupMarketStats? tryParse(Map<String, dynamic>? m) {
+    if (m == null) return null;
+    return BalcaoStartupMarketStats(
+      tokenPriceBrl: (m['tokenPriceBrl'] as num?)?.toDouble(),
+      seriesDiarioPoints: balcaoParseSeriesDiarioJson(m['seriesDiario']),
+      changePct24h: (m['changePct24h'] as num?)?.toDouble(),
+      min24hBrl: (m['min24hBrl'] as num?)?.toDouble(),
+      max24hBrl: (m['max24hBrl'] as num?)?.toDouble(),
+    );
   }
 }

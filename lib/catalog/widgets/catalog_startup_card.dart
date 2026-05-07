@@ -150,24 +150,6 @@ class CatalogStartupCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        'RENDIMENTO',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          fontSize: 9,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        startup.yieldPercentLabel,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
                         'VALOR DO TOKEN',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: AppColors.secondaryLabel(theme),

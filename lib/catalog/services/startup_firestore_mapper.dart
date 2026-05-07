@@ -136,6 +136,25 @@ double tokenPriceFromFirestore(Map<String, dynamic> d) {
   return readFirestoreOptionalDouble(d, kFieldPrecoToken) ?? 0.0;
 }
 
+/// Sobrepõe [CatalogStartup.tokenPrice] com `preco_token` lido em tempo real no Firestore
+/// (ex.: job [tickStartupMarketPrices]). Ignora IDs sem match ou preço inválido.
+List<CatalogStartup> catalogMergeLivePrecoToken(
+  List<CatalogStartup> base,
+  Map<String, double> firestoreIdToPreco,
+) {
+  return base.map((s) {
+    final id = s.firestoreId?.trim();
+    if (id == null || id.isEmpty) {
+      return s;
+    }
+    final p = firestoreIdToPreco[id];
+    if (p == null || !(p > 0) || !p.isFinite) {
+      return s;
+    }
+    return s.copyWith(tokenPrice: p);
+  }).toList();
+}
+
 double captureProgressFractionFromFirestore(Map<String, dynamic> d) {
   final double? v = readFirestoreOptionalDouble(d, kFieldProgressoCaptacao);
   if (v == null) {

@@ -161,3 +161,10 @@ String formatQuantidadeTokensBr(double value) {
   }
   return s.replaceAll('.', ',');
 }
+
+/// Quantidade de tokens com **três** casas decimais fixas (ex.: saldo na mesa do Balcão).
+String formatQuantidadeTokensBr3(double value) {
+  if (value.isNaN || value.isInfinite) return '—';
+  final arredondado = double.parse(value.toStringAsFixed(8));
+  return arredondado.toStringAsFixed(3).replaceAll('.', ',');
+}

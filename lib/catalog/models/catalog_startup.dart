@@ -74,4 +74,24 @@ class CatalogStartup {
 
   /// Caminho no Firebase Storage ou URL https; null usa ícone de setor.
   final String? logoPath;
+
+  /// Cópia com campos opcionais substituídos (ex.: [tokenPrice] ao vivo do Firestore).
+  CatalogStartup copyWith({
+    double? tokenPrice,
+  }) {
+    return CatalogStartup(
+      name: name,
+      category: category,
+      stage: stage,
+      yieldPercentLabel: yieldPercentLabel,
+      tokenPrice: tokenPrice ?? this.tokenPrice,
+      description: description,
+      captureProgress: captureProgress,
+      logoColor: logoColor,
+      logoIcon: logoIcon,
+      sigla: sigla,
+      firestoreId: firestoreId,
+      logoPath: logoPath,
+    );
+  }
 }

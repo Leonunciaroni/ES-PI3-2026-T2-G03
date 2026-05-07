@@ -22,6 +22,12 @@ export const USERS_COLLECTION = "users";
 
 /** Campo de preço unitário do token em BRL (contrato alinhado ao app). */
 export const STARTUP_FIELD_TOKEN_PRICE = "preco_token";
+
+/**
+ * Histórico curto de cotações simuladas (Scheduler): array de `{ t, p }`.
+ * Usado por `getStartupMarketStats` para gráfico e min/máx 24h realistas.
+ */
+export const STARTUP_FIELD_HISTORICO_COTACAO_SIM = "historico_cotacao_sim";
 export const STARTUP_FIELD_INVESTOR_UIDS = "investorUids";
 export const USER_FIELD_INVESTOR_STARTUP_IDS = "investorStartupIds";
 
