@@ -22,12 +22,10 @@ import type {
 /** Campos extras quando `includeDetail: true` — espelham o documento Firestore. */
 export type StartupDetailPayload = {
   descricao?: string | null;
-  captacao_headline?: string | null;
-  valor_captado_reais?: number | null;
-  meta_captacao_reais?: number | null;
-  valuation_headline?: string | null;
-  valuation_rodada?: string | null;
-  valuation_tendencia?: string | null;
+  /** Meta de captação esperada (reais). */
+  captacao_esperada?: number | null;
+  /** Valuation atual (reais). */
+  valuation_atual?: number | null;
   grafico_valuation?: Record<string, unknown> | null;
   sede?: string | null;
   anoDeInicio?: number | null;
@@ -214,12 +212,8 @@ function firstPresentEstrutura(d: Record<string, unknown>): unknown {
 function detailPayloadFromDoc(d: Record<string, unknown>): StartupDetailPayload {
   return {
     descricao: readOptionalString(d, kDescricao) ?? null,
-    captacao_headline: readOptionalString(d, "captacao_headline") ?? null,
-    valor_captado_reais: readOptionalDouble(d, "valor_captado_reais") ?? null,
-    meta_captacao_reais: readOptionalDouble(d, "meta_captacao_reais") ?? null,
-    valuation_headline: readOptionalString(d, "valuation_headline") ?? null,
-    valuation_rodada: readOptionalString(d, "valuation_rodada") ?? null,
-    valuation_tendencia: readOptionalString(d, "valuation_tendencia") ?? null,
+    captacao_esperada: readOptionalDouble(d, "captacao_esperada") ?? null,
+    valuation_atual: readOptionalDouble(d, "valuation_atual") ?? null,
     grafico_valuation: (d["grafico_valuation"] as Record<string, unknown>) ?? null,
     sede: readOptionalString(d, "sede") ?? null,
     anoDeInicio:

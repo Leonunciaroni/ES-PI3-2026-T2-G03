@@ -89,14 +89,15 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
   final String? videoUrl = readFirestoreOptionalString(dNorm, kFieldVideoDemo);
   final String videoTitle = _videoTitleFromFirestore(dNorm, catalog);
   final double captureFraction = captureProgressFractionFromFirestore(dNorm);
+  final double? captacaoEsperadaReais = readFirestoreOptionalDouble(
+    dNorm,
+    kFieldCaptacaoEsperada,
+  );
   final String captureHeadline = _captureHeadlineFromFirestore(dNorm);
   final String valuationHeadline = _valuationHeadlineFromFirestore(dNorm);
-  final String rodadaRaw = readFirestoreString(
-    dNorm,
-    kFieldValuationRodada,
-  ).trim();
-  final String valuationRound = rodadaRaw.isEmpty ? 'VALUATION' : rodadaRaw;
-  final String valuationTrend = _valuationTrendFromFirestore(dNorm);
+  // Rodada e tendência não vêm mais do Firestore — UI usa texto fixo simples.
+  const String valuationRound = 'VALUATION';
+  const String valuationTrend = '—';
   final String headquarters = _headquartersFromFirestore(dNorm);
 
   return StartupDetailViewData(
@@ -105,9 +106,11 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     longDescription: descricao.isEmpty ? catalog.description : descricao,
     captureHeadline: captureHeadline,
     captureProgressFraction: captureFraction,
-    captureProgressLabel: captureFraction <= 0
-        ? 'Meta de captação em definição'
-        : '${(captureFraction * 100).round()}% da meta atingida',
+    captureProgressLabel: captureFraction > 0
+        ? '${(captureFraction * 100).round()}% da meta atingida'
+        : (captacaoEsperadaReais != null && captacaoEsperadaReais > 0)
+            ? 'Meta de captação definida'
+            : 'Meta de captação em definição',
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
     valuationTrendText: valuationTrend,
@@ -139,35 +142,19 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
 }
 
 String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? direct = readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
-  if (direct != null && direct.isNotEmpty) {
-    return direct;
-  }
-  final double? cap = readFirestoreOptionalDouble(d, kFieldValorCaptadoReais);
-  final double? meta = readFirestoreOptionalDouble(d, kFieldMetaCaptacaoReais);
-  if (cap != null && meta != null && meta > 0) {
-    return 'R\$ ${_formatIntBR(cap.round())} / R\$ ${_formatIntBR(meta.round())}';
-  }
-  if (cap != null) {
-    return 'R\$ ${_formatIntBR(cap.round())}';
+  final double? esp = readFirestoreOptionalDouble(d, kFieldCaptacaoEsperada);
+  if (esp != null && esp > 0) {
+    return 'Captação esperada: R\$ ${_formatIntBR(esp.round())}';
   }
   return 'R\$ —';
 }
 
 String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? h = readFirestoreOptionalString(d, kFieldValuationHeadline);
-  if (h != null && h.isNotEmpty) {
-    return h;
+  final double? v = readFirestoreOptionalDouble(d, kFieldValuationAtual);
+  if (v != null && v > 0) {
+    return 'R\$ ${_formatIntBR(v.round())}';
   }
   return 'R\$ —';
-}
-
-String _valuationTrendFromFirestore(Map<String, dynamic> d) {
-  final String? t = readFirestoreOptionalString(d, kFieldValuationTendencia);
-  if (t != null && t.isNotEmpty) {
-    return t;
-  }
-  return '—';
 }
 
 String _headquartersFromFirestore(Map<String, dynamic> d) {
