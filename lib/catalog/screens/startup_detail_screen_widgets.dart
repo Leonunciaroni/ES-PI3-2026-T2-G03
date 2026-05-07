@@ -180,14 +180,11 @@ class _CaptureCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              minHeight: 10,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              color: Colors.white,
-            ),
+          MesclaCaptureProgressBar(
+            value: progress,
+            trackColor: Colors.white.withValues(alpha: 0.22),
+            fillColor: Colors.white,
+            height: 10,
           ),
           const SizedBox(height: 8),
           Text(
