@@ -98,7 +98,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.text('Evolução de Saldo'));
+        await tester.ensureVisible(find.text('Evolução do Património'));
 
         final chartTouch = find.byKey(
           const ValueKey<String>('carteira_saldo_chart_touch'),
