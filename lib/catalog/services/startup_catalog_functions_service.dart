@@ -66,6 +66,9 @@ Map<String, dynamic> firestoreShapedMapFromApiItem(Map<String, dynamic> item) {
     map[kFieldLogoPath] = logo;
   }
   _mergeCallableDetailIntoMap(map, detailAny);
+  // Igual ao detalhe: meta + captado na raiz permitem [captureProgressFractionFromFirestore]
+  // usar captado ÷ meta em primeiro lugar (alinhado ao cartão e ao backend).
+  _overlayRootFinancialFieldsFromApiItem(map, item);
   return map;
 }
 
