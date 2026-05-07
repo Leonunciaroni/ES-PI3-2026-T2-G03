@@ -495,6 +495,14 @@ class StartupCatalogFunctionsService {
   static String visibilityForCallable(bool isPrivate) =>
       isPrivate ? 'privada' : 'publica';
 
+  /// Recalcula `valor_captado_acumulado_brl` e `progresso_captacao` em **todas** as startups
+  /// somando o ledger (útil após deploy para refletir negócios antigos sem novo aporte).
+  Future<void> reconcileAllStartupsCapture() async {
+    await _instance
+        .httpsCallable('reconcileAllStartupsCapture')
+        .call<Map<Object?, Object?>>(<String, dynamic>{});
+  }
+
   Future<void> createStartupQuestion({
     required String startupId,
     required String text,
