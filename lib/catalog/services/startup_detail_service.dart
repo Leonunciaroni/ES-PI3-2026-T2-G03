@@ -111,9 +111,12 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     ),
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
-    chartSeriesByPeriod: _alignDetailChartSeriesForNow(
-      _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
-      interpolateValues: true,
+    chartSeriesByPeriod: _pinChartMapToValuationAtual(
+      _alignDetailChartSeriesForNow(
+        _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
+        interpolateValues: true,
+      ),
+      readFirestoreOptionalDouble(dNorm, kFieldValuationAtual),
     ),
     headquarters: headquarters,
     foundedLabel: foundedLabel,
@@ -237,6 +240,61 @@ double _interpolateValuationAlongSeries(
   return v.last;
 }
 
+/// Encosta todas as séries ao valuation oficial (`valuation_atual` em **reais** no Firestore),
+/// para o extremo direito de cada chip coincidir com o cartão de valuation.
+Map<ValuationPeriod, ValuationChartSeries> _pinChartMapToValuationAtual(
+  Map<ValuationPeriod, ValuationChartSeries> input,
+  double? valuationAtualReais,
+) {
+  if (valuationAtualReais == null ||
+      !valuationAtualReais.isFinite ||
+      valuationAtualReais <= 0) {
+    return input;
+  }
+  final double targetM = valuationAtualReais / 1e6;
+  final Map<ValuationPeriod, ValuationChartSeries> out =
+      <ValuationPeriod, ValuationChartSeries>{};
+  for (final MapEntry<ValuationPeriod, ValuationChartSeries> e in input.entries) {
+    final ValuationChartSeries s = e.value;
+    final List<double> ys = List<double>.from(s.valuationMillions);
+    if (ys.isEmpty) {
+      out[e.key] = s;
+      continue;
+    }
+    final double last = ys.last;
+    if (last <= 0) {
+      ys[ys.length - 1] = targetM;
+    } else {
+      final double factor = targetM / last;
+      for (var i = 0; i < ys.length; i++) {
+        ys[i] = ys[i] * factor;
+      }
+    }
+    out[e.key] = ValuationChartSeries(
+      valuationMillions: ys,
+      sampleTimes: s.sampleTimes,
+    );
+  }
+  return out;
+}
+
+bool _chartSeriesValuesLikelyFullReais(List<double> rawValues) {
+  if (rawValues.isEmpty) {
+    return false;
+  }
+  double maxAbs = 0;
+  for (final double v in rawValues) {
+    if (!v.isFinite) {
+      continue;
+    }
+    final double a = v.abs();
+    if (a > maxAbs) {
+      maxAbs = a;
+    }
+  }
+  return maxAbs >= 100000;
+}
+
 /// Ancora [sampleTimes] em [DateTime.now] por período (§5.4). Com
 /// [interpolateValues], recalcula Y por interpolação linear na série antiga —
 /// uso típico para dados Firestore; mocks usam `false` (só reposicionam o eixo).
@@ -338,8 +396,13 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
       return null;
     }
     pairs.sort((a, b) => a.t.compareTo(b.t));
+    final List<double> raw = pairs.map((e) => e.v).toList();
+    final bool asReais = _chartSeriesValuesLikelyFullReais(raw);
+    final List<double> millions = raw
+        .map((double v) => asReais ? v / 1e6 : v)
+        .toList();
     return ValuationChartSeries(
-      valuationMillions: pairs.map((e) => e.v).toList(),
+      valuationMillions: millions,
       sampleTimes: pairs.map((e) => e.t).toList(),
     );
   }
