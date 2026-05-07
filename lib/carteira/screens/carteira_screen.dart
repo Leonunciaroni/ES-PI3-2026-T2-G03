@@ -44,10 +44,10 @@ import 'adicionar_fundos_screen.dart';
 import 'carteira_movimentacao_detalhe_screen.dart';
 import 'sacar_valor_screen.dart';
 
-// --- Série “Evolução de saldo” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
+// --- Série “Evolução do património” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
 //
-// Regras de produto aqui: (1) o gráfico da carteira é **saldo disponível em BRL**
-// reconstruído a partir do ledger, não valorização de tokens; (2) os chips de período
+// Regras de produto aqui: (1) o gráfico da carteira é **património total** (saldo BRL
+// disponível + valor de mercado das posições em tokens); (2) os chips de período
 // usam janelas **deslizantes** (7 / 30 / 180 dias), **hoje** e **YTD**, ver
 // [_carteiraInicioPeriodo].
 
@@ -207,6 +207,7 @@ String _carteiraVariacaoSaldoMesLabel({
 }
 
 /// Evolução do **saldo disponível** (BRL) no período, coerente com o ledger e [brlNow].
+/// Usada como base para [carteiraPatrimonioEvolucaoSeries] (soma valor de mercado das posições).
 ///
 /// O intervalo temporal vem de [_carteiraInicioPeriodo] (alinhado aos chips §5.4).
 /// Pontos no tempo = início da janela, cada `createdAt` do ledger no intervalo, e “agora”.
@@ -258,6 +259,47 @@ ValuationChartSeries saldoBrlEvolucaoSeries({
   return ValuationChartSeries(
     valuationMillions: values,
     sampleTimes: times,
+  );
+}
+
+/// Evolução do **património total** (BRL disponível + valor de mercado das posições)
+/// nos mesmos instantes que [saldoBrlEvolucaoSeries].
+ValuationChartSeries carteiraPatrimonioEvolucaoSeries({
+  required ValuationChartSeries serieSaldoBrl,
+  required List<CarteiraLedgerTradeRow> tradesAsc,
+  required List<QueryDocumentSnapshot<Map<String, dynamic>>> positionDocs,
+  required Map<String, CatalogStartup> catalogByFirestoreId,
+  required Map<String, BalcaoStartupMarketStats?> marketStatsByStartupId,
+  required DateTime now,
+}) {
+  final times = serieSaldoBrl.sampleTimes;
+  final brlVals = serieSaldoBrl.valuationMillions;
+  final out = <double>[];
+  for (var i = 0; i < times.length; i++) {
+    var mvTotal = 0.0;
+    for (final doc in positionDocs) {
+      final sid = doc.id.trim();
+      if (sid.isEmpty) continue;
+      final held =
+          (doc.data()['tokensHeld'] as num?)?.toDouble() ?? 0.0;
+      final match = catalogByFirestoreId[sid];
+      final pxCat = match?.tokenPrice ?? 0.0;
+      final st = marketStatsByStartupId[sid];
+      mvTotal += carteiraValorMercadoPosicaoNumInstante(
+        tradesAsc: tradesAsc,
+        startupId: sid,
+        instant: times[i],
+        fallbackCatalogPriceBrl: pxCat,
+        tokensHeldNowFromDoc: held,
+        marketSeriesDiario: st?.seriesDiarioPoints,
+        anchorNow: now,
+      );
+    }
+    out.add(brlVals[i] + mvTotal);
+  }
+  return ValuationChartSeries(
+    valuationMillions: out,
+    sampleTimes: List<DateTime>.from(times),
   );
 }
 
@@ -1016,13 +1058,27 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     setState(() => _hideValues = !_hideValues);
   }
 
-  /// Gráfico: mock (convidado) ou evolução do saldo em BRL a partir do extrato.
+  /// Gráfico de convidado: mesma forma que o mock de saldo, escala para [património total].
+  ValuationChartSeries _seriePatrimonioConvidadoMock() {
+    final base = carteiraSaldoSeries(_periodo);
+    final meta = _patrimonioTotalConvidado();
+    final last = base.valuationMillions.last;
+    if (last.abs() < 1e-9) return base;
+    final scale = meta / last;
+    return ValuationChartSeries(
+      valuationMillions:
+          base.valuationMillions.map((v) => v * scale).toList(),
+      sampleTimes: base.sampleTimes,
+    );
+  }
+
+  /// Gráfico: mock património (convidado) ou evolução do património total (logado).
   Widget _evolucaoSaldoBlock({
     required ThemeData theme,
     required ColorScheme colorScheme,
   }) {
     final uid = _uidSessao;
-    const tituloGrafico = 'Evolução de Saldo';
+    const tituloGrafico = 'Evolução do Saldo Total Investido';
 
     if (_hideValues) {
       return Material(
@@ -1093,7 +1149,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       return ValuationEvolutionChartCard(
         selected: _periodo,
         onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
-        series: carteiraSaldoSeries(_periodo),
+        series: _seriePatrimonioConvidadoMock(),
         primary: colorScheme.primary,
         title: tituloGrafico,
         footnote: '',
@@ -1103,8 +1159,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       );
     }
 
-    // Sessão autenticada: gráfico = **evolução do saldo BRL** (ledger + saldo atual em tempo real).
-    // Não acoplar a `getWalletTokenPerformance` (valorização de tokens).
+    // Sessão autenticada: **património total** (saldo BRL + valor de mercado das posições).
     return StreamBuilder<double>(
       stream: SimulatedWalletService.watchBrlBalance(uid),
       builder: (context, balSnap) {
@@ -1121,7 +1176,6 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         final saldoErro = balSnap.hasError;
         final brlNow = saldoErro ? 0.0 : (balSnap.data ?? 0.0);
 
-        // Limite alto para janelas longas (ex.: YTD) com muitas linhas no extrato.
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: SimulatedWalletService.watchLedgerRecentForChart(
             uid,
@@ -1150,25 +1204,95 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               );
             }
 
-            final now = DateTime.now();
-            final series = saldoBrlEvolucaoSeries(
-              docsNewestFirst: snap.data?.docs ?? const [],
-              periodo: _periodo,
-              now: now,
-              brlNow: brlNow,
-            );
+            final ledgerDocs = snap.data?.docs ?? const [];
+            final trades = snap.hasData && snap.data != null
+                ? carteiraParseLedgerTradesAscending(snap.data!)
+                : const <CarteiraLedgerTradeRow>[];
 
-            return ValuationEvolutionChartCard(
-              selected: _periodo,
-              onSelect: (ValuationPeriod p) => setState(() => _periodo = p),
-              series: series,
-              primary: colorScheme.primary,
-              title: tituloGrafico,
-              footnote: '',
-              formatYAxis: formatBrl,
-              formatTooltip: formatBrl,
-              touchListenerKey:
-                  const ValueKey<String>('carteira_saldo_chart_touch'),
+            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: SimulatedWalletService.watchPositions(uid),
+              builder: (context, posSnap) {
+                if (posSnap.connectionState == ConnectionState.waiting &&
+                    !posSnap.hasData &&
+                    posSnap.error == null) {
+                  return SizedBox(
+                    height: 280,
+                    child: Center(
+                      child:
+                          CircularProgressIndicator(color: colorScheme.primary),
+                    ),
+                  );
+                }
+                final posDocs = posSnap.data?.docs ?? const [];
+
+                return FutureBuilder<List<CatalogStartup>>(
+                  future: StartupCatalogListCache.instance
+                      .fullList(_catalogFunctionsService),
+                  builder: (context, catalogSnap) {
+                    if (catalogSnap.connectionState == ConnectionState.waiting &&
+                        !catalogSnap.hasData &&
+                        catalogSnap.error == null) {
+                      return SizedBox(
+                        height: 280,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      );
+                    }
+                    final catalog = catalogSnap.hasError
+                        ? const <CatalogStartup>[]
+                        : (catalogSnap.data ?? const <CatalogStartup>[]);
+                    final byFirestoreId = <String, CatalogStartup>{};
+                    for (final s in catalog) {
+                      final id = s.firestoreId?.trim();
+                      if (id != null && id.isNotEmpty) {
+                        byFirestoreId[id] = s;
+                      }
+                    }
+
+                    return FutureBuilder<Map<String, BalcaoStartupMarketStats?>>(
+                      future: _marketStatsForInvestidasDocs(posDocs),
+                      builder: (context, mktSnap) {
+                        final statsMap = mktSnap.data ??
+                            const <String, BalcaoStartupMarketStats?>{};
+                        final now = DateTime.now();
+                        final brlSerie = saldoBrlEvolucaoSeries(
+                          docsNewestFirst: ledgerDocs,
+                          periodo: _periodo,
+                          now: now,
+                          brlNow: brlNow,
+                        );
+                        final seriePatrimonio =
+                            carteiraPatrimonioEvolucaoSeries(
+                          serieSaldoBrl: brlSerie,
+                          tradesAsc: trades,
+                          positionDocs: posDocs,
+                          catalogByFirestoreId: byFirestoreId,
+                          marketStatsByStartupId: statsMap,
+                          now: now,
+                        );
+
+                        return ValuationEvolutionChartCard(
+                          selected: _periodo,
+                          onSelect: (ValuationPeriod p) =>
+                              setState(() => _periodo = p),
+                          series: seriePatrimonio,
+                          primary: colorScheme.primary,
+                          title: tituloGrafico,
+                          footnote: '',
+                          formatYAxis: formatBrl,
+                          formatTooltip: formatBrl,
+                          touchListenerKey: const ValueKey<String>(
+                            'carteira_saldo_chart_touch',
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
             );
           },
         );
@@ -1346,7 +1470,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     final uid = _uidSessao;
     if (uid == null) {
       return _SaldoHeroCard(
-        totalLabel: 'PATRIMÓNIO TOTAL',
+        totalLabel: 'SALDO TOTAL INVESTIDO',
         totalValue: _brlParaExibicao(_patrimonioTotalConvidado()),
         trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
         onAdicionar: _abrirAdicionarFundos,
@@ -1448,7 +1572,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                               ));
 
                     return _SaldoHeroCard(
-                      totalLabel: 'PATRIMÓNIO TOTAL',
+                      totalLabel: 'SALDO TOTAL INVESTIDO',
                       totalValue: (saldoErro || posErro)
                           ? '—'
                           : _brlParaExibicao(patrimonio),
