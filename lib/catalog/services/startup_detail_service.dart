@@ -143,6 +143,11 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
 
 String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
   final double? esp = readFirestoreOptionalDouble(d, kFieldCaptacaoEsperada);
+  final double? capt =
+      readFirestoreOptionalDouble(d, kFieldValorCaptadoAcumuladoBrl);
+  if (esp != null && esp > 0 && capt != null && capt >= 0) {
+    return 'R\$ ${_formatIntBR(capt.round())} / R\$ ${_formatIntBR(esp.round())}';
+  }
   if (esp != null && esp > 0) {
     return 'Captação esperada: R\$ ${_formatIntBR(esp.round())}';
   }
