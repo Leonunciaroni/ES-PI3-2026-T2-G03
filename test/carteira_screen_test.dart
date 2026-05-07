@@ -23,8 +23,8 @@ void main() {
     );
 
     expect(find.text('Carteira'), findsOneWidget);
-    expect(find.textContaining('SALDO TOTAL INVESTIDO'), findsOneWidget);
-    expect(find.textContaining('12.450'), findsNWidgets(2));
+    expect(find.textContaining('PATRIMÓNIO TOTAL'), findsOneWidget);
+    expect(find.textContaining('13.888'), findsNWidgets(2));
   });
 
   testWidgets('+ Adicionar Saldo abre fluxo Adicionar fundos', (tester) async {
