@@ -55,6 +55,12 @@ export type StartupListItem = {
   logoPath?: string;
   tokenPrice: number;
   captureProgress: number;
+  /**
+   * Campos crus do Firestore para o cliente calcular a barra como no detalhe
+   * (captado ÷ meta tem prioridade sobre `captureProgress`).
+   */
+  captacao_esperada?: number | null;
+  valor_captado_acumulado_brl?: number | null;
   yieldPercentLabel: string;
   tags: string[];
   detail?: StartupDetailPayload | null;
@@ -285,6 +291,8 @@ function mapDocToItem(
     logoPath: logoPathFrom(data),
     tokenPrice: readOptionalDouble(data, kPrecoToken) ?? 0,
     captureProgress: captureProgressFraction(data),
+    captacao_esperada: readOptionalDouble(data, kCaptacaoEsperada) ?? null,
+    valor_captado_acumulado_brl: readOptionalDouble(data, kValorCaptadoAcumulado) ?? null,
     yieldPercentLabel: yieldLabel(data),
     tags: buildTags(setorRaw, sigla, stage),
   };
