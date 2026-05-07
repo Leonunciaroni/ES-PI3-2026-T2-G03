@@ -22,10 +22,14 @@ import type {
 /** Campos extras quando `includeDetail: true` — espelham o documento Firestore. */
 export type StartupDetailPayload = {
   descricao?: string | null;
-  /** Meta de captação esperada (reais). */
+  /** Meta de captação da rodada (BRL). */
   captacao_esperada?: number | null;
-  /** Valuation atual (reais). */
+  /** Valuation atual (BRL). */
   valuation_atual?: number | null;
+  /** Soma líquida das negociações no balcão (BRL), mantida por `simulateWallet`. */
+  valor_captado_acumulado_brl?: number | null;
+  /** 0..1, derivado de captado ÷ meta. */
+  progresso_captacao?: number | null;
   grafico_valuation?: Record<string, unknown> | null;
   sede?: string | null;
   anoDeInicio?: number | null;
@@ -214,6 +218,9 @@ function detailPayloadFromDoc(d: Record<string, unknown>): StartupDetailPayload 
     descricao: readOptionalString(d, kDescricao) ?? null,
     captacao_esperada: readOptionalDouble(d, "captacao_esperada") ?? null,
     valuation_atual: readOptionalDouble(d, "valuation_atual") ?? null,
+    valor_captado_acumulado_brl:
+      readOptionalDouble(d, "valor_captado_acumulado_brl") ?? null,
+    progresso_captacao: readOptionalDouble(d, kProgressoCaptacao) ?? null,
     grafico_valuation: (d["grafico_valuation"] as Record<string, unknown>) ?? null,
     sede: readOptionalString(d, "sede") ?? null,
     anoDeInicio:
