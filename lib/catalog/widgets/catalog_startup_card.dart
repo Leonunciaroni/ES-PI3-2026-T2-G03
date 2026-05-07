@@ -8,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../models/catalog_startup.dart';
 import '../screens/startup_detail_screen.dart';
 import '../services/startup_catalog_functions_service.dart';
+import 'mescla_capture_progress_bar.dart';
 import 'startup_logo_avatar.dart';
 
 /// Formata preço do token como no catálogo (BR): `R$ 15,30` ou `—` se zero.
@@ -49,7 +50,8 @@ class CatalogStartupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pct = (startup.captureProgress * 100).round();
+    final double progressFrac = startup.captureProgress.clamp(0.0, 1.0);
+    final pct = (progressFrac * 100).round();
     final tokenPriceFormatted = catalogTokenPriceLabel(startup);
 
     return Material(
@@ -200,14 +202,11 @@ class CatalogStartupCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: startup.captureProgress,
-                  minHeight: 8,
-                  backgroundColor: AppColors.progressTrack(theme),
-                  color: primary,
-                ),
+              MesclaCaptureProgressBar(
+                value: progressFrac,
+                trackColor: AppColors.progressTrack(theme),
+                fillColor: primary,
+                height: 10,
               ),
             ],
           ),
