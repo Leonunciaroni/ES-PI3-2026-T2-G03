@@ -235,8 +235,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return all.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
   }
 
-  /// Cards do Explorar; em produção com Firebase, o `preco_token` vem do snapshot
-  /// da coleção [kFirestoreStartupsCollection] (atualização contínua pelo scheduler).
+  /// Cards do Explorar; em produção com Firebase, `preco_token` e progresso de captação
+  /// vêm dos snapshots da coleção [kFirestoreStartupsCollection] (scheduler / carteira).
   Widget _catalogListaComPrecoAoVivo({
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -288,11 +288,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
       builder: (context, fsSnap) {
         List<CatalogStartup> merged = raw;
         if (fsSnap.hasData) {
-          final m = <String, double>{};
-          for (final d in fsSnap.data!.docs) {
-            m[d.id] = tokenPriceFromFirestore(d.data());
-          }
-          merged = catalogMergeLivePrecoToken(raw, m);
+          final Map<String, Map<String, dynamic>> byId = <String, Map<String, dynamic>>{
+            for (final QueryDocumentSnapshot<Map<String, dynamic>> d in fsSnap.data!.docs)
+              d.id: d.data(),
+          };
+          merged = catalogMergeLiveFirestoreDocs(raw, byId);
         }
         final rows = merged;
         return coluna(rows);
