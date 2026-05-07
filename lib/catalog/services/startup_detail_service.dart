@@ -106,11 +106,10 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     longDescription: descricao.isEmpty ? catalog.description : descricao,
     captureHeadline: captureHeadline,
     captureProgressFraction: captureFraction,
-    captureProgressLabel: captureFraction > 0
-        ? '${(captureFraction * 100).round()}% da meta atingida'
-        : (captacaoEsperadaReais != null && captacaoEsperadaReais > 0)
-            ? 'Meta de captação definida'
-            : 'Meta de captação em definição',
+    captureProgressLabel: _labelCaptacaoRodape(
+      captureFraction,
+      captacaoEsperadaReais,
+    ),
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
     valuationTrendText: valuationTrend,
@@ -139,6 +138,16 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     demoVideoUrl: videoUrl,
     fullFirestoreDocument: Map<String, dynamic>.from(dNorm),
   );
+}
+
+/// Texto sob a barra de captação no detalhe: percentual coerente com [captureFraction].
+String _labelCaptacaoRodape(double fraction, double? metaReais) {
+  final bool temMeta = metaReais != null && metaReais > 0;
+  if (temMeta || fraction > 0) {
+    final int pct = (fraction.clamp(0.0, 1.0) * 100).round();
+    return '$pct% da meta atingida';
+  }
+  return 'Meta de captação em definição';
 }
 
 String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
