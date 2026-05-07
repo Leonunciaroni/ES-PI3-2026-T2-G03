@@ -11,7 +11,8 @@
  *   - `ledger/*` (histórico mínimo)
  *   - `positions/{startupId}` (posição do investidor)
  * - Atualizar `startups/{startupId}` com captação simulada:
- *   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`;
+ *   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`
+ *     (dinheiro líquido agregado de **todos** os investidores que negociam esta startup);
  *   - `progresso_captacao` = captado ÷ `captacao_esperada` (0..1).
  *
  * Decisões importantes:
