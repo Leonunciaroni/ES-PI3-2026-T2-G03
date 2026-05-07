@@ -9,7 +9,12 @@
  * (padrão **20 minutos** — bom custo/benefício para projeto académico).
  */
 
-import {getFirestore, type DocumentData, Timestamp} from "firebase-admin/firestore";
+import {
+  getFirestore,
+  type DocumentData,
+  type DocumentReference,
+  Timestamp,
+} from "firebase-admin/firestore";
 import {logger} from "firebase-functions";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 
@@ -74,6 +79,28 @@ function trimHistorico(points: CotacaoPonto[], maxLen: number): CotacaoPonto[] {
   return points.slice(points.length - maxLen);
 }
 
+/** Parallel Firestore updates per tick — avoids N sequential round-trips on large catalogs. */
+const MARKET_TICK_UPDATE_CONCURRENCY = 15;
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  if (items.length === 0) {
+    return;
+  }
+  const limit = Math.max(1, concurrency);
+  let index = 0;
+  const workers = Array.from({length: Math.min(limit, items.length)}, async () => {
+    while (index < items.length) {
+      const i = index++;
+      await fn(items[i] as T);
+    }
+  });
+  await Promise.all(workers);
+}
+
 export const tickStartupMarketPrices = onSchedule(
   {
     schedule: MARKET_TICK_SCHEDULE,
@@ -85,8 +112,15 @@ export const tickStartupMarketPrices = onSchedule(
     const db = getFirestore();
     const snap = await db.collection(STARTUPS_COLLECTION).get();
     const now = Timestamp.now();
-    let updated = 0;
     let skipped = 0;
+
+    type UpdateJob = {
+      ref: DocumentReference;
+      next: number;
+      merged: CotacaoPonto[];
+    };
+
+    const jobs: UpdateJob[] = [];
 
     for (const doc of snap.docs) {
       const data = doc.data();
@@ -107,15 +141,20 @@ export const tickStartupMarketPrices = onSchedule(
       const novoPonto: CotacaoPonto = {t: now, p: next};
       const merged = trimHistorico([...anterior, novoPonto], MARKET_HISTORY_MAX_POINTS);
 
-      await doc.ref.update({
-        [STARTUP_FIELD_TOKEN_PRICE]: next,
-        [STARTUP_FIELD_HISTORICO_COTACAO_SIM]: merged.map((x) => ({
+      jobs.push({ref: doc.ref, next, merged});
+    }
+
+    await runWithConcurrency(jobs, MARKET_TICK_UPDATE_CONCURRENCY, async (job) => {
+      await job.ref.update({
+        [STARTUP_FIELD_TOKEN_PRICE]: job.next,
+        [STARTUP_FIELD_HISTORICO_COTACAO_SIM]: job.merged.map((x) => ({
           t: x.t,
           p: x.p,
         })),
       });
-      updated++;
-    }
+    });
+
+    const updated = jobs.length;
 
     logger.info("tickStartupMarketPrices", {
       startupsTotal: snap.size,
