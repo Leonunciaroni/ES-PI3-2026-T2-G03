@@ -309,7 +309,6 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
           _ValuationCard(
             roundLabel: detail.valuationRoundLabel,
             headline: detail.valuationHeadline,
-            trend: detail.valuationTrendText,
           ),
           const SizedBox(height: 14),
           ValuationEvolutionChartCard(

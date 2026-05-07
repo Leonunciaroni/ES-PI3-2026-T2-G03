@@ -95,9 +95,8 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
   );
   final String captureHeadline = _captureHeadlineFromFirestore(dNorm);
   final String valuationHeadline = _valuationHeadlineFromFirestore(dNorm);
-  // Rodada e tendência não vêm mais do Firestore — UI usa texto fixo simples.
+  // Rodada não vem mais do Firestore — UI usa texto fixo simples.
   const String valuationRound = 'VALUATION';
-  const String valuationTrend = '—';
   final String headquarters = _headquartersFromFirestore(dNorm);
 
   return StartupDetailViewData(
@@ -112,7 +111,6 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     ),
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
-    valuationTrendText: valuationTrend,
     chartSeriesByPeriod: _alignDetailChartSeriesForNow(
       _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
       interpolateValues: true,

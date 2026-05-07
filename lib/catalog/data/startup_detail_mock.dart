@@ -418,7 +418,6 @@ class StartupDetailViewData {
     required this.captureProgressLabel,
     required this.valuationHeadline,
     required this.valuationRoundLabel,
-    required this.valuationTrendText,
     required this.chartSeriesByPeriod,
     required this.headquarters,
     required this.foundedLabel,
@@ -459,9 +458,6 @@ class StartupDetailViewData {
 
   /// Subtítulo da ronda (ex.: "VALUATION (SÉRIE A)").
   final String valuationRoundLabel;
-
-  /// Texto verde de tendência (ex.: "+18% vs Previsto").
-  final String valuationTrendText;
 
   /// Para cada período (§5.4), série temporal para o gráfico de área.
   final Map<ValuationPeriod, ValuationChartSeries> chartSeriesByPeriod;
@@ -695,7 +691,6 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
     captureProgressLabel: '80% da meta atingida',
     valuationHeadline: 'R\$ 22.0M',
     valuationRoundLabel: 'VALUATION (SÉRIE SEED)',
-    valuationTrendText: '+18% vs Previsto',
     chartSeriesByPeriod: _greenFlowCharts(),
     headquarters: 'Florianópolis, SC',
     foundedLabel: 'Março de 2021',
@@ -781,7 +776,6 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
     captureProgressLabel: '55% da meta atingida',
     valuationHeadline: 'R\$ 41.0M',
     valuationRoundLabel: 'VALUATION (SÉRIE A)',
-    valuationTrendText: '+12% vs Previsto',
     chartSeriesByPeriod: _cyberMeshCharts(),
     headquarters: 'Campinas, SP',
     foundedLabel: 'Agosto de 2020',
@@ -855,7 +849,6 @@ final Map<String, StartupDetailViewData> _detailTemplatesByName = {
     captureProgressLabel: '92% da meta atingida',
     valuationHeadline: 'R\$ 67.5M',
     valuationRoundLabel: 'VALUATION (SÉRIE B)',
-    valuationTrendText: '+9% vs Previsto',
     chartSeriesByPeriod: _healthlyCharts(),
     headquarters: 'São Paulo, SP',
     foundedLabel: 'Janeiro de 2019',
@@ -1031,7 +1024,6 @@ StartupDetailViewData startupDetailForWithPrivateQuestions(CatalogStartup c) {
     captureProgressLabel: d.captureProgressLabel,
     valuationHeadline: d.valuationHeadline,
     valuationRoundLabel: d.valuationRoundLabel,
-    valuationTrendText: d.valuationTrendText,
     chartSeriesByPeriod: d.chartSeriesByPeriod,
     headquarters: d.headquarters,
     foundedLabel: d.foundedLabel,
@@ -1063,7 +1055,6 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
     captureProgressLabel: template.captureProgressLabel,
     valuationHeadline: template.valuationHeadline,
     valuationRoundLabel: template.valuationRoundLabel,
-    valuationTrendText: template.valuationTrendText,
     chartSeriesByPeriod: alignStartupDetailChartsToNow(
       template.chartSeriesByPeriod,
     ),
@@ -1098,7 +1089,6 @@ StartupDetailViewData _fallbackFor(CatalogStartup c) {
         '${(c.captureProgress * 100).round()}% da meta atingida',
     valuationHeadline: 'R\$ —',
     valuationRoundLabel: 'VALUATION',
-    valuationTrendText: '—',
     chartSeriesByPeriod: charts,
     headquarters: '—',
     foundedLabel: '—',
