@@ -258,6 +258,52 @@ Future<List<CatalogStartup>> _listStartupsFromFirestoreFallback({
   }
 }
 
+/// Extrai o objeto item da resposta HTTP da callable [getStartupDetails].
+///
+/// O backend devolve `{ data: { id, name, detail, publicQuestions, ... } }`, mas
+/// em alguns ambientes o envelope pode variar — tentamos [data] e, em último caso,
+/// o mapa raiz se já parecer um item de startup.
+Map<String, dynamic>? _parseGetStartupDetailsItemEnvelope(Object? raw) {
+  if (raw == null || raw is! Map) {
+    return null;
+  }
+  final Map<String, dynamic> top = Map<String, dynamic>.from(
+    raw.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+  );
+  final Object? nested = top['data'];
+  if (nested is Map) {
+    return Map<String, dynamic>.from(
+      nested.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+    );
+  }
+  if (top.containsKey('id') ||
+      top.containsKey('name') ||
+      top.containsKey('detail')) {
+    return top;
+  }
+  return null;
+}
+
+/// Copia para [merged] campos financeiros que por vezes vêm na raiz do JSON da callable
+/// (além do bloco `detail`), para não perder valores após o deploy das Functions.
+void _overlayRootFinancialFieldsFromApiItem(
+  Map<String, dynamic> merged,
+  Map<String, dynamic> item,
+) {
+  const List<String> keys = <String>[
+    'captacao_esperada',
+    'valuation_atual',
+    'valor_captado_acumulado_brl',
+    'progresso_captacao',
+  ];
+  for (final String k in keys) {
+    final Object? v = item[k];
+    if (v != null) {
+      merged[k] = v;
+    }
+  }
+}
+
 Future<StartupDetailViewData?> _fetchStartupDetailFromFirestore(
   String startupId,
 ) async {
@@ -287,13 +333,13 @@ Future<StartupDetailViewData?> _fetchStartupDetailFromFirestore(
     }
     if (kDebugMode) {
       debugPrint(
-        '[fetchStartupDetail] detalhe via Firestore (callable vazia ou emulador).',
+        '[fetchStartupDetail] contingência: detalhe só via Firestore (callable indisponível).',
       );
     }
     return detailViewDataFromFirestoreMap(raw, catalog);
   } catch (e) {
     if (kDebugMode) {
-      debugPrint('[fetchStartupDetail] Firestore: $e');
+      debugPrint('[fetchStartupDetail] Firestore (fallback): $e');
     }
     return null;
   }
@@ -388,10 +434,14 @@ class StartupCatalogFunctionsService {
     return out;
   }
 
-  /// Detalhe completo para uma startup (substitui leitura direta do Firestore).
+  /// Detalhe completo para uma startup.
   ///
-  /// Tenta a callable `listStartups` com `includeDetail`; se falhar ou vier vazia
-  /// (ex.: emulador de Functions sem dados), lê o documento diretamente no Firestore.
+  /// Caminho principal: Cloud Function [getStartupDetails] (`us-central1`) — o servidor lê
+  /// o Firestore e devolve `detail` + perguntas. Após o deploy, os valores de captação /
+  /// valuation chegam neste payload.
+  ///
+  /// Se a callable falhar (rede, função antiga sem deploy), usa-se leitura direta em
+  /// `startups/{id}` só como contingência (sem bloco Q&A da API).
   Future<StartupDetailViewData?> fetchStartupDetail(String startupId) async {
     final String id = startupId.trim();
     if (id.isEmpty) {
@@ -403,19 +453,13 @@ class StartupCatalogFunctionsService {
           .httpsCallable('getStartupDetails')
           .call<Map<Object?, Object?>>(<String, dynamic>{'id': id});
 
-      final top = Map<String, dynamic>.from(
-        result.data.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
-      );
-      final Object? dataAny = top['data'];
-      if (dataAny is Map) {
-        final Map<String, dynamic> item = Map<String, dynamic>.from(
-          dataAny.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
-        );
+      final Map<String, dynamic>? item =
+          _parseGetStartupDetailsItemEnvelope(result.data);
+      if (item != null) {
         final CatalogStartup? catalog = catalogStartupFromApiItem(item);
         if (catalog != null) {
-          final Map<String, dynamic> merged = firestoreShapedMapFromApiItem(
-            item,
-          );
+          final Map<String, dynamic> merged = firestoreShapedMapFromApiItem(item);
+          _overlayRootFinancialFieldsFromApiItem(merged, item);
           final List<StartupPublicQa> publicQa = _qaListFromApi(
             item['publicQuestions'],
           );
@@ -439,7 +483,7 @@ class StartupCatalogFunctionsService {
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[fetchStartupDetail] callable falhou ou vazia: $e');
+        debugPrint('[fetchStartupDetail] callable getStartupDetails falhou: $e');
       }
     }
 
