@@ -23,7 +23,7 @@ void main() {
     );
 
     expect(find.text('Carteira'), findsOneWidget);
-    expect(find.textContaining('PATRIMÓNIO TOTAL'), findsOneWidget);
+    expect(find.textContaining('SALDO TOTAL INVESTIDO'), findsOneWidget);
     expect(find.textContaining('13.888'), findsNWidgets(2));
   });
 
