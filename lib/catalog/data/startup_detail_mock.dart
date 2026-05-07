@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'chart_sample_time_axis.dart';
 import '../models/catalog_startup.dart';
 
 /// Períodos de visualização exigidos no documento (§5.4) para gráficos de variação.
@@ -559,6 +560,24 @@ Map<ValuationPeriod, ValuationChartSeries> fallbackChartSeriesForStartupDetail(
   return _seriesFromShape(shape, 14.0, 24.0);
 }
 
+/// Ancora instantes dos gráficos §5.4 em [DateTime.now] (mesmas janelas que o Balcão).
+Map<ValuationPeriod, ValuationChartSeries> alignStartupDetailChartsToNow(
+  Map<ValuationPeriod, ValuationChartSeries> raw,
+) {
+  final DateTime now = DateTime.now();
+  return <ValuationPeriod, ValuationChartSeries>{
+    for (final MapEntry<ValuationPeriod, ValuationChartSeries> e in raw.entries)
+      e.key: ValuationChartSeries(
+        valuationMillions: e.value.valuationMillions,
+        sampleTimes: chartEvenlySpacedTimes(
+          chartWindowStartForPeriodIndex(e.key.index, now),
+          now,
+          e.value.valuationMillions.length,
+        ),
+      ),
+  };
+}
+
 Map<ValuationPeriod, ValuationChartSeries> _greenFlowCharts() => {
   ValuationPeriod.diario: ValuationChartSeries(
     valuationMillions: [
@@ -1045,7 +1064,9 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
     valuationHeadline: template.valuationHeadline,
     valuationRoundLabel: template.valuationRoundLabel,
     valuationTrendText: template.valuationTrendText,
-    chartSeriesByPeriod: template.chartSeriesByPeriod,
+    chartSeriesByPeriod: alignStartupDetailChartsToNow(
+      template.chartSeriesByPeriod,
+    ),
     headquarters: template.headquarters,
     foundedLabel: template.foundedLabel,
     missionQuote: template.missionQuote,
@@ -1064,7 +1085,9 @@ StartupDetailViewData startupDetailFor(CatalogStartup c) {
 }
 
 StartupDetailViewData _fallbackFor(CatalogStartup c) {
-  final charts = fallbackChartSeriesForStartupDetail(c);
+  final charts = alignStartupDetailChartsToNow(
+    fallbackChartSeriesForStartupDetail(c),
+  );
   return StartupDetailViewData(
     catalog: c,
     categoryDisplay: c.category,
