@@ -51,6 +51,9 @@ const String kFieldCaptacaoEsperada = 'captacao_esperada';
 /// Usado para o headline do bloco de valuation no detalhe.
 const String kFieldValuationAtual = 'valuation_atual';
 
+/// Total líquido captado em **reais** (compras − vendas no balcão); atualizado pelo backend.
+const String kFieldValorCaptadoAcumuladoBrl = 'valor_captado_acumulado_brl';
+
 /// Cidade / sede da empresa.
 const String kFieldSede = 'sede';
 
