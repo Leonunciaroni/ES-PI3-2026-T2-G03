@@ -156,6 +156,13 @@ List<CatalogStartup> catalogMergeLivePrecoToken(
 }
 
 double captureProgressFractionFromFirestore(Map<String, dynamic> d) {
+  // Se temos meta e valor captado, a fração é captado ÷ meta (igual ao backend).
+  final double? esperada = readFirestoreOptionalDouble(d, kFieldCaptacaoEsperada);
+  final double? captado = readFirestoreOptionalDouble(d, kFieldValorCaptadoAcumuladoBrl);
+  if (esperada != null && esperada > 0 && captado != null && captado >= 0) {
+    return (captado / esperada).clamp(0.0, 1.0);
+  }
+
   final double? v = readFirestoreOptionalDouble(d, kFieldProgressoCaptacao);
   if (v == null) {
     return 0.0;
