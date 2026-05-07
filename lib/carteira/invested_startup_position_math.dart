@@ -7,6 +7,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../balcao/balcao_cotacao_chart_series.dart';
+
 /// Linha normalizada do ledger para compras/vendas de tokens.
 class CarteiraLedgerTradeRow {
   const CarteiraLedgerTradeRow({
@@ -107,6 +109,26 @@ double carteiraLastTradePriceBefore(
   return (fallbackPriceBrl > 0) ? fallbackPriceBrl : 0.0;
 }
 
+/// Instant do último trade da startup na série (ordem ascendente).
+DateTime? carteiraUltimoInstanteNegocioStartup(
+  List<CarteiraLedgerTradeRow> tradesAsc,
+  String startupId,
+) {
+  DateTime? ultimo;
+  for (final r in tradesAsc) {
+    if (r.startupId == startupId) {
+      ultimo = r.at;
+    }
+  }
+  return ultimo;
+}
+
+/// Valor da posição num instante: tokens × preço.
+///
+/// Antes do último trade da startup na série, o preço segue o último negócio até esse
+/// instante (replay). **No último trade e depois**, usa [fallbackPriceBrl] (cotação do
+/// catálogo), alinhando o mini-gráfico ao «Valor atual» quando o mercado simulado move
+/// o preço sem novo negócio no ledger.
 double carteiraSingleStartupMarketValueBrl(
   List<CarteiraLedgerTradeRow> tradesAsc,
   String startupId,
@@ -117,34 +139,73 @@ double carteiraSingleStartupMarketValueBrl(
   final tok = tradesAsc.isEmpty
       ? tokensHeldIfLedgerEmpty
       : carteiraTokensHeldForStartupAt(tradesAsc, startupId, deadline);
-  final px = tradesAsc.isEmpty
-      ? fallbackPriceBrl
-      : carteiraLastTradePriceBefore(
-          tradesAsc,
-          startupId,
-          deadline,
-          fallbackPriceBrl,
-        );
+
+  // Depois do último negócio da startup, usar cotação atual do catálogo (como «Valor atual»).
+  final ultimoNegocio =
+      carteiraUltimoInstanteNegocioStartup(tradesAsc, startupId);
+  final double px;
+  if (fallbackPriceBrl > 1e-9 &&
+      ultimoNegocio != null &&
+      !deadline.isBefore(ultimoNegocio)) {
+    px = fallbackPriceBrl;
+  } else if (tradesAsc.isEmpty) {
+    px = fallbackPriceBrl;
+  } else {
+    px = carteiraLastTradePriceBefore(
+      tradesAsc,
+      startupId,
+      deadline,
+      fallbackPriceBrl,
+    );
+  }
   return tok * px;
 }
 
-/// Valores em BRL nos instantes [sampleTimes] (valor da posição = tokens × preço).
+/// Valores em BRL nos instantes [sampleTimes].
+///
+/// Quando [marketPriceSeries] tem pontos (`getStartupMarketStats` / `seriesDiario`),
+/// o preço em cada instante segue essa curva (interpolado), como no gráfico do Balcão —
+/// a linha acompanha quedas/subidas de mercado **sem** precisar de novo trade no ledger.
+/// Senão, usa [carteiraSingleStartupMarketValueBrl] (ledger + cotação atual na cauda).
 List<double> carteiraSingleStartupSparklineValues(
   List<CarteiraLedgerTradeRow> tradesAsc, {
   required String startupId,
   required double fallbackPriceBrl,
   required List<DateTime> sampleTimes,
   required double tokensHeldNowFromDoc,
+  List<BalcaoMarketPricePoint>? marketPriceSeries,
+  DateTime? anchorNow,
 }) {
+  List<BalcaoMarketPricePoint>? extended;
+  if (marketPriceSeries != null &&
+      marketPriceSeries.length >= 2 &&
+      fallbackPriceBrl > 1e-9 &&
+      anchorNow != null) {
+    final sorted = balcaoSortAndDedupePoints(marketPriceSeries);
+    extended = balcaoExtendSeriesToNow(sorted, anchorNow, fallbackPriceBrl);
+  }
+
+  if (extended != null) {
+    final priceCurve = extended;
+    return sampleTimes.map((t) {
+      final tok = tradesAsc.isEmpty
+          ? tokensHeldNowFromDoc
+          : carteiraTokensHeldForStartupAt(tradesAsc, startupId, t);
+      final px =
+          balcaoInterpolatePriceBrl(priceCurve, t) ?? fallbackPriceBrl;
+      return tok * px;
+    }).toList();
+  }
+
   return sampleTimes
       .map(
         (t) => carteiraSingleStartupMarketValueBrl(
-          tradesAsc,
-          startupId,
-          t,
-          fallbackPriceBrl,
-          tokensHeldNowFromDoc,
-        ),
+              tradesAsc,
+              startupId,
+              t,
+              fallbackPriceBrl,
+              tokensHeldNowFromDoc,
+            ),
       )
       .toList();
 }
