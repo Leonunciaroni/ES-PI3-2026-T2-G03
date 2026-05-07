@@ -1,8 +1,8 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Tela **Carteira** — protótipo visual alinhado ao Figma (saldo, evolução,
-// startups investidas, movimentações). Com utilizador autenticado, saldo,
+// Tela **Carteira** — protótipo visual alinhado ao Figma (património, evolução,
+// startups investidas, movimentações). Com utilizador autenticado, saldo BRL,
 // posições e extrato vêm do Firestore (`sim_wallet`); convidado mantém mocks.
 // Inclui **Minhas Chaves PIX** (Firestore em `users/{uid}` se logado; memória
 // se convidado) e atalho **Sacar** (fluxo visual).
@@ -172,12 +172,12 @@ double _carteiraBrlAntesDoIntervalo({
   return b;
 }
 
-/// Património exibido no hero: saldo livre + custo das posições.
+/// Património no hero (estilo corretora): saldo BRL livre + valor de mercado das posições.
 double _carteiraPatrimonioTotal({
   required double brlDisponivel,
-  required double custoPosicoes,
+  required double valorMercadoPosicoes,
 }) =>
-    brlDisponivel + custoPosicoes;
+    brlDisponivel + valorMercadoPosicoes;
 
 /// Variação % do **saldo disponível** (BRL) no mês civil corrente.
 ///
@@ -397,12 +397,22 @@ _MovimentacaoMock _ledgerFirestoreParaLinha(Map<String, dynamic> m) {
   );
 }
 
-double _somaCustosPosicoes(
+/// Soma do valor de mercado das posições (tokens × cotação do catálogo). Sem cotação
+/// válida, usa o custo da posição (mesmo critério que “Valor atual” nos cartões).
+double _carteiraSomaValorMercadoPosicoes(
   QuerySnapshot<Map<String, dynamic>> snap,
+  Map<String, CatalogStartup> byFirestoreId,
 ) {
   var sum = 0.0;
-  for (final d in snap.docs) {
-    sum += (d.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
+  for (final doc in snap.docs) {
+    final match = _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
+    final held = (doc.data()['tokensHeld'] as num?)?.toDouble() ?? 0.0;
+    final px = match?.tokenPrice ?? 0.0;
+    if (px > 1e-9 && held.isFinite && held >= 0) {
+      sum += held * px;
+    } else {
+      sum += (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
+    }
   }
   return sum;
 }
@@ -526,11 +536,19 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   /// Callable `listStartups` — alinhado ao Explorar/Balcão para logos e metadados.
   late final StartupCatalogFunctionsService _catalogFunctionsService;
 
+  /// Mini-gráficos das startups investidas: [getStartupMarketStats] por doc id (~2 min).
+  Future<Map<String, BalcaoStartupMarketStats?>>? _investidasMarketStatsFuture;
+  String _investidasMarketStatsCacheKey = '';
+
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
-  /// Saldo total mock (mesmo valor exemplo do Figma).
-  static const _saldoTotal = 12450.0;
+  /// Saldo BRL fictício (convidado). O total do hero = isto + valor de mercado das startups mock.
+  static const _saldoBrlDisponivelConvidado = 2300.0;
+
+  static double _patrimonioTotalConvidado() =>
+      _saldoBrlDisponivelConvidado +
+      _startups.fold<double>(0, (a, s) => a + s.valorMercadoAtualBrl);
 
   /// Lista fixa de movimentações (convidado): ordem **mais recente primeiro**,
   /// alinhada ao extrato Firestore (`orderBy` descendente).
@@ -1253,7 +1271,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         children: [
           tituloSecao,
           const SizedBox(height: 12),
-          cardCorpo(valorLinha: _brlParaExibicao(_saldoTotal)),
+          cardCorpo(valorLinha: _brlParaExibicao(_patrimonioTotalConvidado())),
         ],
       );
     }
@@ -1328,8 +1346,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     final uid = _uidSessao;
     if (uid == null) {
       return _SaldoHeroCard(
-        totalLabel: 'SALDO TOTAL INVESTIDO',
-        totalValue: _brlParaExibicao(_saldoTotal),
+        totalLabel: 'PATRIMÓNIO TOTAL',
+        totalValue: _brlParaExibicao(_patrimonioTotalConvidado()),
         trendText: _hideValues ? '• • • • • •' : _trendTextCompleto,
         onAdicionar: _abrirAdicionarFundos,
         onVerStartups: _scrollParaStartupsInvestidas,
@@ -1368,49 +1386,80 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               );
             }
             final posErro = posSnap.hasError;
-            var custo = 0.0;
-            if (!posErro && posSnap.hasData && posSnap.data != null) {
-              custo = _somaCustosPosicoes(posSnap.data!);
-            }
-
-            return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
-              builder: (context, ledSnap) {
-                if (ledSnap.connectionState == ConnectionState.waiting &&
-                    !ledSnap.hasData &&
-                    ledSnap.error == null) {
+            return FutureBuilder<List<CatalogStartup>>(
+              future:
+                  StartupCatalogListCache.instance.fullList(_catalogFunctionsService),
+              builder: (context, catalogSnap) {
+                if (catalogSnap.connectionState == ConnectionState.waiting &&
+                    !catalogSnap.hasData &&
+                    catalogSnap.error == null) {
                   return const SizedBox(
                     height: 180,
                     child: Center(child: CircularProgressIndicator()),
                   );
                 }
-                final ledErro = ledSnap.hasError;
-                final docs = ledSnap.data?.docs ?? const [];
-                final patrimonio = _carteiraPatrimonioTotal(
-                  brlDisponivel: brl,
-                  custoPosicoes: custo,
-                );
-                final trendText = _hideValues
-                    ? '• • • • • •'
-                    : (saldoErro || ledErro || posErro
-                        ? 'N/D este mês'
-                        : _carteiraVariacaoSaldoMesLabel(
-                            brlNow: brl,
-                            docsNewestFirst: docs,
-                            now: DateTime.now(),
-                          ));
 
-                return _SaldoHeroCard(
-                  totalLabel: 'SALDO TOTAL INVESTIDO',
-                  totalValue: (saldoErro || posErro)
-                      ? '—'
-                      : _brlParaExibicao(patrimonio),
-                  trendText: trendText,
-                  onAdicionar: _abrirAdicionarFundos,
-                  onVerStartups: _scrollParaStartupsInvestidas,
-                  onSacar: _abrirSacar,
-                  onVenderTokens: widget.onCompraVendaTokens ??
-                      () => _emBreve('Compra / Venda de tokens'),
+                final catalog = catalogSnap.hasError
+                    ? const <CatalogStartup>[]
+                    : (catalogSnap.data ?? const <CatalogStartup>[]);
+                final byFirestoreId = <String, CatalogStartup>{};
+                for (final s in catalog) {
+                  final id = s.firestoreId?.trim();
+                  if (id != null && id.isNotEmpty) {
+                    byFirestoreId[id] = s;
+                  }
+                }
+
+                var valorMercadoPosicoes = 0.0;
+                if (!posErro &&
+                    posSnap.hasData &&
+                    posSnap.data != null) {
+                  valorMercadoPosicoes = _carteiraSomaValorMercadoPosicoes(
+                    posSnap.data!,
+                    byFirestoreId,
+                  );
+                }
+
+                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: SimulatedWalletService.watchLedgerRecentForChart(uid),
+                  builder: (context, ledSnap) {
+                    if (ledSnap.connectionState == ConnectionState.waiting &&
+                        !ledSnap.hasData &&
+                        ledSnap.error == null) {
+                      return const SizedBox(
+                        height: 180,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final ledErro = ledSnap.hasError;
+                    final docs = ledSnap.data?.docs ?? const [];
+                    final patrimonio = _carteiraPatrimonioTotal(
+                      brlDisponivel: brl,
+                      valorMercadoPosicoes: valorMercadoPosicoes,
+                    );
+                    final trendText = _hideValues
+                        ? '• • • • • •'
+                        : (saldoErro || ledErro || posErro
+                            ? 'N/D este mês'
+                            : _carteiraVariacaoSaldoMesLabel(
+                                brlNow: brl,
+                                docsNewestFirst: docs,
+                                now: DateTime.now(),
+                              ));
+
+                    return _SaldoHeroCard(
+                      totalLabel: 'PATRIMÓNIO TOTAL',
+                      totalValue: (saldoErro || posErro)
+                          ? '—'
+                          : _brlParaExibicao(patrimonio),
+                      trendText: trendText,
+                      onAdicionar: _abrirAdicionarFundos,
+                      onVerStartups: _scrollParaStartupsInvestidas,
+                      onSacar: _abrirSacar,
+                      onVenderTokens: widget.onCompraVendaTokens ??
+                          () => _emBreve('Compra / Venda de tokens'),
+                    );
+                  },
                 );
               },
             );
@@ -1418,6 +1467,38 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         );
       },
     );
+  }
+
+  /// Séries `seriesDiario` por startup para o sparkline (mesma fonte que o Balcão).
+  Future<Map<String, BalcaoStartupMarketStats?>>
+      _marketStatsForInvestidasDocs(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final bucket = DateTime.now().millisecondsSinceEpoch ~/ 120000;
+    final ids = docs.map((d) => d.id.trim()).where((s) => s.isNotEmpty).toList()
+      ..sort();
+    final key = '$bucket|${ids.join('|')}';
+    if (_investidasMarketStatsFuture != null &&
+        _investidasMarketStatsCacheKey == key) {
+      return _investidasMarketStatsFuture!;
+    }
+    _investidasMarketStatsCacheKey = key;
+    if (ids.isEmpty) {
+      _investidasMarketStatsFuture =
+          Future<Map<String, BalcaoStartupMarketStats?>>.value({});
+      return _investidasMarketStatsFuture!;
+    }
+    _investidasMarketStatsFuture =
+        Future.wait(ids.map(SimulatedWalletService.fetchStartupMarketStats)).then(
+      (list) {
+        final m = <String, BalcaoStartupMarketStats?>{};
+        for (var i = 0; i < ids.length; i++) {
+          m[ids[i]] = list[i];
+        }
+        return m;
+      },
+    );
+    return _investidasMarketStatsFuture!;
   }
 
   Widget _tituloStartupsInvestidasRow({
@@ -1649,64 +1730,79 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     ? carteiraParseLedgerTradesAscending(ledgerSnap.data!)
                     : const <CarteiraLedgerTradeRow>[];
 
-                final children = <Widget>[];
-                for (final doc in visDocs) {
-                  final match = _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
-                  final startup = _docPosicaoParaMock(
-                    doc,
-                    catalogMatch: match,
-                  );
-                  final held =
-                      (doc.data()['tokensHeld'] as num?)?.toDouble() ?? 0.0;
-                  final px = match?.tokenPrice ?? 0.0;
-                  final cost =
-                      (doc.data()['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
-                  final rendTone = carteiraYieldTone(
-                    costBasisBrl: cost,
-                    tokensHeld: held,
-                    tokenPriceBrl: px,
-                  );
-                  final mvBrl = (px > 1e-9 && held.isFinite && held >= 0)
-                      ? held * px
-                      : null;
-                  final spark = carteiraSingleStartupSparklineValues(
-                    trades,
-                    startupId: doc.id,
-                    fallbackPriceBrl: px,
-                    sampleTimes: sampleTimes,
-                    tokensHeldNowFromDoc: held,
-                  );
-                  children.addAll([
-                    _StartupInvestidaCard(
-                      startup: startup,
-                      primary: primary,
-                      hideValues: _hideValues,
-                      rendimentoExibicao:
-                          _percentParaExibicao(startup.rendimentoLabel),
-                      investidoExibicao: _brlParaExibicao(cost),
-                      valorAtualExibicao: _mercadoBrlParaExibicao(mvBrl),
-                      sparklineValues: spark,
-                      rendimentoTone: rendTone,
-                    ),
-                    const SizedBox(height: 12),
-                  ]);
-                }
+                return FutureBuilder<Map<String, BalcaoStartupMarketStats?>>(
+                  future: _marketStatsForInvestidasDocs(visDocs),
+                  builder: (context, mktSnap) {
+                    final statsPorStartup =
+                        mktSnap.data ?? const <String, BalcaoStartupMarketStats?>{};
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _tituloStartupsInvestidasRow(
-                      mostrarLinkVerTodas: mostrarLink,
-                      onSurface: onSurface,
-                      primary: primary,
-                      theme: theme,
-                    ),
-                    const SizedBox(height: 12),
-                    Column(
+                    final children = <Widget>[];
+                    for (final doc in visDocs) {
+                      final match =
+                          _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
+                      final startup = _docPosicaoParaMock(
+                        doc,
+                        catalogMatch: match,
+                      );
+                      final held =
+                          (doc.data()['tokensHeld'] as num?)?.toDouble() ??
+                              0.0;
+                      final px = match?.tokenPrice ?? 0.0;
+                      final cost =
+                          (doc.data()['costBasisBrl'] as num?)?.toDouble() ??
+                              0.0;
+                      final rendTone = carteiraYieldTone(
+                        costBasisBrl: cost,
+                        tokensHeld: held,
+                        tokenPriceBrl: px,
+                      );
+                      final mvBrl = (px > 1e-9 && held.isFinite && held >= 0)
+                          ? held * px
+                          : null;
+                      final st = statsPorStartup[doc.id.trim()];
+                      final spark = carteiraSingleStartupSparklineValues(
+                        trades,
+                        startupId: doc.id,
+                        fallbackPriceBrl: px,
+                        sampleTimes: sampleTimes,
+                        tokensHeldNowFromDoc: held,
+                        marketPriceSeries: st?.seriesDiarioPoints,
+                        anchorNow: agora,
+                      );
+                      children.addAll([
+                        _StartupInvestidaCard(
+                          startup: startup,
+                          primary: primary,
+                          hideValues: _hideValues,
+                          rendimentoExibicao:
+                              _percentParaExibicao(startup.rendimentoLabel),
+                          investidoExibicao: _brlParaExibicao(cost),
+                          valorAtualExibicao:
+                              _mercadoBrlParaExibicao(mvBrl),
+                          sparklineValues: spark,
+                          rendimentoTone: rendTone,
+                        ),
+                        const SizedBox(height: 12),
+                      ]);
+                    }
+
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: children,
-                    ),
-                  ],
+                      children: [
+                        _tituloStartupsInvestidasRow(
+                          mostrarLinkVerTodas: mostrarLink,
+                          onSurface: onSurface,
+                          primary: primary,
+                          theme: theme,
+                        ),
+                        const SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: children,
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
             );
