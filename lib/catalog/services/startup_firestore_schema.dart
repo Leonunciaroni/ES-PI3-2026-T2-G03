@@ -42,17 +42,17 @@ const String kFieldProgressoCaptacao = 'progresso_captacao';
 const String kFieldRendimentoLabel = 'rendimento_label';
 
 // --- Detalhe: captação, valuation, sede (opcional) ---
+//
+/// Meta de captação esperada da rodada, em **reais** (número).
+/// Usado para o texto de captação no detalhe da startup.
+const String kFieldCaptacaoEsperada = 'captacao_esperada';
 
-/// Texto pronto para o headline roxo (ex.: "R$ 4,2M").
-const String kFieldCaptacaoHeadline = 'captacao_headline';
+/// Valuation atual da empresa, em **reais** (número).
+/// Usado para o headline do bloco de valuation no detalhe.
+const String kFieldValuationAtual = 'valuation_atual';
 
-/// Valores em reais para montar headline se [kFieldCaptacaoHeadline] estiver vazio.
-const String kFieldValorCaptadoReais = 'valor_captado_reais';
-const String kFieldMetaCaptacaoReais = 'meta_captacao_reais';
-
-const String kFieldValuationHeadline = 'valuation_headline';
-const String kFieldValuationRodada = 'valuation_rodada';
-const String kFieldValuationTendencia = 'valuation_tendencia';
+/// Total líquido captado em **reais** (compras − vendas no balcão); atualizado pelo backend.
+const String kFieldValorCaptadoAcumuladoBrl = 'valor_captado_acumulado_brl';
 
 /// Cidade / sede da empresa.
 const String kFieldSede = 'sede';

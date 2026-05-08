@@ -22,12 +22,14 @@ import type {
 /** Campos extras quando `includeDetail: true` — espelham o documento Firestore. */
 export type StartupDetailPayload = {
   descricao?: string | null;
-  captacao_headline?: string | null;
-  valor_captado_reais?: number | null;
-  meta_captacao_reais?: number | null;
-  valuation_headline?: string | null;
-  valuation_rodada?: string | null;
-  valuation_tendencia?: string | null;
+  /** Meta de captação da rodada (BRL). */
+  captacao_esperada?: number | null;
+  /** Valuation atual (BRL). */
+  valuation_atual?: number | null;
+  /** Soma líquida das negociações no balcão (BRL), mantida por `simulateWallet`. */
+  valor_captado_acumulado_brl?: number | null;
+  /** 0..1, derivado de captado ÷ meta. */
+  progresso_captacao?: number | null;
   grafico_valuation?: Record<string, unknown> | null;
   sede?: string | null;
   anoDeInicio?: number | null;
@@ -53,6 +55,12 @@ export type StartupListItem = {
   logoPath?: string;
   tokenPrice: number;
   captureProgress: number;
+  /**
+   * Campos crus do Firestore para o cliente calcular a barra como no detalhe
+   * (captado ÷ meta tem prioridade sobre `captureProgress`).
+   */
+  captacao_esperada?: number | null;
+  valor_captado_acumulado_brl?: number | null;
   yieldPercentLabel: string;
   tags: string[];
   detail?: StartupDetailPayload | null;
@@ -68,6 +76,8 @@ const kLogoPath = "logoPath";
 const kLogoPathSnake = "logo_path";
 const kPrecoToken = "preco_token";
 const kProgressoCaptacao = "progresso_captacao";
+const kCaptacaoEsperada = "captacao_esperada";
+const kValorCaptadoAcumulado = "valor_captado_acumulado_brl";
 const kRendimentoLabel = "rendimento_label";
 const startupsCollection = db.collection(STARTUPS_COLLECTION);
 
@@ -133,7 +143,20 @@ export function parseStageRaw(raw: string): StartupStage {
   return "nova";
 }
 
+/**
+ * Fração 0..1 da meta de captação.
+ * Prioridade: `valor_captado_acumulado_brl` ÷ `captacao_esperada` (soma de todos os investidores
+ * no balcão simulado, mantida pelo backend); senão `progresso_captacao`.
+ */
 function captureProgressFraction(d: Record<string, unknown>): number {
+  const esperada = readOptionalDouble(d, kCaptacaoEsperada);
+  const captado = readOptionalDouble(d, kValorCaptadoAcumulado);
+  if (esperada != null && esperada > 0 && captado != null && captado >= 0) {
+    const ratio = captado / esperada;
+    if (Number.isFinite(ratio)) {
+      return Math.min(1, Math.max(0, ratio));
+    }
+  }
   const v = readOptionalDouble(d, kProgressoCaptacao);
   if (v == null) {
     return 0;
@@ -214,12 +237,11 @@ function firstPresentEstrutura(d: Record<string, unknown>): unknown {
 function detailPayloadFromDoc(d: Record<string, unknown>): StartupDetailPayload {
   return {
     descricao: readOptionalString(d, kDescricao) ?? null,
-    captacao_headline: readOptionalString(d, "captacao_headline") ?? null,
-    valor_captado_reais: readOptionalDouble(d, "valor_captado_reais") ?? null,
-    meta_captacao_reais: readOptionalDouble(d, "meta_captacao_reais") ?? null,
-    valuation_headline: readOptionalString(d, "valuation_headline") ?? null,
-    valuation_rodada: readOptionalString(d, "valuation_rodada") ?? null,
-    valuation_tendencia: readOptionalString(d, "valuation_tendencia") ?? null,
+    captacao_esperada: readOptionalDouble(d, "captacao_esperada") ?? null,
+    valuation_atual: readOptionalDouble(d, "valuation_atual") ?? null,
+    valor_captado_acumulado_brl:
+      readOptionalDouble(d, "valor_captado_acumulado_brl") ?? null,
+    progresso_captacao: readOptionalDouble(d, kProgressoCaptacao) ?? null,
     grafico_valuation: (d["grafico_valuation"] as Record<string, unknown>) ?? null,
     sede: readOptionalString(d, "sede") ?? null,
     anoDeInicio:
@@ -269,6 +291,8 @@ function mapDocToItem(
     logoPath: logoPathFrom(data),
     tokenPrice: readOptionalDouble(data, kPrecoToken) ?? 0,
     captureProgress: captureProgressFraction(data),
+    captacao_esperada: readOptionalDouble(data, kCaptacaoEsperada) ?? null,
+    valor_captado_acumulado_brl: readOptionalDouble(data, kValorCaptadoAcumulado) ?? null,
     yieldPercentLabel: yieldLabel(data),
     tags: buildTags(setorRaw, sigla, stage),
   };

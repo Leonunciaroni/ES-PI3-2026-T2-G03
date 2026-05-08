@@ -180,14 +180,11 @@ class _CaptureCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress.clamp(0.0, 1.0),
-              minHeight: 10,
-              backgroundColor: Colors.white.withValues(alpha: 0.2),
-              color: Colors.white,
-            ),
+          MesclaCaptureProgressBar(
+            value: progress,
+            trackColor: Colors.white.withValues(alpha: 0.22),
+            fillColor: Colors.white,
+            height: 10,
           ),
           const SizedBox(height: 8),
           Text(
@@ -206,17 +203,14 @@ class _ValuationCard extends StatelessWidget {
   const _ValuationCard({
     required this.roundLabel,
     required this.headline,
-    required this.trend,
   });
 
   final String roundLabel;
   final String headline;
-  final String trend;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const green = Color(0xFF16A34A);
     return Material(
       color: AppColors.themeCardSurface(theme),
       borderRadius: BorderRadius.circular(kMesclaDetailCardRadius),
@@ -242,20 +236,6 @@ class _ValuationCard extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.trending_up_rounded, color: green, size: 22),
-                const SizedBox(width: 6),
-                Text(
-                  trend,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: green,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
             ),
           ],
         ),

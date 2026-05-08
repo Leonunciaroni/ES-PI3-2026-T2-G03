@@ -15,6 +15,7 @@ import '../models/startup_detail_load_state.dart';
 import '../services/socio_firestore_mapper.dart';
 import '../services/startup_catalog_functions_service.dart';
 import '../widgets/detail_demo_video_section.dart';
+import '../widgets/mescla_capture_progress_bar.dart';
 import '../widgets/mescla_detail_header.dart';
 import '../widgets/mescla_pdf_section_card.dart';
 import '../widgets/startup_logo_avatar.dart';
@@ -308,7 +309,6 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
           _ValuationCard(
             roundLabel: detail.valuationRoundLabel,
             headline: detail.valuationHeadline,
-            trend: detail.valuationTrendText,
           ),
           const SizedBox(height: 14),
           ValuationEvolutionChartCard(

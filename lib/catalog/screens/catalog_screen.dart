@@ -5,10 +5,13 @@
 // A lista vem da callable `listStartups` via [StartupCatalogFunctionsService];
 // em testes injeta-se [startupsFutureForTesting].
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/catalog_startup.dart';
 import '../services/startup_catalog_functions_service.dart';
@@ -83,6 +86,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   static const _horizontalPadding = 20.0;
 
+  /// Uma vez por instalação: backfill dos contadores de captação a partir do ledger histórico.
+  static const _kLedgerCaptureBackfillDone = 'ledger_capture_backfill_done_v1';
+
   late final StartupCatalogFunctionsService _functionsService;
 
   /// Pedido atual à callable (ou future de teste); novo objeto quando mudam chip/busca em produção.
@@ -95,6 +101,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
         widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
     _loadFuture = _createLoadFuture();
     _kickLogoPrefetchWhenListReady();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeRunLedgerCaptureBackfillOnce());
+    });
+  }
+
+  /// Após deploy das Functions, alinha documentos `startups/*` com o ledger já existente.
+  Future<void> _maybeRunLedgerCaptureBackfillOnce() async {
+    if (!_catalogFirebaseAoVivo()) return;
+    if (widget.startupsFutureForTesting != null) return;
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_kLedgerCaptureBackfillDone) == true) return;
+      await _functionsService.reconcileAllStartupsCapture();
+      await prefs.setBool(_kLedgerCaptureBackfillDone, true);
+      if (!mounted) return;
+      StartupCatalogListCache.instance.clear();
+      setState(() {
+        _loadFuture = _createLoadFuture();
+      });
+      _kickLogoPrefetchWhenListReady();
+    } catch (_) {
+      // Mantém o catálogo utilizável; pode tentar de novo no próximo arranque.
+    }
   }
 
   /// Após cada regressão ao backend (callable ou cache global), aquece fotos Storage em fundo
@@ -206,8 +235,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return all.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
   }
 
-  /// Cards do Explorar; em produção com Firebase, o `preco_token` vem do snapshot
-  /// da coleção [kFirestoreStartupsCollection] (atualização contínua pelo scheduler).
+  /// Cards do Explorar; em produção com Firebase, `preco_token` e progresso de captação
+  /// vêm dos snapshots da coleção [kFirestoreStartupsCollection] (scheduler / carteira).
   Widget _catalogListaComPrecoAoVivo({
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -259,11 +288,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
       builder: (context, fsSnap) {
         List<CatalogStartup> merged = raw;
         if (fsSnap.hasData) {
-          final m = <String, double>{};
-          for (final d in fsSnap.data!.docs) {
-            m[d.id] = tokenPriceFromFirestore(d.data());
-          }
-          merged = catalogMergeLivePrecoToken(raw, m);
+          final Map<String, Map<String, dynamic>> byId = <String, Map<String, dynamic>>{
+            for (final QueryDocumentSnapshot<Map<String, dynamic>> d in fsSnap.data!.docs)
+              d.id: d.data(),
+          };
+          merged = catalogMergeLiveFirestoreDocs(raw, byId);
         }
         final rows = merged;
         return coluna(rows);

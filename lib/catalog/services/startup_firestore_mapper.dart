@@ -136,26 +136,41 @@ double tokenPriceFromFirestore(Map<String, dynamic> d) {
   return readFirestoreOptionalDouble(d, kFieldPrecoToken) ?? 0.0;
 }
 
-/// Sobrepõe [CatalogStartup.tokenPrice] com `preco_token` lido em tempo real no Firestore
-/// (ex.: job [tickStartupMarketPrices]). Ignora IDs sem match ou preço inválido.
-List<CatalogStartup> catalogMergeLivePrecoToken(
+/// Sobrepõe `preco_token` e o progresso de captação com os valores atuais dos documentos Firestore
+/// (scheduler de mercado, `simulateWallet`, reconciliação). Mantém o restante como na callable.
+///
+/// Usa a mesma regra que o detalhe: [captureProgressFractionFromFirestore].
+List<CatalogStartup> catalogMergeLiveFirestoreDocs(
   List<CatalogStartup> base,
-  Map<String, double> firestoreIdToPreco,
+  Map<String, Map<String, dynamic>> firestoreIdToData,
 ) {
-  return base.map((s) {
-    final id = s.firestoreId?.trim();
+  return base.map((CatalogStartup s) {
+    final String? id = s.firestoreId?.trim();
     if (id == null || id.isEmpty) {
       return s;
     }
-    final p = firestoreIdToPreco[id];
-    if (p == null || !(p > 0) || !p.isFinite) {
+    final Map<String, dynamic>? data = firestoreIdToData[id];
+    if (data == null) {
       return s;
     }
-    return s.copyWith(tokenPrice: p);
+    final double liveCapture = captureProgressFractionFromFirestore(data);
+    final double? tp = readFirestoreOptionalDouble(data, kFieldPrecoToken);
+    final bool usePrice = tp != null && tp > 0 && tp.isFinite;
+    if (usePrice) {
+      return s.copyWith(tokenPrice: tp, captureProgress: liveCapture);
+    }
+    return s.copyWith(captureProgress: liveCapture);
   }).toList();
 }
 
 double captureProgressFractionFromFirestore(Map<String, dynamic> d) {
+  // Se temos meta e valor captado, a fração é captado ÷ meta (igual ao backend).
+  final double? esperada = readFirestoreOptionalDouble(d, kFieldCaptacaoEsperada);
+  final double? captado = readFirestoreOptionalDouble(d, kFieldValorCaptadoAcumuladoBrl);
+  if (esperada != null && esperada > 0 && captado != null && captado >= 0) {
+    return (captado / esperada).clamp(0.0, 1.0);
+  }
+
   final double? v = readFirestoreOptionalDouble(d, kFieldProgressoCaptacao);
   if (v == null) {
     return 0.0;
