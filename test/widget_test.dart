@@ -1,20 +1,45 @@
-// This is a basic Flutter widget test.
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use the WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Smoke test: arranque na tela de login e navegação para recuperação de senha.
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pi_iii/main.dart';
+import 'package:mescla_invest/main.dart';
 
 void main() {
-  testWidgets('Dashboard smoke test', (WidgetTester tester) async {
+  testWidgets('App arranca na tela de login', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
 
-    expect(find.text('mescla'), findsOneWidget);
-    expect(find.text('Seu Patrimônio'), findsOneWidget);
-    expect(find.text('Minhas Startups'), findsOneWidget);
+    expect(find.text('Bem-vindo de volta'), findsOneWidget);
+    expect(find.text('Entrar'), findsOneWidget);
+  });
+
+  testWidgets('Login navega para recuperação de senha', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Esqueci minha senha'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Recuperar senha'), findsOneWidget);
+  });
+
+  testWidgets('Recuperação sem e-mail válido mostra aviso', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Esqueci minha senha'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Enviar instruções'));
+    await tester.pump();
+
+    expect(find.text('Informe um e-mail válido.'), findsOneWidget);
   });
 }
