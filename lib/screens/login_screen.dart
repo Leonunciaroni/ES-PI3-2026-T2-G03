@@ -177,31 +177,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: Text('SENHA', style: labelStyle),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => _showSnack(
-                                        'Protótipo: recuperação por e-mail virá com o backend.',
-                                      ),
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        minimumSize: Size.zero,
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: Text(
-                                        'Esqueci minha senha',
-                                        style: theme.textTheme.labelLarge?.copyWith(
-                                          color: colorScheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                Text('SENHA', style: labelStyle),
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _passwordController,
@@ -239,6 +215,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                     enabledBorder: _stadiumBorder(AppColors.fieldBorder),
                                     focusedBorder: _stadiumBorder(colorScheme.primary),
                                     border: _stadiumBorder(AppColors.fieldBorder),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () => _showSnack(
+                                      'Prototipo: recuperacao por e-mail vira com o backend.',
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'Esqueci minha senha',
+                                      style: theme.textTheme.labelLarge?.copyWith(
+                                        color: colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 28),
