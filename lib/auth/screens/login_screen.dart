@@ -1,6 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,7 +13,10 @@ import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
+import '../services/phone_mfa_service.dart';
 import 'create_account_screen.dart';
+import 'link_phone_for_mfa_screen.dart';
+import 'phone_sms_verification_screen.dart';
 import 'recover_password_screen.dart';
 import 'two_factor_verification_screen.dart';
 
@@ -100,6 +104,103 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (_) => DashboardScreen(initialMainNavIndex: tab),
           ),
           (route) => false,
+        );
+        return;
+      }
+
+      // 3. Canal MFA: SMS (Firebase Phone) ou e-mail (Cloud Function).
+      final mfaMethod = await UserFirestoreService.fetchMfaDeliveryMethod();
+      if (!mounted) {
+        return;
+      }
+
+      if (mfaMethod == UserFirestoreService.mfaDeliverySms) {
+        final authUser = FirebaseAuth.instance.currentUser;
+        final phoneAuth = authUser?.phoneNumber;
+
+        if (phoneAuth == null || phoneAuth.isEmpty) {
+          final goLink = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) {
+              return AlertDialog(
+                title: const Text('Associar telefone'),
+                content: const Text(
+                  'Para MFA por SMS é preciso associar um número ao Firebase Auth. '
+                  'Deseja continuar para enviar o código de verificação?',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: const Text('Continuar'),
+                  ),
+                ],
+              );
+            },
+          );
+          if (!mounted) {
+            return;
+          }
+          if (goLink != true) {
+            await UserFirestoreService.signOut();
+            _showSnack(
+              'Login cancelado. Para MFA por SMS associe o telefone em Segurança.',
+            );
+            return;
+          }
+
+          final linkedOk = await Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => const LinkPhoneForMfaScreen(
+                continueToLoginOtp: true,
+              ),
+            ),
+          );
+          if (!mounted) {
+            return;
+          }
+          if (linkedOk != true) {
+            await UserFirestoreService.signOut();
+            _showSnack(
+              'É necessário associar o telefone para concluir o login com SMS.',
+            );
+            return;
+          }
+          return;
+        }
+
+        final phoneSvc = PhoneMfaService();
+        try {
+          await phoneSvc.requestSmsCode(
+            phoneE164: phoneAuth,
+            intent: PhoneSmsIntent.loginSecondFactor,
+          );
+        } catch (sendError) {
+          if (!mounted) {
+            return;
+          }
+          await UserFirestoreService.signOut();
+          _showSnack(PhoneMfaService.messageForError(sendError));
+          return;
+        }
+
+        if (!mounted) {
+          return;
+        }
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => PhoneSmsVerificationScreen(
+              phoneMfaService: phoneSvc,
+              phoneE164: phoneAuth,
+              intent: PhoneSmsIntent.loginSecondFactor,
+              smsAlreadyRequested: true,
+              replaceStackWithDashboard: true,
+            ),
+          ),
         );
         return;
       }
