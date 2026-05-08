@@ -12,7 +12,12 @@ import '../theme/app_colors.dart';
 ///
 /// O ícone de olho apenas oculta valores sensíveis localmente ([setState]).
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key, required this.nomeCompletoUsuario});
+  const DashboardScreen({
+    super.key,
+    this.nomeCompletoUsuario = const String.fromEnvironment(
+      'NOME_COMPLETO_USUARIO',
+    ),
+  });
 
   final String nomeCompletoUsuario;
 
@@ -743,4 +748,3 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-
