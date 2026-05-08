@@ -40,7 +40,7 @@ class DashboardScreen extends StatefulWidget {
   /// Índice inicial da barra inferior (restaurado após login).
   final int initialMainNavIndex;
 
-  /// Nome completo para a saudação na home; se null, usa o display name do Firebase.
+  /// Nome completo para a saudação na home; se null, tenta `--dart-define=NOME_COMPLETO_USUARIO=...` e depois o display name do Firebase.
   final String? nomeCompletoUsuario;
 
   @override
@@ -65,7 +65,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _balcaoNavCount = 0;
 
   String get _primeiroNome {
+    const envNome = String.fromEnvironment('NOME_COMPLETO_USUARIO');
     final nome = (widget.nomeCompletoUsuario ??
+            (envNome.isEmpty ? null : envNome) ??
             FirebaseAuth.instance.currentUser?.displayName ??
             '')
         .trim();
