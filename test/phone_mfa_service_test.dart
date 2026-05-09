@@ -19,6 +19,20 @@ void main() {
       );
     });
 
+    test('e164ToBrazilDisplay formata celular BR a partir de E.164', () {
+      expect(
+        PhoneMfaService.e164ToBrazilDisplay('+5519988887777'),
+        '(19) 98888-7777',
+      );
+    });
+
+    test('e164ToBrazilDisplay devolve original se não for BR esperado', () {
+      expect(
+        PhoneMfaService.e164ToBrazilDisplay('+1 555 0100'),
+        '+1 555 0100',
+      );
+    });
+
     test('brazilDigitsToE164 lança se não tiver 11 dígitos', () {
       expect(
         () => PhoneMfaService.brazilDigitsToE164('119999999'),
