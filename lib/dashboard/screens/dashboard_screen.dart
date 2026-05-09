@@ -33,7 +33,8 @@ class DashboardScreen extends StatefulWidget {
         initialMainNavIndex >= 0 && initialMainNavIndex < kMesclaMainTabCount,
       );
 
-  /// Índice inicial da barra inferior (restaurado após login).
+  /// Índice inicial da barra inferior (uso puntual e.g. deeplink ao Balcão).
+  /// Após login o fluxo normal usa sempre 0 — Início.
   final int initialMainNavIndex;
 
   @override
@@ -68,7 +69,6 @@ class _DashboardScreenState extends State<DashboardScreen>
       0,
       kMesclaMainTabCount - 1,
     );
-    unawaited(SessionPersistenceService.setLastNavIndex(_mainNavIndex));
     // Primeiro quadro garante [mounted] antes de usar [precacheImage] nos logos do catálogo.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _preloadCatalogLogoBitmaps(),
@@ -160,7 +160,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (i == _mainNavIndex) {
       return;
     }
-    unawaited(SessionPersistenceService.setLastNavIndex(i));
     if (i == 1) {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {

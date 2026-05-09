@@ -7,8 +7,7 @@ import '../services/session_persistence_service.dart';
 import 'login_screen.dart';
 
 /// Primeira rota após o splash do [MaterialApp]: em cold start remove a sessão Firebase
-/// para exigir novo login (processo reciclado ou app fechado), mas mantém o índice da
-/// última aba em [SharedPreferences] para restaurar após autenticar de novo.
+/// para exigir novo login (processo reciclado ou app fechado).
 class AuthGateScreen extends StatefulWidget {
   const AuthGateScreen({super.key});
 
