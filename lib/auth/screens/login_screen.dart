@@ -15,6 +15,7 @@ import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
 import '../services/phone_mfa_service.dart';
 import 'create_account_screen.dart';
+import 'first_access_onboarding_screen.dart';
 import 'link_phone_for_mfa_screen.dart';
 import 'phone_sms_verification_screen.dart';
 import 'recover_password_screen.dart';
@@ -87,6 +88,19 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
       if (!mounted) return;
+
+      final firstAccessPending =
+          await UserFirestoreService.isFirstAccessPending();
+      if (!mounted) return;
+      if (firstAccessPending) {
+        await Navigator.of(context).pushAndRemoveUntil<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => const FirstAccessOnboardingScreen(),
+          ),
+          (route) => false,
+        );
+        return;
+      }
 
       // 2. Conforme preferência em `users/{uid}.twoFactorEnabled`, envia OTP ou entra direto.
       final twoFaOn = await UserFirestoreService.isTwoFactorLoginEnabled();
@@ -219,6 +233,7 @@ class _LoginScreenState extends State<LoginScreen> {
           builder: (_) => TwoFactorVerificationScreen(
             replaceStackWithDashboard: true,
             twoFactorService: _twoFactorService,
+            codeDestinationEmail: email,
           ),
         ),
       );
