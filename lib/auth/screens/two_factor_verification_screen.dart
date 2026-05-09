@@ -10,6 +10,7 @@ import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/two_factor_service.dart';
+import '../widgets/otp_delivery_banner.dart';
 
 /// Verificação em duas etapas: entrada do código, sucesso e falha.
 ///
@@ -19,11 +20,17 @@ import '../services/two_factor_service.dart';
 /// **Navegação após sucesso:** após ~2,4s, se [replaceStackWithDashboard] for true, limpa a
 /// pilha e abre [DashboardScreen]; senão, chama [onVerificationSuccess] se definido; senão,
 /// [Navigator.pop] quando [Navigator.canPop] for verdadeiro (preview/testes).
+///
+/// [successStatusMessage] personaliza o texto após o sucesso; se for omisso e não for para
+/// o dashboard, usa uma mensagem neutra (sem mencionar o dashboard).
 class TwoFactorVerificationScreen extends StatefulWidget {
   const TwoFactorVerificationScreen({
     super.key,
     this.replaceStackWithDashboard = false,
     this.onVerificationSuccess,
+    this.codeDestinationEmail,
+    this.successTitle,
+    this.successStatusMessage,
     TwoFactorService? twoFactorService,
   }) : _twoFactorService = twoFactorService;
 
@@ -32,6 +39,17 @@ class TwoFactorVerificationScreen extends StatefulWidget {
 
   /// Opcional: ação extra após sucesso (não usada quando [replaceStackWithDashboard] é true).
   final VoidCallback? onVerificationSuccess;
+
+  /// E-mail para onde a Function `twoFactor` enviou o código (ex.: o utilizado no login).
+  /// Se null, o banner usa texto genérico (útil em testes sem Firebase).
+  final String? codeDestinationEmail;
+
+  /// Título do cartão de sucesso (omissão: «Verificação concluída!»).
+  final String? successTitle;
+
+  /// Linha de estado após sucesso. Se omissa: com [replaceStackWithDashboard] mostra
+  /// redirecionamento para o dashboard; caso contrário mensagem neutra **sem** dashboard.
+  final String? successStatusMessage;
 
   final TwoFactorService? _twoFactorService;
 
@@ -291,9 +309,14 @@ class _TwoFactorVerificationScreenState
                 color: colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            OtpDeliveryBanner(
+              channel: OtpDeliveryChannel.email,
+              destinationDetail: widget.codeDestinationEmail?.trim(),
+            ),
+            const SizedBox(height: 14),
             Text(
-              'Para garantir sua segurança você deve validar primeiro o seu acesso antes de utilizar o sistema',
+              'Para garantir sua segurança, valide o código antes de utilizar o sistema.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.secondaryLabel(theme),
@@ -386,7 +409,7 @@ class _TwoFactorVerificationScreenState
             ),
             const SizedBox(height: 28),
             Text(
-              'Verificação concluída!',
+              widget.successTitle ?? 'Verificação concluída!',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
@@ -395,7 +418,10 @@ class _TwoFactorVerificationScreenState
             ),
             const SizedBox(height: 12),
             Text(
-              'Redirecionando para Dashboard...',
+              widget.successStatusMessage ??
+                  (widget.replaceStackWithDashboard
+                      ? 'Redirecionando para Dashboard...'
+                      : 'Código validado com sucesso.'),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: colorScheme.primary,

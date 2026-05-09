@@ -4,6 +4,29 @@ import 'package:flutter/foundation.dart';
 /// Porta [functions] em [firebase.json] (emulator).
 const int kFirebaseFunctionsEmulatorPort = 5001;
 
+/// Autenticação por telefone (SMS) no Android
+/// -------------------------------------------
+/// Se ao tocar em “Enviar código SMS” abrir o **navegador** com verificação “não sou robô”,
+/// isso é o **reCAPTCHA de fallback** do Firebase Auth quando o **Play Integrity** não
+/// consegue validar o app ou o ambiente é considerado arriscado (comum em **emulador**).
+///
+/// Não é possível desligar esse fallback no cliente para números **reais** — é exigência
+/// de anti-fraude da Google.
+///
+/// **Emulador / desenvolvimento sem navegador:**
+/// 1. Firebase Console → Construir → Authentication → Sign-in method → Phone →
+///    **Phone numbers for testing** → adicione um E.164 (ex.: `+5511999999999`) e um
+///    código de 6 dígitos fixo. Esse fluxo **não** envia SMS real e **não** força o
+///    reCAPTCHA da mesma forma que números de produção.
+/// 2. Crie um AVD com imagem **Google Play** (não só “Google APIs”), inicie o Play Store
+///    uma vez e mantenha o Google Play Services atualizado — melhora Integrity no emulador.
+/// 3. Confirme que SHA-1/SHA-256 do **debug** do PC que gera o build estão no app Android
+///    no Firebase (mesmo `applicationId` que em `android/app/google-services.json`).
+///
+/// **Dispositivo físico:** com pacote + SHA corretos e, se for build da Play, fingerprints
+/// da assinatura da loja + ligação Firebase↔Play, o fluxo costuma ficar **dentro do app**
+/// sem abrir o browser.
+
 /// Activa o host das Functions callable para o emulador local.
 ///
 /// Usar com `flutter run --dart-define=USE_FUNCTIONS_EMULATOR=true` e

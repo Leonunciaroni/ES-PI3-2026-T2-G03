@@ -8,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'signup_verification_flow_screen.dart';
 
 /// Tela de cadastro integrada ao Firebase Auth e Firestore (Material 3).
 ///
@@ -42,6 +43,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
   bool _isSubmitting = false;
+
+  /// `false` = MFA por e-mail; `true` = MFA por SMS (Firebase Phone).
+  bool _mfaSmsPreferred = false;
 
   bool get _passwordHasMin8 {
     final value = _passwordController.text;
@@ -236,20 +240,26 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final normalizedEmail = email.trim().toLowerCase();
       await UserFirestoreService.createUserWithEmailAndPassword(
         name: name,
         email: email,
         phone: phoneDigits,
         cpf: cpfDigits,
         password: password,
+        mfaDeliveryMethod: _mfaSmsPreferred
+            ? UserFirestoreService.mfaDeliverySms
+            : UserFirestoreService.mfaDeliveryEmail,
       );
 
       if (!mounted) return;
-      _showFeatureMessage(
-        'Conta criada com sucesso. Faça login para continuar.',
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      await Navigator.of(context).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => SignupVerificationFlowScreen(
+            userEmail: normalizedEmail,
+          ),
+        ),
+        (route) => false,
       );
     } catch (error) {
       if (!mounted) return;
@@ -357,6 +367,39 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       context: context,
                       hintText: 'Ex: (19) 99999-9999',
                       icon: Icons.phone_outlined,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel(context, 'CÓDIGO NO LOGIN (2º FATOR) *'),
+                  const SizedBox(height: 10),
+                  SegmentedButton<bool>(
+                    segments: const <ButtonSegment<bool>>[
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text('E-mail'),
+                        icon: Icon(Icons.mail_outline_rounded),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text('SMS'),
+                        icon: Icon(Icons.sms_outlined),
+                      ),
+                    ],
+                    selected: <bool>{_mfaSmsPreferred},
+                    onSelectionChanged: (Set<bool> next) {
+                      setState(() => _mfaSmsPreferred = next.first);
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 4),
+                    child: Text(
+                      _mfaSmsPreferred
+                          ? 'No login: SMS após associar este número ao Firebase Auth.'
+                          : 'No login: código de 6 dígitos enviado ao seu e-mail.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
