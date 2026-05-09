@@ -143,7 +143,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Próximo login: código MFA por SMS (Firebase Phone).',
+              'Próximo login: código MFA por SMS.',
             ),
           ),
         );
@@ -338,12 +338,6 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                 ),
                                 RadioListTile<String>(
                                   title: const Text('E-mail'),
-                                  subtitle: Text(
-                                    'Código enviado pela Cloud Function (SMTP).',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.secondaryLabel(theme),
-                                    ),
-                                  ),
                                   value: UserFirestoreService.mfaDeliveryEmail,
                                   groupValue: method,
                                   onChanged: _persisting
@@ -355,13 +349,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                         },
                                 ),
                                 RadioListTile<String>(
-                                  title: const Text('SMS (Firebase Phone)'),
-                                  subtitle: Text(
-                                    'SMS via Firebase Auth; exige telefone associado.',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: AppColors.secondaryLabel(theme),
-                                    ),
-                                  ),
+                                  title: const Text('SMS'),
                                   value: UserFirestoreService.mfaDeliverySms,
                                   groupValue: method,
                                   onChanged: _persisting

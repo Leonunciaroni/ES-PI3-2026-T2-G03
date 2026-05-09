@@ -6,6 +6,7 @@
 // segundo passo de MFA por SMS no login quando [continueToLoginOtp] é true.
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -297,6 +298,19 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
                             )
                           : const Text('Enviar código SMS'),
                     ),
+                    if (kDebugMode) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Debug: no emulador, a verificação pode abrir o navegador (reCAPTCHA). '
+                        'Para evitar, use um número de teste em Firebase Console → Authentication → Phone → '
+                        'Phone numbers for testing (código fixo de 6 dígitos). '
+                        'Prefira AVD com imagem Google Play.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),

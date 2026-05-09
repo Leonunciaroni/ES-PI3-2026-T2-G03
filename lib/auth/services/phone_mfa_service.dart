@@ -4,6 +4,10 @@
 // Serviço de MFA por SMS via Firebase Authentication (Phone Verification).
 // Encapsula [verifyPhoneNumber], construção de [PhoneAuthCredential] e
 // [User.reauthenticateWithCredential] (login) ou [User.linkWithCredential] (associar telefone).
+//
+// No Android, se o Play Integrity falhar, o Firebase pode abrir o navegador (reCAPTCHA).
+// Para emulador/dev sem isso, use números de teste no Firebase Console — ver
+// [firebase_dev_setup.dart].
 
 import 'dart:async';
 
