@@ -221,6 +221,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
 
   /// Igual ao [CatalogScreen] — filtra a lista, sem barra de chips de estágio.
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  static const Duration _kSearchDebounceDelay = Duration(milliseconds: 200);
 
   /// Se null, mostramos a **lista**; se preenchido, mostramos a **mesa** dessa startup.
   CatalogStartup? _mesaStartup;
@@ -317,9 +319,18 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
   @override
   void dispose() {
     _mesaMarketRefreshTimer?.cancel();
+    _searchDebounce?.cancel();
     _searchController.dispose();
     _bodyScrollController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_kSearchDebounceDelay, () {
+      if (!mounted) return;
+      setState(() {});
+    });
   }
 
   void _jumpBodyScrollTop() {
@@ -562,7 +573,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _searchController,
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => _onSearchChanged(),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: 'Buscar startups, setores...',
