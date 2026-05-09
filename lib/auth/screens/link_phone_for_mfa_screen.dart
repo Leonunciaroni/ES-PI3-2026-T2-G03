@@ -22,10 +22,14 @@ class LinkPhoneForMfaScreen extends StatefulWidget {
   const LinkPhoneForMfaScreen({
     super.key,
     required this.continueToLoginOtp,
+    this.showDashboardRedirectAfterSmsVerify = false,
   });
 
   /// Se true, após ligar o telefone envia novo SMS para completar o MFA do login atual.
   final bool continueToLoginOtp;
+
+  /// Fluxo de cadastro: após validar o SMS mostra «Redirecionando para Dashboard…» antes de fechar.
+  final bool showDashboardRedirectAfterSmsVerify;
 
   @override
   State<LinkPhoneForMfaScreen> createState() => _LinkPhoneForMfaScreenState();
@@ -111,6 +115,12 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
             phoneE164: e164,
             intent: PhoneSmsIntent.enrollLinkPhone,
             smsAlreadyRequested: true,
+            postSuccessTitle: widget.showDashboardRedirectAfterSmsVerify
+                ? 'Telefone confirmado!'
+                : null,
+            postSuccessStatusLine: widget.showDashboardRedirectAfterSmsVerify
+                ? 'Redirecionando para Dashboard...'
+                : null,
           ),
         ),
       );
@@ -231,7 +241,11 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
                     alignment: Alignment.centerLeft,
                     child: IconButton(
                       onPressed: () async {
-                        await UserFirestoreService.signOut();
+                        // Só encerra a sessão ao cancelar durante o MFA do login;
+                        // em perfil / primeiro acesso o utilizador volta sem perder a conta.
+                        if (widget.continueToLoginOtp) {
+                          await UserFirestoreService.signOut();
+                        }
                         if (!context.mounted) {
                           return;
                         }
@@ -298,19 +312,6 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
                             )
                           : const Text('Enviar código SMS'),
                     ),
-                    if (kDebugMode) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        'Debug: no emulador, a verificação pode abrir o navegador (reCAPTCHA). '
-                        'Para evitar, use um número de teste em Firebase Console → Authentication → Phone → '
-                        'Phone numbers for testing (código fixo de 6 dígitos). '
-                        'Prefira AVD com imagem Google Play.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.textSecondary,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
                   ],
                 ],
               ),
