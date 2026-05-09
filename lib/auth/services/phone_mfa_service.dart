@@ -79,6 +79,20 @@ class PhoneMfaService {
     return '+55$only';
   }
 
+  /// Formata E.164 Brasil (`+5511987654321`) para exibição (`(11) 98765-4321`).
+  /// Se o formato não for reconhecido, devolve [e164] original.
+  static String e164ToBrazilDisplay(String e164) {
+    final d = e164.trim().replaceAll(RegExp(r'\D'), '');
+    if (d.length == 13 && d.startsWith('55')) {
+      final rest = d.substring(2);
+      if (rest.length == 11 && rest[2] == '9') {
+        return '(${rest.substring(0, 2)}) '
+            '${rest.substring(2, 7)}-${rest.substring(7)}';
+      }
+    }
+    return e164.trim();
+  }
+
   /// Mensagens amigáveis para erros comuns do fluxo de telefone.
   static String messageForError(Object error) {
     if (error is FirebaseAuthException) {
