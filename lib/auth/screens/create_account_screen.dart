@@ -8,6 +8,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'signup_verification_flow_screen.dart';
 
 /// Tela de cadastro integrada ao Firebase Auth e Firestore (Material 3).
 ///
@@ -239,6 +240,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     setState(() => _isSubmitting = true);
     try {
+      final normalizedEmail = email.trim().toLowerCase();
       await UserFirestoreService.createUserWithEmailAndPassword(
         name: name,
         email: email,
@@ -251,11 +253,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       );
 
       if (!mounted) return;
-      _showFeatureMessage(
-        'Conta criada com sucesso. Faça login para continuar.',
-      );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      await Navigator.of(context).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => SignupVerificationFlowScreen(
+            userEmail: normalizedEmail,
+          ),
+        ),
+        (route) => false,
       );
     } catch (error) {
       if (!mounted) return;
