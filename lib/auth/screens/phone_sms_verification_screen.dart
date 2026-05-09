@@ -17,6 +17,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/phone_mfa_service.dart';
 import '../services/session_persistence_service.dart';
+import '../widgets/otp_delivery_banner.dart';
 
 /// Formata eventos de tecla para apagar dígitos OTP com retrocesso entre campos.
 class _OtpPasteFormatter extends TextInputFormatter {
@@ -52,6 +53,9 @@ class PhoneSmsVerificationScreen extends StatefulWidget {
     this.smsAlreadyRequested = false,
     this.replaceStackWithDashboard = false,
     this.onVerificationSuccess,
+    this.postSuccessTitle,
+    this.postSuccessStatusLine,
+    this.postSuccessHold = const Duration(milliseconds: 2400),
   });
 
   /// Serviço injetável em testes; quando null usa instância nova.
@@ -72,6 +76,15 @@ class PhoneSmsVerificationScreen extends StatefulWidget {
   /// Alternativa ao dashboard quando [replaceStackWithDashboard] é false.
   final VoidCallback? onVerificationSuccess;
 
+  /// Se não null, após OTP válido mostra cartão de sucesso com este texto antes de concluir.
+  final String? postSuccessStatusLine;
+
+  /// Título do cartão intermédio (omissão: «Telefone confirmado!»).
+  final String? postSuccessTitle;
+
+  /// Tempo de exibição do cartão antes de fechar ou ir ao dashboard.
+  final Duration postSuccessHold;
+
   @override
   State<PhoneSmsVerificationScreen> createState() =>
       _PhoneSmsVerificationScreenState();
@@ -89,10 +102,17 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
   late final PhoneMfaService _svc;
 
   Timer? _cooldownTicker;
+  Timer? _postSuccessHoldTimer;
   int _cooldownLeft = 0;
 
   bool _isValidating = false;
   bool _initialSendFailed = false;
+  bool _showPostSuccessUi = false;
+
+  bool get _holdsPostSuccessUi {
+    final line = widget.postSuccessStatusLine?.trim();
+    return line != null && line.isNotEmpty;
+  }
 
   @override
   void initState() {
@@ -107,6 +127,7 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
 
   @override
   void dispose() {
+    _postSuccessHoldTimer?.cancel();
     _cooldownTicker?.cancel();
     for (final c in _digitControllers) {
       c.dispose();
@@ -145,7 +166,7 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
     if (!mounted) {
       return;
     }
-    await _finishSuccessNavigation();
+    await _afterPhoneVerified();
   }
 
   String get _code => _digitControllers.map((c) => c.text).join();
@@ -190,6 +211,21 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
       if (s <= 0) {
         _cooldownTicker?.cancel();
       }
+    });
+  }
+
+  Future<void> _afterPhoneVerified() async {
+    if (!_holdsPostSuccessUi) {
+      await _finishSuccessNavigation();
+      return;
+    }
+    setState(() => _showPostSuccessUi = true);
+    _postSuccessHoldTimer?.cancel();
+    _postSuccessHoldTimer = Timer(widget.postSuccessHold, () async {
+      if (!mounted) {
+        return;
+      }
+      await _finishSuccessNavigation();
     });
   }
 
@@ -240,7 +276,7 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
       if (!mounted) {
         return;
       }
-      await _finishSuccessNavigation();
+      await _afterPhoneVerified();
     } catch (e) {
       if (!mounted) {
         return;
@@ -364,11 +400,65 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
     );
   }
 
+  Widget _buildPostSuccessCard(ThemeData theme, ColorScheme colorScheme) {
+    final shadowA = theme.brightness == Brightness.dark ? 0.35 : 0.08;
+    final title = widget.postSuccessTitle ?? 'Telefone confirmado!';
+    final line = widget.postSuccessStatusLine!.trim();
+    return Material(
+      elevation: theme.brightness == Brightness.dark ? 8 : 6,
+      shadowColor: Colors.black.withValues(alpha: shadowA),
+      borderRadius: BorderRadius.circular(30),
+      color: AppColors.themeCardSurface(theme),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+        child: Column(
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.dark
+                    ? colorScheme.surfaceContainerHighest
+                    : const Color(0xFFE8E9ED),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_rounded,
+                size: 56,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 28),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              line,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCard(ThemeData theme, ColorScheme colorScheme) {
     final shadowA = theme.brightness == Brightness.dark ? 0.35 : 0.08;
+    final phoneDisplay =
+        PhoneMfaService.e164ToBrazilDisplay(widget.phoneE164);
     final subtitle = widget.intent == PhoneSmsIntent.loginSecondFactor
-        ? 'Digite o código de 6 dígitos enviado por SMS para concluir o login.'
-        : 'Digite o código de 6 dígitos para associar este telefone à sua conta.';
+        ? 'Digite abaixo o código de 6 dígitos para concluir o login.'
+        : 'Digite abaixo o código de 6 dígitos para confirmar este número.';
 
     return Material(
       elevation: theme.brightness == Brightness.dark ? 8 : 6,
@@ -388,7 +478,12 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
                 color: colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            OtpDeliveryBanner(
+              channel: OtpDeliveryChannel.sms,
+              destinationDetail: phoneDisplay,
+            ),
+            const SizedBox(height: 14),
             Text(
               subtitle,
               textAlign: TextAlign.center,
@@ -517,7 +612,9 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
                         const SizedBox(height: 8),
                         const MesclaAuthHeaderLogo(),
                         const SizedBox(height: 28),
-                        _buildCard(theme, colorScheme),
+                        _showPostSuccessUi
+                            ? _buildPostSuccessCard(theme, colorScheme)
+                            : _buildCard(theme, colorScheme),
                         const SizedBox(height: 28),
                         Text(
                           _footerTrust,
