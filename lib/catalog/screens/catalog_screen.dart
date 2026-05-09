@@ -93,6 +93,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   /// Pedido atual à callable (ou future de teste); novo objeto quando mudam chip/busca em produção.
   Future<List<CatalogStartup>>? _loadFuture;
+  Timer? _searchDebounce;
+  static const Duration _kSearchDebounceDelay = Duration(milliseconds: 300);
 
   @override
   void initState() {
@@ -198,9 +200,22 @@ class _CatalogScreenState extends State<CatalogScreen> {
     _kickLogoPrefetchWhenListReady();
   }
 
+  void _onSearchChanged() {
+    if (widget.startupsFutureForTesting != null) {
+      setState(() {});
+      return;
+    }
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_kSearchDebounceDelay, () {
+      if (!mounted) return;
+      _reloadFromBackendIfNeeded();
+    });
+  }
+
   @override
   void dispose() {
     // Sem isto, o TextEditingController mantém referências depois de sair da tela.
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -359,13 +374,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         // Campo de busca: cor de fundo #E2E2E2 definida em [AppColors.searchFieldFill].
                         TextField(
                           controller: _searchController,
-                          onChanged: (_) {
-                            if (widget.startupsFutureForTesting != null) {
-                              setState(() {});
-                            } else {
-                              _reloadFromBackendIfNeeded();
-                            }
-                          },
+                          onChanged: (_) => _onSearchChanged(),
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             hintText: 'Buscar startups, setores...',
