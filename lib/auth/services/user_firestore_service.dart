@@ -25,6 +25,11 @@ class UserFirestoreService {
   /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
   static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
 
+  /// `true` = novo registo ainda não concluiu a verificação inicial de e-mail + telefone.
+  /// Após o primeiro onboarding, deve ficar `false`. Documentos antigos sem este campo
+  /// tratam-se como já concluídos ([isFirstAccessPending] é false).
+  static const String fieldFirstAccess = 'firstAccess';
+
   /// Canal do segundo fator: [mfaDeliveryEmail] (callable + e-mail) ou [mfaDeliverySms] (Firebase Phone).
   static const String fieldMfaDeliveryMethod = 'mfaDeliveryMethod';
 
@@ -92,12 +97,12 @@ class UserFirestoreService {
         fieldFavoriteStartupIds: <String>[],
         fieldInvestorStartupIds: <String>[],
         fieldChavesPix: <Map<String, dynamic>>[],
+        fieldFirstAccess: true,
       }, SetOptions(merge: true));
 
       await _removeLegacyPasswordFieldForEmail(normalizedEmail);
 
-      // Mantém o fluxo atual da interface: após cadastro, volta para tela de login.
-      await _auth.signOut();
+      // Mantém a sessão Firebase Auth: o fluxo continua no app (OTP e-mail → telefone).
     } catch (_) {
       // Evita usuário órfão no Auth caso o perfil em Firestore falhe.
       try {
@@ -107,6 +112,41 @@ class UserFirestoreService {
       }
       rethrow;
     }
+  }
+
+  /// Indica se o utilizador autenticado ainda deve passar pelo ecrã de primeiro acesso
+  /// (validar e-mail no Auth e telefone com SMS).
+  static Future<bool> isFirstAccessPending() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return false;
+    }
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) {
+        return false;
+      }
+      final v = snap.data()?[fieldFirstAccess];
+      return v is bool && v;
+    } on FirebaseException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Marca o onboarding inicial como concluído (`firstAccess: false`).
+  static Future<void> markFirstAccessCompleted() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    await _usersCollection.doc(uid).set({
+      fieldFirstAccess: false,
+    }, SetOptions(merge: true));
   }
 
   static Future<void> signInWithEmailAndPassword({
