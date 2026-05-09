@@ -117,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Verificação concluída!'), findsOneWidget);
-    expect(find.text('Redirecionando para Dashboard...'), findsOneWidget);
+    expect(find.text('Código validado com sucesso.'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 2500));
   });
