@@ -617,6 +617,7 @@ class _NovaPerguntaDialogState extends State<_NovaPerguntaDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final searchFill = AppColors.searchFieldFillForTheme(theme);
     const fieldRadius = 16.0;
 
     InputBorder outlineBorder(Color color, {double width = 1}) =>
@@ -689,6 +690,10 @@ class _NovaPerguntaDialogState extends State<_NovaPerguntaDialog> {
               SegmentedButton<bool>(
                 showSelectedIcon: false,
                 style: SegmentedButton.styleFrom(
+                  backgroundColor: AppColors.themeMutedSurface(theme),
+                  foregroundColor: scheme.onSurface,
+                  selectedBackgroundColor: scheme.primary,
+                  selectedForegroundColor: scheme.onPrimary,
                   side: BorderSide(color: AppColors.cardDivider(theme)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
