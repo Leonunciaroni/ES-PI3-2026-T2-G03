@@ -163,11 +163,10 @@ class _TwoFactorVerificationScreenState
         if (widget.replaceStackWithDashboard) {
           StartupCatalogListCache.instance.clear();
           await SessionPersistenceService.recordSessionAfterLogin();
-          final int tab = await SessionPersistenceService.getLastNavIndex();
           if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil<void>(
             MaterialPageRoute<void>(
-              builder: (_) => DashboardScreen(initialMainNavIndex: tab),
+              builder: (_) => const DashboardScreen(),
             ),
             (route) => false,
           );

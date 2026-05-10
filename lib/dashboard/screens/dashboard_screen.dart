@@ -33,7 +33,8 @@ class DashboardScreen extends StatefulWidget {
         initialMainNavIndex >= 0 && initialMainNavIndex < kMesclaMainTabCount,
       );
 
-  /// Índice inicial da barra inferior (restaurado após login).
+  /// Índice inicial da barra inferior (uso puntual e.g. deeplink ao Balcão).
+  /// Após login o fluxo normal usa sempre 0 — Início.
   final int initialMainNavIndex;
 
   @override
@@ -57,6 +58,10 @@ class _DashboardScreenState extends State<DashboardScreen>
   /// e o [initState] seja re-executado com [initialMesaStartup] correto.
   int _balcaoNavCount = 0;
 
+  /// Abas já ativadas pelo utilizador (ou por deeplink) desde que o shell abriu.
+  /// As não ativadas ficam leves para reduzir custo de arranque.
+  final Set<int> _activatedMainTabs = <int>{0};
+
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
@@ -68,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       0,
       kMesclaMainTabCount - 1,
     );
-    unawaited(SessionPersistenceService.setLastNavIndex(_mainNavIndex));
+    _activatedMainTabs.add(_mainNavIndex);
     // Primeiro quadro garante [mounted] antes de usar [precacheImage] nos logos do catálogo.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _preloadCatalogLogoBitmaps(),
@@ -147,6 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       _balcaoStartup = startup;
       _balcaoNavCount++;
       _mainNavIndex = 2;
+      _activatedMainTabs.add(2);
     });
   }
 
@@ -160,7 +166,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (i == _mainNavIndex) {
       return;
     }
-    unawaited(SessionPersistenceService.setLastNavIndex(i));
     if (i == 1) {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
@@ -173,7 +178,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       final service = StartupCatalogFunctionsService();
       unawaited(StartupCatalogListCache.instance.fullList(service));
     }
-    setState(() => _mainNavIndex = i);
+    setState(() {
+      _mainNavIndex = i;
+      _activatedMainTabs.add(i);
+    });
   }
 
   String _money(double value) {
@@ -360,27 +368,37 @@ class _DashboardScreenState extends State<DashboardScreen>
       onNavIndexChanged: _onMainNavIndexChanged,
       tabBodies: [
         _buildHomeTab(theme, labelCaps, colorScheme, onSurface),
-        CarteiraScreen(
-          // Força novo [State] após migração do período do gráfico para [ValuationPeriod]
-          // (evita crash de tipo com hot reload / estado preso no [IndexedStack]).
-          key: const ValueKey<String>('carteira_valuation_period'),
-          wrapWithSafeArea: false,
-          onCompraVendaTokens: () =>
-              setState(() => _mainNavIndex = 2), // Balcão
-        ),
-        BalcaoTabScreen(
-          key: ValueKey<int>(_balcaoNavCount),
-          wrapWithSafeArea: false,
-          initialMesaStartup: _balcaoStartup,
-        ),
-        CatalogScreen(
-          wrapWithSafeArea: false,
-          onInvestir: _abrirBalcaoParaStartup,
-        ),
-        PerfilScreen(
-          wrapWithSafeArea: false,
-          onInvestir: _abrirBalcaoParaStartup,
-        ),
+        _activatedMainTabs.contains(1)
+            ? CarteiraScreen(
+                // Força novo [State] após migração do período do gráfico para [ValuationPeriod]
+                // (evita crash de tipo com hot reload / estado preso no [IndexedStack]).
+                key: const ValueKey<String>('carteira_valuation_period'),
+                wrapWithSafeArea: false,
+                onCompraVendaTokens: () => setState(() {
+                  _mainNavIndex = 2;
+                  _activatedMainTabs.add(2);
+                }), // Balcão
+              )
+            : const SizedBox.shrink(),
+        _activatedMainTabs.contains(2)
+            ? BalcaoTabScreen(
+                key: ValueKey<int>(_balcaoNavCount),
+                wrapWithSafeArea: false,
+                initialMesaStartup: _balcaoStartup,
+              )
+            : const SizedBox.shrink(),
+        _activatedMainTabs.contains(3)
+            ? CatalogScreen(
+                wrapWithSafeArea: false,
+                onInvestir: _abrirBalcaoParaStartup,
+              )
+            : const SizedBox.shrink(),
+        _activatedMainTabs.contains(4)
+            ? PerfilScreen(
+                wrapWithSafeArea: false,
+                onInvestir: _abrirBalcaoParaStartup,
+              )
+            : const SizedBox.shrink(),
       ],
     );
   }
