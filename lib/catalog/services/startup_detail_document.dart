@@ -496,21 +496,23 @@ String _formatPctLabelExtended(Map<String, dynamic> m) {
 
 int _roundNum(num v) => v.round();
 
+/// Harmoniza `mentores_conselho`: mantém objetos completos do Firestore (Nome,
+/// Biografia, responsabilidades…) e aceita formato legado (lista só de nomes).
 Object? _normalizeMentoresRaw(Object? raw) {
   if (raw == null) {
     return null;
   }
   if (raw is String) {
     final String t = raw.trim();
-    return t.isEmpty ? null : <String>[t];
+    return t.isEmpty ? null : <Object>[t];
   }
   if (raw is List) {
-    final List<String> names = <String>[];
+    final List<Object> out = <Object>[];
     for (final Object? e in raw) {
       if (e is String) {
         final String t = e.trim();
         if (t.isNotEmpty) {
-          names.add(t);
+          out.add(t);
         }
       } else if (e is Map) {
         final Map<String, dynamic> map = Map<String, dynamic>.from(
@@ -524,11 +526,11 @@ Object? _normalizeMentoresRaw(Object? raw) {
           'titulo',
         ]);
         if (n.isNotEmpty) {
-          names.add(n);
+          out.add(map);
         }
       }
     }
-    return names.isEmpty ? null : names;
+    return out.isEmpty ? null : out;
   }
   return null;
 }
