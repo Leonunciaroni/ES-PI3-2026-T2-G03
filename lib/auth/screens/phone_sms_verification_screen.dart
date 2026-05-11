@@ -233,13 +233,12 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
     if (widget.replaceStackWithDashboard) {
       StartupCatalogListCache.instance.clear();
       await SessionPersistenceService.recordSessionAfterLogin();
-      final int tab = await SessionPersistenceService.getLastNavIndex();
       if (!mounted) {
         return;
       }
       await Navigator.of(context).pushAndRemoveUntil<void>(
         MaterialPageRoute<void>(
-          builder: (_) => DashboardScreen(initialMainNavIndex: tab),
+          builder: (_) => const DashboardScreen(),
         ),
         (route) => false,
       );
