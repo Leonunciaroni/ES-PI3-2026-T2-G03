@@ -39,6 +39,7 @@ class UserFirestoreService {
 
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
   static const String fieldInvestorStartupIds = 'investorStartupIds';
+  static const String fieldPhotoUrl = 'photoUrl';
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
@@ -320,6 +321,21 @@ class UserFirestoreService {
       final n = snap.data()?['name'];
       if (n is String && n.trim().isNotEmpty) {
         return n.trim();
+      }
+    } catch (_) {
+      // Sem Firebase ou falha de rede: o ecrã Perfil usa fallback.
+    }
+    return null;
+  }
+
+  /// URL da foto de perfil em `users/{uid}`; `null` se ausente ou em erro.
+  static Future<String?> fetchPhotoUrlFromFirestore(String uid) async {
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) return null;
+      final url = snap.data()?[fieldPhotoUrl];
+      if (url is String && url.trim().isNotEmpty) {
+        return url.trim();
       }
     } catch (_) {
       // Sem Firebase ou falha de rede: o ecrã Perfil usa fallback.

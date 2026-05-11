@@ -15,6 +15,7 @@ import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../../theme/theme_mode_controller.dart';
+import 'avatar_perfil_editavel.dart';
 import 'ajuda_suporte_screen.dart';
 import 'favoritos_screen.dart';
 import 'modo_aparencia_screen.dart';
@@ -26,11 +27,13 @@ class _PerfilDados {
     required this.nomeExibicao,
     required this.email,
     required this.iniciais,
+    this.photoUrl,
   });
 
   final String nomeExibicao;
   final String email;
   final String iniciais;
+  final String? photoUrl;
 }
 
 /// Gera 2 letras: duas palavras → iniciais; e-mail local → 1 letra; senão prefixo.
@@ -70,6 +73,7 @@ Future<_PerfilDados> _carregarPerfil() async {
         nomeExibicao: 'Utilizador',
         email: '—',
         iniciais: 'U',
+        photoUrl: null,
       );
     }
     var nome = u.displayName?.trim();
@@ -81,10 +85,12 @@ Future<_PerfilDados> _carregarPerfil() async {
     }
     nome ??= 'Utilizador';
     final email = u.email ?? '—';
+    final photoUrl = await UserFirestoreService.fetchPhotoUrlFromFirestore(u.uid);
     return _PerfilDados(
       nomeExibicao: nome,
       email: email,
       iniciais: _iniciaisDeNomeOuEmail(nome),
+      photoUrl: photoUrl,
     );
   } catch (_) {
     // [Firebase] não inicializado (ex. algum teste) ou outra falha: fallback seguro.
@@ -92,6 +98,7 @@ Future<_PerfilDados> _carregarPerfil() async {
       nomeExibicao: 'Utilizador',
       email: '—',
       iniciais: 'U',
+      photoUrl: null,
     );
   }
 }
@@ -286,6 +293,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 iniciais: iniciais,
                 nome: nome,
                 email: email,
+                photoUrl: dados?.photoUrl,
                 primary: primary,
                 theme: theme,
                 cardColor: theme.colorScheme.surface,
@@ -425,17 +433,22 @@ class _PerfilUserCard extends StatelessWidget {
     required this.primary,
     required this.theme,
     required this.cardColor,
+    this.photoUrl,
   });
 
   final String iniciais;
   final String nome;
   final String email;
+  final String? photoUrl;
   final Color primary;
   final ThemeData theme;
   final Color cardColor;
 
   @override
   Widget build(BuildContext context) {
+    final photoUrlValue = photoUrl?.trim();
+    final hasPhoto = photoUrlValue?.isNotEmpty == true;
+
     return Material(
       color: cardColor,
       borderRadius: BorderRadius.circular(28),
@@ -446,21 +459,19 @@ class _PerfilUserCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: primary,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                iniciais,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            AvatarPerfilEditavel(
+              iniciais: iniciais,
+              photoUrl: photoUrl,
+              primary: primary,
+              onTakePhoto: () {
+                // A implementação de câmera virá em etapas futuras.
+              },
+              onChooseFromGallery: () {
+                // A implementação da galeria virá em etapas futuras.
+              },
+              onRemovePhoto: () {
+                // A implementação de remoção virá em etapas futuras.
+              },
             ),
             const SizedBox(width: 16),
             Expanded(
