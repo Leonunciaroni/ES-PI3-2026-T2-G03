@@ -32,6 +32,6 @@ void main() {
       ),
     );
 
-    expect(find.text('05:00'), findsOneWidget);
+    expect(find.text('00:30'), findsOneWidget);
   });
 }
