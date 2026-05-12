@@ -3,11 +3,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../services/biometric_enrollment_storage.dart';
 import '../services/session_persistence_service.dart';
+import '../services/user_firestore_service.dart';
+import 'biometric_unlock_screen.dart';
 import 'login_screen.dart';
 
-/// Primeira rota após o splash do [MaterialApp]: em cold start remove a sessão Firebase
-/// para exigir novo login (processo reciclado ou app fechado).
+/// Primeira rota após o splash: no arranque a frio, por omissão fecha a sessão Firebase
+/// para voltar ao login. Se a biometria estiver activa, a sessão de 24h ainda válida
+/// e o aparelho inscrito, mantemos o utilizador autenticado e mostramos o desbloqueio
+/// biométrico.
 class AuthGateScreen extends StatefulWidget {
   const AuthGateScreen({super.key});
 
@@ -18,10 +23,19 @@ class AuthGateScreen extends StatefulWidget {
 class _AuthGateScreenState extends State<AuthGateScreen> {
   bool _ready = false;
 
+  /// Se `true`, o [BiometricUnlockScreen] substitui o login até ao desbloqueio.
+  bool _startWithBiometricUnlock = false;
+
   static bool _firebaseAvailable() {
     if (kIsWeb) {
       return true;
     }
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  static bool _mobileNativeBiometrics() {
+    if (kIsWeb) return false;
     return defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
   }
@@ -43,6 +57,36 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     try {
       if (Firebase.apps.isNotEmpty) {
         final User? user = FirebaseAuth.instance.currentUser;
+        final bool sessaoQuente =
+            await SessionPersistenceService.isRecordedSessionValid();
+
+        if (user != null &&
+            _mobileNativeBiometrics() &&
+            sessaoQuente &&
+            await UserFirestoreService.fetchBiometricEnabled() &&
+            await BiometricEnrollmentStorage.isEnrolledForUser(user.uid)) {
+          if (mounted) {
+            setState(() {
+              _ready = true;
+              _startWithBiometricUnlock = true;
+            });
+          }
+          return;
+        }
+
+        // Preferência no servidor sem inscrição neste aparelho (ex.: dados locais apagados).
+        if (user != null &&
+            _mobileNativeBiometrics() &&
+            sessaoQuente &&
+            await UserFirestoreService.fetchBiometricEnabled() &&
+            !await BiometricEnrollmentStorage.isEnrolledForUser(user.uid)) {
+          try {
+            await UserFirestoreService.setBiometricEnabled(false);
+          } catch (_) {
+            // Ignorado: utilizador seguirá para login; próximo arranque pode reconciliar.
+          }
+        }
+
         if (user != null) {
           await FirebaseAuth.instance.signOut();
         }
@@ -54,7 +98,10 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       }
     }
     if (mounted) {
-      setState(() => _ready = true);
+      setState(() {
+        _ready = true;
+        _startWithBiometricUnlock = false;
+      });
     }
   }
 
@@ -62,6 +109,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
   Widget build(BuildContext context) {
     if (!_ready) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_startWithBiometricUnlock) {
+      return const BiometricUnlockScreen();
     }
     return const LoginScreen();
   }
