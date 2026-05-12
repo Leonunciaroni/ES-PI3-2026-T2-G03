@@ -34,6 +34,13 @@ class _BiometricUnlockScreenState extends State<BiometricUnlockScreen> {
   }
 
   Future<void> _fallbackLoginComSenha() async {
+    // Mantém Firestore alinhado ao armazenamento local: [signOut] apaga a inscrição;
+    // sem isto, `biometricEnabled` ficaria `true` e o estado das definições mentia.
+    try {
+      await UserFirestoreService.setBiometricEnabled(false);
+    } catch (_) {
+      // Falha de rede: o [AuthGateScreen] reconcilia no próximo arranque.
+    }
     await UserFirestoreService.signOut();
     if (!mounted) return;
     await Navigator.of(context).pushAndRemoveUntil<void>(

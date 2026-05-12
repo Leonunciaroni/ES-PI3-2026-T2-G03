@@ -57,10 +57,12 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
     try {
       if (Firebase.apps.isNotEmpty) {
         final User? user = FirebaseAuth.instance.currentUser;
-        // Ramo biometria: utilizador já existe, prazo de 24h ok, Firestore e storage alinhados.
+        final bool sessaoQuente =
+            await SessionPersistenceService.isRecordedSessionValid();
+
         if (user != null &&
             _mobileNativeBiometrics() &&
-            await SessionPersistenceService.isRecordedSessionValid() &&
+            sessaoQuente &&
             await UserFirestoreService.fetchBiometricEnabled() &&
             await BiometricEnrollmentStorage.isEnrolledForUser(user.uid)) {
           if (mounted) {
@@ -70,6 +72,19 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
             });
           }
           return;
+        }
+
+        // Preferência no servidor sem inscrição neste aparelho (ex.: dados locais apagados).
+        if (user != null &&
+            _mobileNativeBiometrics() &&
+            sessaoQuente &&
+            await UserFirestoreService.fetchBiometricEnabled() &&
+            !await BiometricEnrollmentStorage.isEnrolledForUser(user.uid)) {
+          try {
+            await UserFirestoreService.setBiometricEnabled(false);
+          } catch (_) {
+            // Ignorado: utilizador seguirá para login; próximo arranque pode reconciliar.
+          }
         }
 
         if (user != null) {
