@@ -32,6 +32,7 @@ void main() {
       ),
     );
 
+    // Contagem inicial = [kTempoPagamentoPixSegundos] (30 s), formato mm:ss.
     expect(find.text('00:30'), findsOneWidget);
   });
 }

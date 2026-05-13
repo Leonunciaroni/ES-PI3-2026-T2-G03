@@ -1,16 +1,18 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Passo de **senha** no fluxo de saque. Com [debitarSaldoReal] ativo, a validação
-// segue o Balcão: [EmailAuthProvider] + [reauthenticateWithCredential]; em seguida
-// a Cloud Function [simulateWallet] com ação `withdraw_pix_simulated` debita o
-// saldo e grava o movimento no ledger. Modo convidado/teste só confirma a UI.
+// Passo de **senha ou biometria** no fluxo de saque. Com [debitarSaldoReal] ativo,
+// a validação pode ser [EmailAuthProvider] + [reauthenticateWithCredential] ou biometria
+// local; depois a Cloud Function [simulateWallet] com `withdraw_pix_simulated`. Modo
+// convidado/teste só confirma a UI.
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../auth/services/auth_service.dart';
+import '../../auth/services/biometric_auth_service.dart';
+import '../../auth/services/biometric_shortcut_availability.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../format/carteira_brl.dart';
@@ -45,6 +47,33 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
   String? _erro;
   bool _enviando = false;
 
+  /// Atalho biométrico (igual ao Balcão), só quando [debitarSaldoReal] é true.
+  bool _oferecerBiometria = false;
+
+  bool _disparouPromptBiometriaInicial = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _actualizarOfertaBiometria());
+  }
+
+  Future<void> _actualizarOfertaBiometria() async {
+    if (!widget.debitarSaldoReal) {
+      if (mounted) setState(() => _oferecerBiometria = false);
+      return;
+    }
+    final bool ok =
+        await BiometricShortcutAvailability.userWantsBiometricShortcut();
+    if (!mounted) return;
+    setState(() => _oferecerBiometria = ok);
+    if (!ok || _disparouPromptBiometriaInicial) return;
+    _disparouPromptBiometriaInicial = true;
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    if (!mounted || !_oferecerBiometria) return;
+    await _onConfirmarComBiometria();
+  }
+
   @override
   void dispose() {
     _senhaController.dispose();
@@ -63,6 +92,63 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _onConfirmarComBiometria() async {
+    if (_enviando || !widget.debitarSaldoReal) return;
+
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(
+        () => _erro = 'Sessão expirada. Entre de novo com seu e-mail e senha.',
+      );
+      return;
+    }
+
+    setState(() {
+      _erro = null;
+      _enviando = true;
+    });
+
+    final BiometricAuthOutcome resultado =
+        await BiometricAuthService.instance.authenticate(
+      localizedReason: 'Confirme o saque no Mescla Invest.',
+      skipPluginAvailabilityPrecheck: true,
+    );
+
+    if (resultado != BiometricAuthOutcome.success) {
+      if (mounted) {
+        setState(() {
+          _erro = BiometricAuthService.messageForOutcome(resultado);
+          _enviando = false;
+        });
+      }
+      return;
+    }
+
+    await _executarSaqueAposIdentidadeVerificada();
+  }
+
+  Future<void> _executarSaqueAposIdentidadeVerificada() async {
+    try {
+      await SimulatedWalletService.withdrawPixSimulated(
+        amountBrl: widget.valorReais,
+        pixTipoLabel: widget.chavePix.tipoLabel,
+        pixDestHint: mascararChavePixComprovante(widget.chavePix.valor),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _erro = SimulatedWalletService.messageForUser(e);
+          _enviando = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) setState(() => _enviando = false);
+    if (!mounted) return;
+    await _irParaComprovante();
   }
 
   Future<void> _onConfirmar() async {
@@ -136,25 +222,7 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
 
     if (!mounted) return;
 
-    try {
-      await SimulatedWalletService.withdrawPixSimulated(
-        amountBrl: widget.valorReais,
-        pixTipoLabel: widget.chavePix.tipoLabel,
-        pixDestHint: mascararChavePixComprovante(widget.chavePix.valor),
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _erro = SimulatedWalletService.messageForUser(e);
-          _enviando = false;
-        });
-      }
-      return;
-    }
-
-    if (mounted) setState(() => _enviando = false);
-    if (!mounted) return;
-    await _irParaComprovante();
+    await _executarSaqueAposIdentidadeVerificada();
   }
 
   @override
@@ -210,7 +278,77 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
                   color: AppColors.secondaryLabel(theme),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              if (widget.debitarSaldoReal && _oferecerBiometria) ...[
+                Material(
+                  color: AppColors.themeCardSurface(theme),
+                  borderRadius: BorderRadius.circular(16),
+                  elevation: 1,
+                  shadowColor: Colors.black.withValues(alpha: 0.06),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Icon(
+                          Icons.fingerprint_rounded,
+                          size: 44,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Primeiro: biometria deste aparelho',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'O sistema pede rosto ou digital como ao abrir o app. '
+                          'Se cancelar, use a senha abaixo.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed:
+                              _enviando ? null : _onConfirmarComBiometria,
+                          icon: const Icon(Icons.fingerprint_rounded),
+                          label: const Text('Tentar biometria de novo'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: AppColors.cardDivider(theme))),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'ou senha do login',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.cardDivider(theme))),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
               TextField(
                 controller: _senhaController,
                 obscureText: _ocultarSenha,
@@ -276,8 +414,10 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
               const SizedBox(height: 16),
               Text(
                 widget.debitarSaldoReal
-                    ? 'Usamos a mesma senha com que você entra no app. O valor '
-                        'será debitado do saldo simulado.'
+                    ? (_oferecerBiometria
+                        ? 'A biometria confirma neste aparelho; a senha revalida a conta no Firebase. O valor será debitado do saldo simulado.'
+                        : 'Usamos a mesma senha com que você entra no app. O valor '
+                            'será debitado do saldo simulado.')
                     : 'Modo demonstração: o saldo não é alterado.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
