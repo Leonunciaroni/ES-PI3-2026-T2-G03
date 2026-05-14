@@ -496,42 +496,75 @@ String _formatPctLabelExtended(Map<String, dynamic> m) {
 
 int _roundNum(num v) => v.round();
 
-/// Harmoniza `mentores_conselho`: mantém objetos completos do Firestore (Nome,
-/// Biografia, responsabilidades…) e aceita formato legado (lista só de nomes).
+/// Harmoniza `mentores_conselho`: lista de **mapas** com campos preservados (como `socios`).
+/// Aceita legado (string ou lista de nomes). Usa [socioNomeParaExibicao] para não
+/// descartar documentos cujo nome não está só em `nome`/`Nome`.
 Object? _normalizeMentoresRaw(Object? raw) {
   if (raw == null) {
     return null;
   }
-  if (raw is String) {
-    final String t = raw.trim();
-    return t.isEmpty ? null : <Object>[t];
+
+  final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
+
+  void pushNomeSimples(String nome) {
+    final String t = nome.trim();
+    if (t.isEmpty) {
+      return;
+    }
+    out.add(<String, dynamic>{'Nome': t, 'nome': t});
   }
+
+  void enrichNomeNoMap(Map<String, dynamic> map) {
+    String nome = socioNomeParaExibicao(map).trim();
+    if (nome.isEmpty) {
+      final String picked = _pickFirstNonEmptyString(map, <String>[
+        'nome',
+        'Nome',
+        'name',
+        'mentor',
+        'titulo',
+      ]);
+      if (picked.isNotEmpty) {
+        nome = picked;
+        map['Nome'] = nome;
+        map['nome'] = nome;
+      }
+    }
+  }
+
+  if (raw is String) {
+    pushNomeSimples(raw);
+    return out.isEmpty ? null : out;
+  }
+
+  if (raw is Map) {
+    final Map<String, dynamic> map = Map<String, dynamic>.from(
+      raw.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+    );
+    enrichNomeNoMap(map);
+    if (socioNomeParaExibicao(map).trim().isEmpty) {
+      return null;
+    }
+    return <Map<String, dynamic>>[map];
+  }
+
   if (raw is List) {
-    final List<Object> out = <Object>[];
     for (final Object? e in raw) {
       if (e is String) {
-        final String t = e.trim();
-        if (t.isNotEmpty) {
-          out.add(t);
-        }
+        pushNomeSimples(e);
       } else if (e is Map) {
         final Map<String, dynamic> map = Map<String, dynamic>.from(
           e.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
         );
-        final String n = _pickFirstNonEmptyString(map, <String>[
-          'nome',
-          'Nome',
-          'name',
-          'mentor',
-          'titulo',
-        ]);
-        if (n.isNotEmpty) {
+        enrichNomeNoMap(map);
+        if (socioNomeParaExibicao(map).trim().isNotEmpty) {
           out.add(map);
         }
       }
     }
     return out.isEmpty ? null : out;
   }
+
   return null;
 }
 
