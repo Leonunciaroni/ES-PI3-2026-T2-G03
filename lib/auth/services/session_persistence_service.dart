@@ -56,8 +56,8 @@ class SessionPersistenceService {
     return DateTime.now().millisecondsSinceEpoch < d;
   }
 
-  /// O produto abre sempre na aba inicial após login; mantemos o método para ecrãs
-  /// antigos que ainda pedem o índice guardado (retorno fixo `0`).
+  /// O produto abre sempre na aba inicial após login; mantemos o método para
+  /// telas antigas que ainda pedem o índice guardado (retorno fixo `0`).
   static Future<int> getLastNavIndex() async {
     return 0;
   }

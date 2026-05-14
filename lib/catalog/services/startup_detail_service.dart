@@ -17,6 +17,7 @@ import 'startup_firestore_mapper.dart';
 export 'socio_firestore_mapper.dart'
     show
         socioDetailViewDataFromFirestoreSocioMap,
+        socioDetailViewDataFromFirestoreMentorMap,
         resolveSocioDetailForTeamMember;
 export 'startup_detail_document.dart'
     show
@@ -505,12 +506,54 @@ List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
             name: name,
             role: 'Mentor / conselho',
             avatarColor: _avatarColorForString(name),
+            isMentorConselho: true,
           ),
         );
+        continue;
       }
+      final Map<String, dynamic>? map = _asStringKeyMap(m);
+      if (map == null) {
+        continue;
+      }
+      final String nome = socioNomeParaExibicao(map);
+      if (nome.trim().isEmpty) {
+        continue;
+      }
+      final String nomeTrim = nome.trim();
+      final String respons = _mentorResponsibilityFromFirestoreMap(map);
+      final String role =
+          respons.isNotEmpty ? respons : 'Mentor / conselho';
+      out.add(
+        StartupTeamMember(
+          name: nomeTrim,
+          role: role,
+          avatarColor: _avatarColorForString(nomeTrim),
+          firestoreFields: Map<String, dynamic>.from(map),
+          isMentorConselho: true,
+        ),
+      );
     }
   }
   return out;
+}
+
+/// Firestore usa chaves ligeiramente diferentes entre documentos (`Responsabilidade` vs `Responsabilidades`).
+String _mentorResponsibilityFromFirestoreMap(Map<String, dynamic> map) {
+  final List<String> keys = <String>[
+    'Responsabilidades na startup',
+    'Responsabilidade na startup',
+    'Responsabilidades na Startup',
+    'Responsabilidade na Startup',
+    'responsabilidades_na_startup',
+    'responsabilidade_na_startup',
+  ];
+  for (final String k in keys) {
+    final String s = readFirestoreString(map, k).trim();
+    if (s.isNotEmpty) {
+      return s;
+    }
+  }
+  return '';
 }
 
 Color _avatarColorForString(String s) {
