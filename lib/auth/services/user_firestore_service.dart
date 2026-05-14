@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../carteira/models/pix_chave_ui.dart';
+import 'biometric_enrollment_storage.dart';
 import 'session_persistence_service.dart';
 
 class UserFirestoreService {
@@ -42,6 +43,15 @@ class UserFirestoreService {
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
+
+  /// Preferência: utilizador quer desbloquear o app com biometria (Face ID / digital).
+  static const String fieldBiometricEnabled = 'biometricEnabled';
+
+  /// Última vez que entrou com biometria (metadado; auditoria simples).
+  static const String fieldLastBiometricLoginAt = 'lastBiometricLoginAt';
+
+  /// Marca o aparelho como confiável quando o utilizador activa a biometria aqui.
+  static const String fieldTrustedDevice = 'trustedDevice';
 
   static Future<void> _removeLegacyPasswordFieldForEmail(
     String normalizedEmail,
@@ -98,6 +108,7 @@ class UserFirestoreService {
         fieldInvestorStartupIds: <String>[],
         fieldChavesPix: <Map<String, dynamic>>[],
         fieldFirstAccess: true,
+        fieldBiometricEnabled: false,
       }, SetOptions(merge: true));
 
       await _removeLegacyPasswordFieldForEmail(normalizedEmail);
@@ -163,6 +174,7 @@ class UserFirestoreService {
 
   /// Encerra a sessão no Firebase Auth (ex.: botão Sair do Perfil).
   static Future<void> signOut() async {
+    await BiometricEnrollmentStorage.clearEnrollment();
     await SessionPersistenceService.clearSessionMetadata();
     await _auth.signOut();
   }
@@ -226,6 +238,63 @@ class UserFirestoreService {
       }
       return true;
     });
+  }
+
+  /// Lê [fieldBiometricEnabled]; documento antigo sem campo ⇒ `false`.
+  static Future<bool> fetchBiometricEnabled() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return false;
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) return false;
+      final v = snap.data()?[fieldBiometricEnabled];
+      return v is bool && v;
+    } on FirebaseException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Emite alterações a [fieldBiometricEnabled] em tempo real (default `false`).
+  static Stream<bool> watchBiometricEnabled() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return Stream<bool>.value(false);
+    }
+    return _usersCollection.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return false;
+      final v = snap.data()?[fieldBiometricEnabled];
+      return v is bool && v;
+    });
+  }
+
+  /// Grava a preferência de biometria e, se activa, marca dispositivo confiável.
+  static Future<void> setBiometricEnabled(bool enabled) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    await _usersCollection.doc(uid).set({
+      fieldBiometricEnabled: enabled,
+      fieldTrustedDevice: enabled,
+    }, SetOptions(merge: true));
+  }
+
+  /// Actualiza só o horário do último login por biometria (servidor).
+  static Future<void> recordLastBiometricLoginNow() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await _usersCollection.doc(uid).set({
+        fieldLastBiometricLoginAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } on FirebaseException {
+      // Falha de rede: não bloqueia o fluxo de UI.
+    } catch (_) {}
   }
 
   /// Lê o campo [fieldMfaDeliveryMethod] uma vez (por omissão [mfaDeliveryEmail]).

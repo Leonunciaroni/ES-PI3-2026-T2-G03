@@ -1,7 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../widgets/mescla_main_shell.dart';
-
 /// Persistência leve da sessão: prazo de validade (24h após login).
 ///
 /// Regras de produto:
@@ -58,18 +56,9 @@ class SessionPersistenceService {
     return DateTime.now().millisecondsSinceEpoch < d;
   }
 
-  /// Lê o índice da última aba principal persistida (legado).
-  ///
-  /// Retorna `0` se não houver valor ou se estiver fora do intervalo válido.
+  /// O produto abre sempre na aba inicial após login; mantemos o método para
+  /// telas antigas que ainda pedem o índice guardado (retorno fixo `0`).
   static Future<int> getLastNavIndex() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final int? stored = prefs.getInt(_legacyLastNavKey);
-    if (stored == null) {
-      return 0;
-    }
-    if (stored < 0 || stored >= kMesclaMainTabCount) {
-      return 0;
-    }
-    return stored;
+    return 0;
   }
 }
