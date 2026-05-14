@@ -25,21 +25,21 @@ import '../../catalog/data/startup_detail_mock.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
-import '../../catalog/services/startup_firestore_mapper.dart';
-import '../../catalog/widgets/startup_logo_avatar.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/brazil_flag_icon.dart';
 import '../../widgets/mescla_header_row.dart';
 import '../../widgets/mescla_period_pill_chip.dart';
 import '../../widgets/valuation_evolution_chart_card.dart';
-import '../invested_startup_position_math.dart';
-import '../widgets/carteira_invested_sparkline.dart';
 import '../format/carteira_brl.dart';
 import '../format/pix_chave_input.dart';
+import '../invested_startup_position_math.dart';
+import '../models/carteira_invested_position_model.dart';
 import '../models/carteira_movimentacao_detalhe.dart';
 import '../models/pix_chave_ui.dart';
+import '../carteira_patrimonio_metrics.dart';
 import '../services/simulated_wallet_service.dart';
+import '../widgets/invested_startup_card.dart';
 import 'adicionar_fundos_screen.dart';
 import 'carteira_movimentacao_detalhe_screen.dart';
 import 'sacar_valor_screen.dart';
@@ -132,81 +132,7 @@ DateTime _carteiraInicioPeriodo(ValuationPeriod p, DateTime now) {
   }
 }
 
-/// Efeito de uma linha do ledger no saldo disponível (BRL).
-double _carteiraDeltaBrlLedgerLinha(Map<String, dynamic> m) {
-  final op = m['op'] as String?;
-  final amt = (m['amountBrl'] as num?)?.toDouble() ?? 0.0;
-  switch (op) {
-    case 'credit_pix_simulated':
-      return amt;
-    case 'withdraw_pix_simulated':
-      return -amt;
-    case 'trade_buy':
-      return -amt;
-    case 'trade_sell':
-      return amt;
-    default:
-      return 0.0;
-  }
-}
-
-/// Reverte, a partir de [brlNow], todas as operações em
-/// [rangeStartInclusive, rangeEndInclusive] (ledger mais recente primeiro).
-double _carteiraBrlAntesDoIntervalo({
-  required double brlNow,
-  required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
-  required DateTime rangeStartInclusive,
-  required DateTime rangeEndInclusive,
-}) {
-  var b = brlNow;
-  for (final d in docsNewestFirst) {
-    final m = d.data();
-    final ts = m['createdAt'];
-    if (ts is! Timestamp) continue;
-    final t = ts.toDate();
-    if (t.isBefore(rangeStartInclusive) || t.isAfter(rangeEndInclusive)) {
-      continue;
-    }
-    b -= _carteiraDeltaBrlLedgerLinha(m);
-  }
-  return b;
-}
-
-/// Património no hero (estilo corretora): saldo BRL livre + valor de mercado das posições.
-double _carteiraPatrimonioTotal({
-  required double brlDisponivel,
-  required double valorMercadoPosicoes,
-}) =>
-    brlDisponivel + valorMercadoPosicoes;
-
-/// Variação % do **saldo disponível** (BRL) no mês civil corrente.
-///
-/// Este número é exato porque é derivado do ledger + saldo atual.
-String _carteiraVariacaoSaldoMesLabel({
-  required double brlNow,
-  required List<QueryDocumentSnapshot<Map<String, dynamic>>> docsNewestFirst,
-  required DateTime now,
-}) {
-  final inicioMes = DateTime(now.year, now.month, 1);
-  final brlIni = _carteiraBrlAntesDoIntervalo(
-    brlNow: brlNow,
-    docsNewestFirst: docsNewestFirst,
-    rangeStartInclusive: inicioMes,
-    rangeEndInclusive: now,
-  );
-  if (brlIni.abs() < 1.0) {
-    if (brlNow.abs() >= 1.0) {
-      return '+ 100,0% este mês';
-    }
-    return '+ 0,0% este mês';
-  }
-  final pct = (brlNow - brlIni) / brlIni * 100;
-  final s = pct.toStringAsFixed(1).replaceAll('.', ',');
-  final sign = pct >= 0 ? '+ ' : '';
-  return '$sign$s% este mês';
-}
-
-/// Evolução do **saldo disponível** (BRL) no período, coerente com o ledger e [brlNow].
+/// Série temporal do **saldo BRL disponível**, coerente com o ledger e [brlNow].
 /// Usada como base para [carteiraPatrimonioEvolucaoSeries] (soma valor de mercado das posições).
 ///
 /// O intervalo temporal vem de [_carteiraInicioPeriodo] (alinhado aos chips §5.4).
@@ -218,7 +144,7 @@ ValuationChartSeries saldoBrlEvolucaoSeries({
   required double brlNow,
 }) {
   final inicio = _carteiraInicioPeriodo(periodo, now);
-  final brlOpening = _carteiraBrlAntesDoIntervalo(
+  final brlOpening = carteiraBrlAntesDoIntervalo(
     brlNow: brlNow,
     docsNewestFirst: docsNewestFirst,
     rangeStartInclusive: inicio,
@@ -241,7 +167,7 @@ ValuationChartSeries saldoBrlEvolucaoSeries({
     final ts = m['createdAt'];
     if (ts is! Timestamp) continue;
     final t = ts.toDate();
-    b += _carteiraDeltaBrlLedgerLinha(m);
+    b += carteiraDeltaBrlLedgerLinha(m);
     times.add(t);
     values.add(b);
   }
@@ -329,87 +255,8 @@ class _MovimentacaoMock {
   final double valor;
 }
 
-/// Dados de um card “Minhas Startups Investidas”.
-///
-/// Convidado: só cor + ícone (sem rede). Logado: [logoPath] preenchido quando o doc
-/// da posição faz match no catálogo — ver [_docPosicaoParaMock].
-class _StartupMock {
-  const _StartupMock({
-    required this.nome,
-    required this.categoria,
-    required this.rendimentoLabel,
-    required this.totalInvestido,
-    required this.valorMercadoAtualBrl,
-    required this.corLogo,
-    required this.icone,
-    this.logoPath,
-  });
-
-  final String nome;
-  final String categoria;
-  final String rendimentoLabel;
-  final double totalInvestido;
-
-  /// Posição em BRL ao preço atual (mock convidado) — alinhado ao sentido de [rendimentoLabel].
-  final double valorMercadoAtualBrl;
-  final Color corLogo;
-  final IconData icone;
-
-  /// Mesmo critério que [CatalogStartup.logoPath]: Storage ou URL; null → só ícone.
-  final String? logoPath;
-}
-
 String _carteiraFmtDataPortugues(DateTime dt) =>
     '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
-
-/// Roxo (primário) = ~0 % ou sem dado no **rendimento**; verde/vermelho = ganho/perda.
-Color _carteiraCorRendimentoInvestido({
-  required CarteiraInvestidoYieldTone tone,
-  required Color schemePrimary,
-}) {
-  switch (tone) {
-    case CarteiraInvestidoYieldTone.positivo:
-      return const Color(0xFF16A34A);
-    case CarteiraInvestidoYieldTone.negativo:
-      return const Color(0xFFDC2626);
-    case CarteiraInvestidoYieldTone.neutro:
-    case CarteiraInvestidoYieldTone.indefinido:
-      return schemePrimary;
-  }
-}
-
-/// Cor do montante **Valor atual** (preto = igual ao investido; verde ↑; vermelho ↓).
-Color _carteiraCorValorAtualMontante({
-  required ThemeData theme,
-  required CarteiraInvestidoYieldTone tone,
-}) {
-  switch (tone) {
-    case CarteiraInvestidoYieldTone.positivo:
-      return const Color(0xFF16A34A);
-    case CarteiraInvestidoYieldTone.negativo:
-      return const Color(0xFFDC2626);
-    case CarteiraInvestidoYieldTone.neutro:
-      return theme.colorScheme.onSurface;
-    case CarteiraInvestidoYieldTone.indefinido:
-      return AppColors.secondaryLabel(theme);
-  }
-}
-
-/// Mini gráfico: mesma lógica de sinal que o valor atual (roxo só sem dados).
-Color _carteiraCorSparklineInvestido({
-  required Color schemePrimary,
-  required CarteiraInvestidoYieldTone tone,
-}) {
-  switch (tone) {
-    case CarteiraInvestidoYieldTone.positivo:
-      return const Color(0xFF16A34A);
-    case CarteiraInvestidoYieldTone.negativo:
-      return const Color(0xFFDC2626);
-    case CarteiraInvestidoYieldTone.neutro:
-    case CarteiraInvestidoYieldTone.indefinido:
-      return schemePrimary;
-  }
-}
 
 /// Curva fictícia do convidado: evolução do custo até ao valor de mercado atual.
 List<double> _carteiraGuestSparkline(double custoBrl, double valorAtualMercadoBrl) {
@@ -459,49 +306,6 @@ double _carteiraSomaValorMercadoPosicoes(
   return sum;
 }
 
-/// Monta o modelo de UI a partir do doc `positions/{startupId}` em `sim_wallet`.
-///
-/// Se [catalogMatch] existir (lista `listStartups` em [StartupCatalogListCache]),
-/// reutiliza nome, categoria, cores/ícone do catálogo, `yieldPercentLabel` e [logoPath].
-/// Sem match: só dados gravados na posição + [firestoreColorForSector]/[firestoreIconForSector].
-_StartupMock _docPosicaoParaMock(
-  QueryDocumentSnapshot<Map<String, dynamic>> d, {
-  CatalogStartup? catalogMatch,
-}) {
-  final m = d.data();
-  final nomeFs = ((m['startupName'] as String?) ?? '').trim();
-  final nome = (catalogMatch?.name.trim().isNotEmpty ?? false)
-      ? catalogMatch!.name.trim()
-      : (nomeFs.isNotEmpty ? nomeFs : 'Startup');
-
-  final catRaw =
-      ((catalogMatch?.category ?? (m['category'] as String?)) ?? '—').trim();
-  final setor = catRaw.isEmpty ? '—' : catRaw;
-
-  final cost = (m['costBasisBrl'] as num?)?.toDouble() ?? 0.0;
-  final held = (m['tokensHeld'] as num?)?.toDouble() ?? 0.0;
-  final px = catalogMatch?.tokenPrice ?? 0.0;
-  final rendimentoLabel = carteiraYieldPercentLabel(
-    costBasisBrl: cost,
-    tokensHeld: held,
-    tokenPriceBrl: px,
-  );
-
-  final valorMercadoAtualBrl =
-      (px > 1e-9 && held.isFinite && held >= 0) ? held * px : cost;
-
-  return _StartupMock(
-    nome: nome,
-    categoria: setor.toUpperCase(),
-    rendimentoLabel: rendimentoLabel,
-    totalInvestido: cost,
-    valorMercadoAtualBrl: valorMercadoAtualBrl,
-    corLogo: catalogMatch?.logoColor ?? firestoreColorForSector(setor),
-    icone: catalogMatch?.logoIcon ?? firestoreIconForSector(setor),
-    logoPath: catalogMatch?.logoPath,
-  );
-}
-
 /// Resolve o `CatalogStartup` cuja [CatalogStartup.firestoreId] coincide com a posição.
 ///
 /// O ID da posição é o **document id** (`simulateWallet` grava em `positions.doc(startupId)`).
@@ -528,6 +332,8 @@ class CarteiraScreen extends StatefulWidget {
     super.key,
     this.wrapWithSafeArea = true,
     this.onCompraVendaTokens,
+    /// Incrementado pelo [DashboardScreen] ao pedir scroll até «Minhas Startups Investidas».
+    this.scrollStartupsSectionTick,
     /// Quando `false`, o ecrã assume **convidado** sem ler [FirebaseAuth] —
     /// útil em [flutter test] no VM (sem canais nativos do Firebase).
     this.usarFirebaseParaSessao = true,
@@ -540,6 +346,9 @@ class CarteiraScreen extends StatefulWidget {
   /// Quando preenchido (ex.: a partir de [DashboardScreen]), o botão “Compra / Venda
   /// de Tokens” no card de saldo deixa o “em breve” e abre o separador Balcão.
   final VoidCallback? onCompraVendaTokens;
+
+  /// Pulso externo (ex.: botão «Ver todas» no Início) para descer até à lista investida.
+  final ValueNotifier<int>? scrollStartupsSectionTick;
 
   /// Se `false`, não acede a [FirebaseAuth] (testes de widget no desktop).
   final bool usarFirebaseParaSessao;
@@ -633,8 +442,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   ];
 
   /// Startups mock (nomes iguais ao dashboard/catálogo de referência).
-  static const List<_StartupMock> _startups = [
-    _StartupMock(
+  static const List<CarteiraInvestedPositionModel> _startups = [
+    CarteiraInvestedPositionModel(
       nome: 'GreenFlow',
       categoria: 'AGROTECH',
       rendimentoLabel: '+18.5%',
@@ -643,7 +452,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       corLogo: Color(0xFF22C55E),
       icone: Icons.eco_outlined,
     ),
-    _StartupMock(
+    CarteiraInvestedPositionModel(
       nome: 'CyberMesh',
       categoria: 'CYBERSECURITY',
       rendimentoLabel: '+12.3%',
@@ -652,7 +461,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       corLogo: Color(0xFF18181B),
       icone: Icons.security_outlined,
     ),
-    _StartupMock(
+    CarteiraInvestedPositionModel(
       nome: 'Healthly',
       categoria: 'HEALTHTECH',
       rendimentoLabel: '+9.8%',
@@ -668,6 +477,35 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     super.initState();
     // Cliente HTTP das Cloud Functions; partilha o mesmo contrato que [CatalogScreen]/[BalcaoTabScreen].
     _catalogFunctionsService = StartupCatalogFunctionsService();
+    widget.scrollStartupsSectionTick?.addListener(
+      _onPedidoScrollExternoParaStartups,
+    );
+  }
+
+  @override
+  void didUpdateWidget(CarteiraScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollStartupsSectionTick !=
+        widget.scrollStartupsSectionTick) {
+      oldWidget.scrollStartupsSectionTick?.removeListener(
+        _onPedidoScrollExternoParaStartups,
+      );
+      widget.scrollStartupsSectionTick?.addListener(
+        _onPedidoScrollExternoParaStartups,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollStartupsSectionTick?.removeListener(
+      _onPedidoScrollExternoParaStartups,
+    );
+    super.dispose();
+  }
+
+  void _onPedidoScrollExternoParaStartups() {
+    _scrollParaStartupsInvestidas();
   }
 
   /// Mensagem rápida: ações ainda sem backend nesta branch.
@@ -1557,7 +1395,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     }
                     final ledErro = ledSnap.hasError;
                     final docs = ledSnap.data?.docs ?? const [];
-                    final patrimonio = _carteiraPatrimonioTotal(
+                    final patrimonio = carteiraPatrimonioTotal(
                       brlDisponivel: brl,
                       valorMercadoPosicoes: valorMercadoPosicoes,
                     );
@@ -1565,7 +1403,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                         ? '• • • • • •'
                         : (saldoErro || ledErro || posErro
                             ? 'N/D este mês'
-                            : _carteiraVariacaoSaldoMesLabel(
+                            : carteiraVariacaoSaldoMesLabel(
                                 brlNow: brl,
                                 docsNewestFirst: docs,
                                 now: DateTime.now(),
@@ -1696,8 +1534,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final s in lista) ...[
-                _StartupInvestidaCard(
-                  startup: s,
+                InvestedStartupCard(
+                  startup: s.toInvestedRowUi(),
                   primary: primary,
                   hideValues: _hideValues,
                   rendimentoExibicao: _percentParaExibicao(s.rendimentoLabel),
@@ -1864,7 +1702,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     for (final doc in visDocs) {
                       final match =
                           _catalogMatchParaPosicaoDoc(doc, byFirestoreId);
-                      final startup = _docPosicaoParaMock(
+                      final startup = mapFirestorePosicaoParaInvestida(
                         doc,
                         catalogMatch: match,
                       );
@@ -1894,8 +1732,8 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                         anchorNow: agora,
                       );
                       children.addAll([
-                        _StartupInvestidaCard(
-                          startup: startup,
+                        InvestedStartupCard(
+                          startup: startup.toInvestedRowUi(),
                           primary: primary,
                           hideValues: _hideValues,
                           rendimentoExibicao:
@@ -2449,184 +2287,6 @@ class _PillActionButton extends StatelessWidget {
     if (!expandWidth) return button;
 
     return SizedBox(width: double.infinity, child: button);
-  }
-}
-
-// --- Card startup investida ---------------------------------------------------
-// Avatar: [StartupLogoAvatar] (logo Storage/URL ou fallback cor+ícone — igual Catálogo/Balcão).
-
-class _StartupInvestidaCard extends StatelessWidget {
-  const _StartupInvestidaCard({
-    required this.startup,
-    required this.primary,
-    required this.hideValues,
-    required this.rendimentoExibicao,
-    required this.investidoExibicao,
-    required this.valorAtualExibicao,
-    required this.sparklineValues,
-    required this.rendimentoTone,
-  });
-
-  final _StartupMock startup;
-  final Color primary;
-
-  /// Controla se os valores e o mini-gráfico são mascarados com os demais números.
-  final bool hideValues;
-
-  /// Texto já passado pelo pai (pode estar mascarado).
-  final String rendimentoExibicao;
-  final String investidoExibicao;
-
-  /// Posição em BRL ao preço atual (tokens × cotação), mascarado ou `—`.
-  final String valorAtualExibicao;
-
-  /// Evolução da posição em BRL (mesma janela temporal que o gráfico da carteira).
-  final List<double> sparklineValues;
-
-  /// Verde / vermelho / roxo conforme o sinal do rendimento (ou ~0 % → roxo).
-  final CarteiraInvestidoYieldTone rendimentoTone;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final corRend = _carteiraCorRendimentoInvestido(
-      tone: rendimentoTone,
-      schemePrimary: primary,
-    );
-    final corValorAtual = _carteiraCorValorAtualMontante(
-      theme: theme,
-      tone: rendimentoTone,
-    );
-    final corSpark = _carteiraCorSparklineInvestido(
-      schemePrimary: primary,
-      tone: rendimentoTone,
-    );
-    return Material(
-      color: AppColors.themeCardSurface(theme),
-      borderRadius: BorderRadius.circular(18),
-      elevation: 3,
-      shadowColor: Colors.black.withValues(alpha: 0.08),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Mesmo widget e caches globais de URL/imagem que `catalog_startup_card` / Balcão.
-                StartupLogoAvatar(
-                  logoPath: startup.logoPath,
-                  fallbackColor: startup.corLogo,
-                  fallbackIcon: startup.icone,
-                  size: 48,
-                  borderRadius: 12,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        startup.nome,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        startup.categoria,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      rendimentoExibicao,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: corRend,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'RENDIMENTO',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: corRend,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.6,
-                        fontSize: 9,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Investido',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        investidoExibicao,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Valor atual',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.secondaryLabel(theme),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        valorAtualExibicao,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: corValorAtual,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!hideValues)
-                  CarteiraInvestedSparkline(
-                    values: sparklineValues,
-                    color: corSpark,
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
