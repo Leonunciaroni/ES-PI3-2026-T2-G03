@@ -496,40 +496,85 @@ String _formatPctLabelExtended(Map<String, dynamic> m) {
 
 int _roundNum(num v) => v.round();
 
+/// Normaliza `mentores_conselho` para uma **lista de mapas** com todos os campos
+/// preservados (como `socios`), para o detalhe reutilizar [socioDetailViewDataFromFirestoreSocioMap].
+/// Aceita string única, lista de strings (legado) ou lista de mapas.
 Object? _normalizeMentoresRaw(Object? raw) {
   if (raw == null) {
     return null;
   }
-  if (raw is String) {
-    final String t = raw.trim();
-    return t.isEmpty ? null : <String>[t];
+
+  final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
+
+  void pushNomeSimples(String nome) {
+    final String t = nome.trim();
+    if (t.isEmpty) {
+      return;
+    }
+    out.add(<String, dynamic>{'Nome': t, 'nome': t});
   }
+
+  if (raw is String) {
+    pushNomeSimples(raw);
+    return out.isEmpty ? null : out;
+  }
+
+  if (raw is Map) {
+    final Map<String, dynamic> map = Map<String, dynamic>.from(
+      raw.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
+    );
+    String nome = socioNomeParaExibicao(map).trim();
+    if (nome.isEmpty) {
+      final String picked = _pickFirstNonEmptyString(map, <String>[
+        'nome',
+        'Nome',
+        'name',
+        'mentor',
+        'titulo',
+      ]);
+      if (picked.isNotEmpty) {
+        nome = picked;
+        map['Nome'] = nome;
+        map['nome'] = nome;
+      }
+    }
+    if (nome.isEmpty) {
+      return null;
+    }
+    return <Map<String, dynamic>>[map];
+  }
+
   if (raw is List) {
-    final List<String> names = <String>[];
     for (final Object? e in raw) {
       if (e is String) {
-        final String t = e.trim();
-        if (t.isNotEmpty) {
-          names.add(t);
-        }
+        pushNomeSimples(e);
       } else if (e is Map) {
         final Map<String, dynamic> map = Map<String, dynamic>.from(
           e.map((Object? k, Object? v) => MapEntry(k.toString(), v)),
         );
-        final String n = _pickFirstNonEmptyString(map, <String>[
-          'nome',
-          'Nome',
-          'name',
-          'mentor',
-          'titulo',
-        ]);
-        if (n.isNotEmpty) {
-          names.add(n);
+        String nome = socioNomeParaExibicao(map).trim();
+        if (nome.isEmpty) {
+          final String picked = _pickFirstNonEmptyString(map, <String>[
+            'nome',
+            'Nome',
+            'name',
+            'mentor',
+            'titulo',
+          ]);
+          if (picked.isNotEmpty) {
+            nome = picked;
+            map['Nome'] = nome;
+            map['nome'] = nome;
+          }
+        }
+        if (nome.isNotEmpty) {
+          out.add(map);
         }
       }
     }
-    return names.isEmpty ? null : names;
+    return out.isEmpty ? null : out;
   }
+
   return null;
 }
 
