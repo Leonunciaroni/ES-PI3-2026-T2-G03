@@ -19,10 +19,11 @@ import '../../catalog/services/startup_catalog_functions_service.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
 import '../../catalog/services/startup_logo_precache_service.dart';
 import '../../navigation/mescla_navigation.dart';
+import '../../navigation/mescla_tab_count.dart';
 import '../../perfil/screens/perfil_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/mescla_header_row.dart';
-import '../../widgets/mescla_main_shell.dart';
+import '../../widgets/mescla_main_shell.dart' show MesclaMainShell;
 
 /// Tela inicial do app no modo dev: patrimônio, resumo e lista de startups.
 ///
