@@ -436,6 +436,26 @@ List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
   final Object? mentores = d[kFieldMentoresConselho];
   if (mentores is List) {
     for (final Object? m in mentores) {
+      final Map<String, dynamic>? mentorMap = _asStringKeyMap(m);
+      if (mentorMap != null) {
+        final String nome = socioNomeParaExibicao(mentorMap);
+        if (nome.trim().isEmpty) {
+          continue;
+        }
+        final String cargo = readFirestoreString(mentorMap, 'Cargo').trim();
+        final String role = cargo.isNotEmpty
+            ? '$cargo · Mentor / conselho'
+            : 'Mentor / conselho';
+        out.add(
+          StartupTeamMember(
+            name: nome.trim(),
+            role: role,
+            avatarColor: _avatarColorForString(nome),
+            firestoreFields: Map<String, dynamic>.from(mentorMap),
+          ),
+        );
+        continue;
+      }
       if (m is String && m.trim().isNotEmpty) {
         final String name = m.trim();
         out.add(
