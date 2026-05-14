@@ -23,12 +23,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../navigation/mescla_tab_count.dart';
 import '../theme/app_colors.dart';
 import 'mescla_bottom_nav_bar.dart';
-
-/// Número de separadores da barra inferior (Figma: Início, Carteira, Balcão,
-/// Catálogo, Perfil).
-const int kMesclaMainTabCount = 5;
 
 /// Duração do cruzamento entre separadores (alinhada às transições de rota).
 const Duration kMesclaTabSwitchDuration = Duration(milliseconds: 280);
