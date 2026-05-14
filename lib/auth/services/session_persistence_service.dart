@@ -1,7 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Número de abas do shell principal (alinhado a [kMesclaMainTabCount] em `mescla_main_shell.dart`).
-const int _kMainTabCount = 5;
+import '../../navigation/mescla_tab_count.dart';
 
 /// Persistência leve da sessão: prazo de validade (24h após login) e última aba do shell.
 ///
@@ -55,7 +54,7 @@ class SessionPersistenceService {
   }
 
   static Future<void> setLastNavIndex(int index) async {
-    if (index < 0 || index >= _kMainTabCount) {
+    if (index < 0 || index >= kMesclaMainTabCount) {
       return;
     }
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -65,6 +64,6 @@ class SessionPersistenceService {
   static Future<int> getLastNavIndex() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final int raw = prefs.getInt(_lastNavKey) ?? 0;
-    return raw.clamp(0, _kMainTabCount - 1);
+    return raw.clamp(0, kMesclaMainTabCount - 1);
   }
 }
