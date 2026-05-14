@@ -53,17 +53,31 @@ class UserFirestoreService {
   /// Marca o aparelho como confiável quando o utilizador activa a biometria aqui.
   static const String fieldTrustedDevice = 'trustedDevice';
 
-  static Future<void> _removeLegacyPasswordFieldForEmail(
-    String normalizedEmail,
-  ) async {
-    final query = await _usersCollection
-        .where('emailLowercase', isEqualTo: normalizedEmail)
-        .get();
-
-    for (final doc in query.docs) {
-      if (doc.data().containsKey('password')) {
+  /// Remove o campo legado `password` do documento `users/{uid}`.
+  ///
+  /// **Problema resolvido (login):** após `signInWithEmailAndPassword` bem-sucedido
+  /// no Firebase Auth, o código antigo fazia uma **consulta** à coleção
+  /// `users` com `where('emailLowercase', …)`. Com regras Firestore típicas
+  /// (acesso só a `users/{uid}` quando `request.auth.uid == uid`), essa query
+  /// gerava `PERMISSION_DENIED` nos logs. O erro era um [FirebaseException],
+  /// não [FirebaseAuthException], pelo que o [AuthService.messageForError] na
+  /// [LoginScreen] mostrava apenas *«Não foi possível concluir a operação agora.»*
+  /// mesmo com sessão Auth válida.
+  ///
+  /// **Correção:** usar só leitura/escrita em `users/{uid}` após autenticação e
+  /// envolver em `try/catch` para a migração legada nunca bloquear o fluxo.
+  static Future<void> _removeLegacyPasswordFieldForUid(String uid) async {
+    try {
+      final doc = await _usersCollection.doc(uid).get();
+      if (!doc.exists) return;
+      final data = doc.data();
+      if (data != null && data.containsKey('password')) {
         await doc.reference.update({'password': FieldValue.delete()});
       }
+    } on FirebaseException {
+      // Rede / permissões — não impedir cadastro ou sessão Auth.
+    } catch (_) {
+      // Idem.
     }
   }
 
@@ -111,7 +125,7 @@ class UserFirestoreService {
         fieldBiometricEnabled: false,
       }, SetOptions(merge: true));
 
-      await _removeLegacyPasswordFieldForEmail(normalizedEmail);
+      await _removeLegacyPasswordFieldForUid(uid);
 
       // Mantém a sessão Firebase Auth: o fluxo continua no app (OTP e-mail → telefone).
     } catch (_) {
@@ -160,6 +174,9 @@ class UserFirestoreService {
     }, SetOptions(merge: true));
   }
 
+  /// Login com e-mail/senha; em seguida remove eventual campo legado `password`
+  /// só em `users/{uid}` (nunca por query na coleção — ver
+  /// [_removeLegacyPasswordFieldForUid]).
   static Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -169,7 +186,12 @@ class UserFirestoreService {
       email: normalizedEmail,
       password: password,
     );
-    await _removeLegacyPasswordFieldForEmail(normalizedEmail);
+    // Limpeza legado só no doc do utilizador (evita query à coleção — ver doc de
+    // [_removeLegacyPasswordFieldForUid]).
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      await _removeLegacyPasswordFieldForUid(uid);
+    }
   }
 
   /// Encerra a sessão no Firebase Auth (ex.: botão Sair do Perfil).
