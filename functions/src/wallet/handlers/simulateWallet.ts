@@ -1,26 +1,27 @@
-/**
- * Autor principal: Pedro Henrique Contardi Soler
- * RA: 25005592
- *
- * Cloud Function callable: `simulateWallet`
- *
- * Objetivo do módulo:
- * - Implementar um “saldo fictício” (BRL) para testes/demonstração.
- * - Persistir no Firestore em `sim_wallet/{uid}`:
- *   - `brlBalance` (saldo disponível)
- *   - `ledger/*` (histórico mínimo)
- *   - `positions/{startupId}` (posição do investidor)
- * - Atualizar `startups/{startupId}` com captação simulada:
- *   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`
- *     (dinheiro líquido agregado de **todos** os investidores que negociam esta startup);
- *   - `progresso_captacao` = captado ÷ `captacao_esperada` (0..1).
- *
- * Decisões importantes:
- * - O cliente **não** pode escrever diretamente em `sim_wallet` (regras Firestore).
- * - Toda atualização é feita via transação (`runTransaction`) para consistência.
- * - A cotação (preço do token) é lida do Firestore `startups/{startupId}.preco_token`
- *   (fonte de verdade), não do payload do app.
- */
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
+//
+// Cloud Function callable: `simulateWallet`
+//
+// Objetivo do módulo:
+// - Implementar um “saldo fictício” (BRL) para testes/demonstração.
+// - Persistir no Firestore em `sim_wallet/{uid}`:
+//   - `brlBalance` (saldo disponível)
+//   - `ledger/*` (histórico mínimo)
+//   - `positions/{startupId}` (posição do investidor)
+// - Atualizar `startups/{startupId}` com captação simulada:
+//   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`
+//     (dinheiro líquido agregado de todos os investidores que negociam esta startup);
+//   - `progresso_captacao` = captado ÷ `captacao_esperada` (0..1).
+//
+// Decisões importantes:
+// - O cliente não pode escrever diretamente em `sim_wallet` (regras Firestore).
+// - Toda atualização é feita via transação (`runTransaction`) para consistência.
+// - A cotação (preço do token) é lida do Firestore `startups/{startupId}.preco_token`
+//   (fonte de verdade), não do payload do app.
 
 import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
@@ -48,6 +49,7 @@ import {
 } from "../shared/positionTradeMath.js";
 import {
   assertAmountMatchesTrade,
+  assertPositiveIntegerTokens,
   clip,
   readRequiredStartupTokenPriceBrl,
 } from "../shared/validation.js";
@@ -65,7 +67,7 @@ import {
  *
  * Para trade:
  * - startupId: string
- * - tokens: number
+ * - tokens: number (inteiro positivo)
  * - (metadata opcional para ledger): startupName, tokenSigla, category, headline
  */
 export const simulateWallet = onCall({region: REGION}, async (request) => {
@@ -165,7 +167,7 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
   }
 
   if (actionRaw === "trade_buy" || actionRaw === "trade_sell") {
-    const tokens = Number(request.data?.tokens);
+    const tokens = assertPositiveIntegerTokens(request.data?.tokens);
     const startupId = clip(request.data?.startupId, 200);
     if (!startupId) {
       throw new HttpsError("invalid-argument", "startupId obrigatório para negócio.");
