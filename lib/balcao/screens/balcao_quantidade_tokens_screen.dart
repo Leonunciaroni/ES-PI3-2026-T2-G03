@@ -20,10 +20,7 @@ import '../models/balcao_operacao_tipo.dart';
 import 'balcao_compra_senha_screen.dart';
 
 /// Modo de entrada na **venda**: valor total em reais ou quantidade de tokens.
-enum BalcaoVendaUnidade {
-  reais,
-  tokens,
-}
+enum BalcaoVendaUnidade { reais, tokens }
 
 /// Saldo em tokens na mesa (demo) — mesmo critério de [BalcaoTabScreen].
 double _saldoTokensMesaMock(CatalogStartup s) {
@@ -165,8 +162,8 @@ class _BalcaoQuantidadeTokensScreenState
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       setState(
-        () =>
-            _erroValidacao = 'Inicie sessão para usar o balcão com saldo fictício.',
+        () => _erroValidacao =
+            'Inicie sessão para usar o balcão com saldo fictício.',
       );
       return null;
     }
@@ -178,7 +175,9 @@ class _BalcaoQuantidadeTokensScreenState
       );
       return null;
     }
-    final saldoDisponivel = await SimulatedWalletService.fetchBrlBalance(user.uid);
+    final saldoDisponivel = await SimulatedWalletService.fetchBrlBalance(
+      user.uid,
+    );
     if (!mounted) return null;
     if (v > saldoDisponivel + 1e-6) {
       setState(
@@ -227,7 +226,9 @@ class _BalcaoQuantidadeTokensScreenState
   Future<double?> _validarVendaTokensFuturo() async {
     final q = _quantidadeTokensVendaParsed;
     if (q == null) {
-      setState(() => _erroValidacao = 'Informe uma quantidade válida de tokens.');
+      setState(
+        () => _erroValidacao = 'Informe uma quantidade válida de tokens.',
+      );
       return null;
     }
     if (q <= 0) {
@@ -289,8 +290,7 @@ class _BalcaoQuantidadeTokensScreenState
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(false),
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           foregroundColor: AppColors.secondaryLabel(theme),
@@ -305,8 +305,7 @@ class _BalcaoQuantidadeTokensScreenState
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(true),
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -465,7 +464,9 @@ class _BalcaoQuantidadeTokensScreenState
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: AppColors.cardDivider(theme)),
+                      borderSide: BorderSide(
+                        color: AppColors.cardDivider(theme),
+                      ),
                     ),
                   ),
                 ),
@@ -477,7 +478,15 @@ class _BalcaoQuantidadeTokensScreenState
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                Text(
+                  'Quantidade de tokens',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: scheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _tokensVendaController,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -489,7 +498,6 @@ class _BalcaoQuantidadeTokensScreenState
                     });
                   },
                   decoration: InputDecoration(
-                    labelText: 'Quantidade de tokens',
                     hintText: 'Ex.: 10 ou 2,5',
                     filled: true,
                     fillColor: AppColors.searchFieldFillForTheme(theme),
@@ -498,7 +506,9 @@ class _BalcaoQuantidadeTokensScreenState
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: AppColors.cardDivider(theme)),
+                      borderSide: BorderSide(
+                        color: AppColors.cardDivider(theme),
+                      ),
                     ),
                   ),
                 ),
