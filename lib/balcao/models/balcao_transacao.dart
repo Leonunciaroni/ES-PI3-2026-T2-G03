@@ -1,3 +1,6 @@
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
@@ -43,7 +46,7 @@ class BalcaoTransacaoDetalhe {
 
   /// Nome ou sigla exibida ao utilizador (ex.: "GFLO" ou nome da startup).
   final String nomeToken;
-  final double quantidadeTokens;
+  final int quantidadeTokens;
   final double valorReais;
   final DateTime dataHora;
 

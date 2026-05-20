@@ -1,3 +1,6 @@
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
@@ -96,7 +99,7 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                '${formatQuantidadeTokensBr(detalhe.quantidadeTokens)} tokens',
+                '${formatQuantidadeTokensBr(detalhe.quantidadeTokens.toDouble())} tokens',
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: scheme.primary,
