@@ -1,3 +1,6 @@
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
@@ -1581,7 +1584,7 @@ class _MesaTokenCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${formatQuantidadeTokensBr3(saldoTokens)} tokens',
+                    '${formatQuantidadeTokensBr(saldoTokens)} tokens',
                     style: theme.textTheme.titleLarge?.copyWith(
                       color: onSurface,
                       fontWeight: FontWeight.bold,

@@ -209,10 +209,12 @@ class _CriarOrdemScreenState extends State<CriarOrdemScreen> {
                             final brlLocked = _readBrlLocked(walletSnap.data);
                             final brlDisponivel = brlBalance - brlLocked;
 
-                            final tokensHeld = (tokensSnap.data ?? 0).round();
+                            final tokensHeldExact = tokensSnap.data ?? 0.0;
                             final tokensLocked =
                                 _readTokensLocked(posSnap.data);
-                            final tokensDisponiveis = tokensHeld - tokensLocked;
+                            // Só tokens inteiros são negociáveis; floor evita oversell em saldos legados fracionários.
+                            final tokensDisponiveis =
+                                tokensHeldExact.floor() - tokensLocked;
 
                             return SingleChildScrollView(
                               padding: const EdgeInsets.all(20),
@@ -316,7 +318,7 @@ class _CriarOrdemScreenState extends State<CriarOrdemScreen> {
   int _readTokensLocked(DocumentSnapshot<Map<String, dynamic>>? snap) {
     final v = snap?.data()?['tokensLockedInOrders'];
     if (v is int) return v;
-    if (v is num) return v.round();
+    if (v is num) return v.toInt();
     return 0;
   }
 }
