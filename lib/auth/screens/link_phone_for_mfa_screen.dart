@@ -6,7 +6,6 @@
 // segundo passo de MFA por SMS no login quando [continueToLoginOtp] é true.
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -87,9 +86,7 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
     if (!_isValidBrazilMobile(phone)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Informe um celular válido (DDD + 9 dígitos).',
-          ),
+          content: Text('Informe um celular válido (DDD + 9 dígitos).'),
         ),
       );
       return;
@@ -156,7 +153,9 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Telefone associado, mas não foi possível pedir o SMS de login.'),
+          content: Text(
+            'Telefone associado, mas não foi possível pedir o SMS de login.',
+          ),
         ),
       );
       await UserFirestoreService.signOut();

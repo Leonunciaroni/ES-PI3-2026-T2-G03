@@ -113,9 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
         await Navigator.of(context).pushAndRemoveUntil<void>(
-          MaterialPageRoute<void>(
-            builder: (_) => const DashboardScreen(),
-          ),
+          MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
           (route) => false,
         );
         return;
@@ -168,9 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
           final linkedOk = await Navigator.of(context).push<bool>(
             MaterialPageRoute<bool>(
-              builder: (_) => const LinkPhoneForMfaScreen(
-                continueToLoginOtp: true,
-              ),
+              builder: (_) =>
+                  const LinkPhoneForMfaScreen(continueToLoginOtp: true),
             ),
           );
           if (!mounted) {
@@ -358,45 +355,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-<<<<<<< HEAD:lib/screens/login_screen.dart
                                 Text('SENHA', style: labelStyle),
-=======
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: Text('SENHA', style: labelStyle),
-                                    ),
-                                    TextButton(
-                                      onPressed: _isSubmitting
-                                          ? null
-                                          : () {
-                                              Navigator.push<void>(
-                                                context,
-                                                MaterialPageRoute<void>(
-                                                  builder: (context) =>
-                                                      const RecoverPasswordScreen(),
-                                                ),
-                                              );
-                                            },
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: Text(
-                                        'Esqueci minha senha',
-                                        style: theme.textTheme.labelLarge
-                                            ?.copyWith(
-                                              color: colorScheme.primary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
->>>>>>> be6a4f15333f046f6f28f2e9037eb7e4d38cdc4c:lib/auth/screens/login_screen.dart
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _passwordController,
@@ -438,23 +397,37 @@ class _LoginScreenState extends State<LoginScreen> {
                                     border: _stadiumBorder(fieldStroke),
                                   ),
                                 ),
+                                const SizedBox(height: 8),
                                 Align(
                                   alignment: Alignment.centerRight,
                                   child: TextButton(
-                                    onPressed: () => _showSnack(
-                                      'Prototipo: recuperacao por e-mail vira com o backend.',
-                                    ),
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : () {
+                                            Navigator.push<void>(
+                                              context,
+                                              MaterialPageRoute<void>(
+                                                builder: (context) =>
+                                                    const RecoverPasswordScreen(),
+                                              ),
+                                            );
+                                          },
                                     style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.only(top: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 6,
+                                      ),
                                       minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
                                     ),
                                     child: Text(
                                       'Esqueci minha senha',
-                                      style: theme.textTheme.labelLarge?.copyWith(
-                                        color: colorScheme.primary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: theme.textTheme.labelLarge
+                                          ?.copyWith(
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                   ),
                                 ),

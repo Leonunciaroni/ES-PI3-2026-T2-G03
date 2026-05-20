@@ -21,7 +21,8 @@ class SegurancaPrivacidadeScreen extends StatefulWidget {
       _SegurancaPrivacidadeScreenState();
 }
 
-class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen> {
+class _SegurancaPrivacidadeScreenState
+    extends State<SegurancaPrivacidadeScreen> {
   bool _persisting = false;
 
   /// Sem [Firebase.initializeApp] (ex.: alguns `flutter test`), evita lançar ao ler a sessão.
@@ -51,7 +52,11 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Não foi possível atualizar a preferência.')),
+        SnackBar(
+          content: Text(
+            e.message ?? 'Não foi possível atualizar a preferência.',
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -123,9 +128,8 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         if (!hasPhone) {
           final linked = await Navigator.of(context).push<bool>(
             MaterialPageRoute<bool>(
-              builder: (_) => const LinkPhoneForMfaScreen(
-                continueToLoginOtp: false,
-              ),
+              builder: (_) =>
+                  const LinkPhoneForMfaScreen(continueToLoginOtp: false),
             ),
           );
           if (!mounted || linked != true) {
@@ -141,19 +145,15 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Próximo login: código MFA por SMS.',
-            ),
-          ),
+          const SnackBar(content: Text('Próximo login: código MFA por SMS.')),
         );
       } catch (e) {
         if (!mounted) {
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       } finally {
         if (mounted) {
           setState(() => _persisting = false);
@@ -178,10 +178,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
             message: 'Conta sem e-mail.',
           );
         }
-        final cred = EmailAuthProvider.credential(
-          email: email,
-          password: pw,
-        );
+        final cred = EmailAuthProvider.credential(email: email, password: pw);
         await user.reauthenticateWithCredential(cred);
         await UserFirestoreService.setMfaDeliveryMethod(
           UserFirestoreService.mfaDeliveryEmail,
@@ -202,16 +199,16 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message ?? 'Senha incorreta.'),
-          ),
+          SnackBar(content: Text(e.message ?? 'Senha incorreta.')),
         );
       } catch (_) {
         if (!mounted) {
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível atualizar o canal MFA.')),
+          const SnackBar(
+            content: Text('Não foi possível atualizar o canal MFA.'),
+          ),
         );
       } finally {
         if (mounted) {
@@ -230,9 +227,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Próximo login: código MFA por e-mail.'),
-        ),
+        const SnackBar(content: Text('Próximo login: código MFA por e-mail.')),
       );
     } finally {
       if (mounted) {
@@ -313,7 +308,8 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                               !snapMfa.hasData) {
                             return const SizedBox.shrink();
                           }
-                          final method = snapMfa.data ??
+                          final method =
+                              snapMfa.data ??
                               UserFirestoreService.mfaDeliveryEmail;
                           return Material(
                             color: AppColors.themeCardSurface(theme),
@@ -336,29 +332,29 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                     ),
                                   ),
                                 ),
-                                RadioListTile<String>(
-                                  title: const Text('E-mail'),
-                                  value: UserFirestoreService.mfaDeliveryEmail,
+                                RadioGroup<String>(
                                   groupValue: method,
-                                  onChanged: _persisting
-                                      ? null
-                                      : (v) {
-                                          if (v != null) {
-                                            _onMfaDeliveryChanged(v);
-                                          }
-                                        },
-                                ),
-                                RadioListTile<String>(
-                                  title: const Text('SMS'),
-                                  value: UserFirestoreService.mfaDeliverySms,
-                                  groupValue: method,
-                                  onChanged: _persisting
-                                      ? null
-                                      : (v) {
-                                          if (v != null) {
-                                            _onMfaDeliveryChanged(v);
-                                          }
-                                        },
+                                  onChanged: (value) {
+                                    if (!_persisting && value != null) {
+                                      _onMfaDeliveryChanged(value);
+                                    }
+                                  },
+                                  child: Column(
+                                    children: [
+                                      RadioListTile<String>(
+                                        enabled: !_persisting,
+                                        title: const Text('E-mail'),
+                                        value: UserFirestoreService
+                                            .mfaDeliveryEmail,
+                                      ),
+                                      RadioListTile<String>(
+                                        enabled: !_persisting,
+                                        title: const Text('SMS'),
+                                        value:
+                                            UserFirestoreService.mfaDeliverySms,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
