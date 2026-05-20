@@ -4,13 +4,12 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Formatação de números do Balcão para exibição em **pt-BR** (vírgula decimal),
-// alinhada ao uso de [formatBrl] na Carteira.
+// Formatação de números do Balcão para exibição em **pt-BR** (vírgula decimal),// alinhada ao uso de [formatBrl] na Carteira.
 //
 // Contrato mercado × backend: [`functions/src/wallet/shared/constants.ts`]
 // usa `EPSILON_BRL = 0.06` em `assertAmountMatchesTrade`. Este ficheiro
 // expõe pares `(amountBrl, tokens)` coerentes com essa tolerância.
-// Tokens são sempre **inteiros** (quantidade informada pelo utilizador).
+// Tokens são sempre **inteiros** (quantidade informada pelo usuário).
 
 /// Tolerância em reais, espelho de `EPSILON_BRL` nas Cloud Functions.
 const double balcaoEpsilonBrl = 0.06;
@@ -118,11 +117,4 @@ String formatQuantidadeTokensBr(double value) {
     s = s.replaceFirst(RegExp(r'\.$'), '');
   }
   return s.replaceAll('.', ',');
-}
-
-/// Quantidade de tokens com **três** casas decimais fixas (ex.: saldo na mesa do Balcão).
-String formatQuantidadeTokensBr3(double value) {
-  if (value.isNaN || value.isInfinite) return '—';
-  final arredondado = double.parse(value.toStringAsFixed(8));
-  return arredondado.toStringAsFixed(3).replaceAll('.', ',');
 }
