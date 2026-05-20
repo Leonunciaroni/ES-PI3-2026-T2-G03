@@ -32,6 +32,22 @@ service cloud.firestore {
       }
     }
 
+    // Order Book P2P: leitura autenticada; escrita só via Cloud Functions.
+    match /orders/{startupId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+
+      match /sell/{orderId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /buy/{orderId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
+
     // Outras coleções (ex.: códigos 2FA escritos só por Functions): bloqueado no cliente.
     match /{document=**} {
       allow read, write: if false;
