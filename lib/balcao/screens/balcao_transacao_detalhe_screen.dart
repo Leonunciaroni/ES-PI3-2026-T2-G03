@@ -95,7 +95,7 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                '${formatQuantidadeTokensBr(detalhe.quantidadeTokens)} tokens',
+                '${formatQuantidadeTokensBrComMilhar(detalhe.quantidadeTokens)} tokens',
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: scheme.primary,

@@ -73,8 +73,8 @@ class BalcaoQuantidadeTokensScreen extends StatefulWidget {
 
 class _BalcaoQuantidadeTokensScreenState
     extends State<BalcaoQuantidadeTokensScreen> {
-  final _valorReaisController = TextEditingController(text: '150,00');
-  final _tokensVendaController = TextEditingController(text: '10');
+  final _valorReaisController = TextEditingController();
+  final _tokensVendaController = TextEditingController();
 
   /// Só usado na venda: vender pelo valor em R$ ou pela quantidade de tokens.
   BalcaoVendaUnidade _vendaUnidade = BalcaoVendaUnidade.reais;
@@ -584,9 +584,10 @@ class _BalcaoQuantidadeTokensScreenState
                 const SizedBox(height: 12),
                 TextField(
                   controller: _valorReaisController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    CentavosParaReaisInputFormatter(),
+                  ],
                   onChanged: (_) {
                     setState(() {
                       if (_erroValidacao != null) _erroValidacao = null;

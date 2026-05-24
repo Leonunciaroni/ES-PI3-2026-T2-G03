@@ -162,6 +162,33 @@ String formatQuantidadeTokensBr(double value) {
   return s.replaceAll('.', ',');
 }
 
+String formatQuantidadeTokensBrComMilhar(double value) {
+  if (value.isNaN || value.isInfinite) return '—';
+
+  final arredondado = double.parse(value.toStringAsFixed(8));
+
+  final partes = arredondado.toString().split('.');
+  String inteiro = partes[0];
+
+  final regex = RegExp(r'(\d+)(\d{3})');
+  while (regex.hasMatch(inteiro)) {
+    inteiro = inteiro.replaceAllMapped(
+      regex,
+      (m) => '${m[1]}.${m[2]}',
+    );
+  }
+
+  if (partes.length == 1) {
+    return inteiro;
+  }
+
+  var decimal = partes[1].replaceFirst(RegExp(r'0+$'), '');
+
+  return decimal.isEmpty
+      ? inteiro
+      : '$inteiro,$decimal';
+}
+
 /// Quantidade de tokens com **três** casas decimais fixas (ex.: saldo na mesa do Balcão).
 String formatQuantidadeTokensBr3(double value) {
   if (value.isNaN || value.isInfinite) return '—';
