@@ -237,6 +237,60 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  void _mostrarOpcoesAvatar() {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(24),
+      ),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+
+            const Text(
+              'Escolher foto do perfil',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Tirar foto'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Escolher da galeria'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Remover foto'),
+              onTap: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -289,6 +343,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 primary: primary,
                 theme: theme,
                 cardColor: theme.colorScheme.surface,
+                onAvatarTap: _mostrarOpcoesAvatar,
               ),
               const SizedBox(height: 20),
               Text(
@@ -425,6 +480,7 @@ class _PerfilUserCard extends StatelessWidget {
     required this.primary,
     required this.theme,
     required this.cardColor,
+    required this.onAvatarTap,
   });
 
   final String iniciais;
@@ -433,6 +489,7 @@ class _PerfilUserCard extends StatelessWidget {
   final Color primary;
   final ThemeData theme;
   final Color cardColor;
+  final VoidCallback onAvatarTap;
 
   @override
   Widget build(BuildContext context) {
@@ -446,7 +503,9 @@ class _PerfilUserCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
+            GestureDetector(
+              onTap: onAvatarTap,
+              child: Container(
               width: 72,
               height: 72,
               alignment: Alignment.center,
@@ -462,6 +521,8 @@ class _PerfilUserCard extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+            
             const SizedBox(width: 16),
             Expanded(
               child: Column(
