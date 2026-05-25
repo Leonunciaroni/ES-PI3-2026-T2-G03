@@ -325,11 +325,59 @@ class _PerfilScreenState extends State<PerfilScreen> {
     });
   }
 
-  void _removerFoto() {
-  setState(() {
-    _imagemAvatar = null;
-  });
-}
+  Future<void> _removerFoto() async {
+
+    if (_imagemAvatar == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não possui foto de perfil'),
+        ),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remover foto'),
+          content: const Text(
+            'Deseja realmente remover sua foto de perfil?',
+          ),
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Cancelar'),
+            ),
+
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Remover'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    setState(() {
+      _imagemAvatar = null;
+    });
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Foto removida com sucesso'),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
