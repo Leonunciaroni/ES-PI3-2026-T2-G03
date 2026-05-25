@@ -5,4 +5,6 @@
 export {addSellOrder} from "./addSellOrder.js";
 export {addBuyOrder} from "./addBuyOrder.js";
 export {cancelOrder} from "./cancelOrder.js";
+export {editOrder} from "./editOrder.js";
+export {backfillMyOpenOrders} from "./backfillMyOpenOrders.js";
 export {runMatchEngine} from "./matchEngine.js";
