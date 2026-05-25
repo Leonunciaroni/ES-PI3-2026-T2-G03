@@ -6,7 +6,7 @@ import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem} from "./models/ordem.js";
+import {StatusOrdem, TipoOrdem} from "./models/ordem.js";
 import {
   ORDER_FIELD_CREATED_AT,
   ORDER_FIELD_DISPLAY_NAME,
@@ -26,13 +26,15 @@ import {
 } from "./shared/constants.js";
 import {readAvailableTokens, readTokensLocked} from "./shared/escrowMath.js";
 import {
+  assertOrderTotalWithinLimits,
   assertPositiveIntegerQuantity,
   assertPositivePrice,
   assertStartupId,
 } from "./shared/orderValidation.js";
 import {resolveDisplayName} from "./shared/resolveDisplayName.js";
 import {readStartupOrderMeta} from "./shared/startupOrderMeta.js";
-import {runMatchEngine} from "./matchEngine.js";
+import {tryRunMatchEngine} from "./shared/matchHelpers.js";
+import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
 
 /**
  * Publica ordem de venda com escrow de tokens.
@@ -52,6 +54,8 @@ export const addSellOrder = onCall({region: REGION}, async (request) => {
   const startupId = assertStartupId(request.data?.startupId);
   const quantity = assertPositiveIntegerQuantity(request.data?.quantity);
   const pricePerToken = assertPositivePrice(request.data?.pricePerToken);
+  const totalValue = quantity * pricePerToken;
+  assertOrderTotalWithinLimits(totalValue);
 
   const db = getFirestore();
   const meta = await readStartupOrderMeta(startupId);
@@ -111,7 +115,9 @@ export const addSellOrder = onCall({region: REGION}, async (request) => {
 
   logger.info("addSellOrder", {uid, startupId, quantity, pricePerToken});
 
-  await runMatchEngine(startupId);
+  await syncOpenOrderIndexFromRef(orderRef, TipoOrdem.Venda);
+
+  await tryRunMatchEngine(startupId);
 
   return {ok: true, orderId: orderRef.id};
 });
