@@ -1,6 +1,3 @@
-// Autor: Leonardo Miranda Nunciaroni
-// RA: 25002726
-//
 // Carteira: créditos e negócios via Cloud Function [simulateWallet];
 // leitura de saldo, extrato e posições via Firestore [sim_wallet].
 

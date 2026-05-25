@@ -1,6 +1,3 @@
-// Autor: Leonardo Miranda Nunciaroni
-// RA: 25002726
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mescla_invest/balcao/balcao_format.dart';
 
