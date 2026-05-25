@@ -289,6 +289,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
               title: const Text('Remover foto'),
               onTap: () {
                 Navigator.pop(context);
+                _removerFoto();
               },
             ),
           ],
@@ -323,6 +324,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
       _imagemAvatar = File(imagem.path);
     });
   }
+
+  void _removerFoto() {
+  setState(() {
+    _imagemAvatar = null;
+  });
+}
 
   @override
   Widget build(BuildContext context) {
