@@ -39,6 +39,7 @@ class UserFirestoreService {
 
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
   static const String fieldInvestorStartupIds = 'investorStartupIds';
+  static const String fieldPhotoUrl = 'photoUrl';
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
@@ -325,6 +326,35 @@ class UserFirestoreService {
       // Sem Firebase ou falha de rede: o ecrã Perfil usa fallback.
     }
     return null;
+  }
+
+  /// URL da foto de perfil do utilizador autenticado.
+  static Future<void> setProfilePhotoUrl(String photoUrl) async {
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) {
+    throw FirebaseAuthException(
+      code: 'no-current-user',
+      message: 'Sessão não encontrada.',
+    );
+  }
+
+  await _usersCollection.doc(uid).set({
+    fieldPhotoUrl: photoUrl.trim(),
+  }, SetOptions(merge: true));
+}
+
+  static Future<void> removeProfilePhotoUrl() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+
+    await _usersCollection.doc(uid).set({
+      fieldPhotoUrl: FieldValue.delete(),
+    }, SetOptions(merge: true));
   }
 
   /// IDs Firestore das startups favoritas do utilizador autenticado.
