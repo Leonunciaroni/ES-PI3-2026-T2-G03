@@ -357,6 +357,30 @@ class UserFirestoreService {
     }, SetOptions(merge: true));
   }
 
+  static Future<String?> fetchProfilePhotoUrl() async {
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) {
+    return null;
+  }
+
+  try {
+    final snap = await _usersCollection.doc(uid).get();
+    if (!snap.exists) {
+      return null;
+    }
+
+    final raw = snap.data()?[fieldPhotoUrl];
+
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw.trim();
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+}
+
   /// IDs Firestore das startups favoritas do utilizador autenticado.
   static Future<List<String>> fetchFavoriteStartupIds() async {
     final auth = _tryAuth();
