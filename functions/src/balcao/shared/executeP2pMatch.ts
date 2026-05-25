@@ -6,7 +6,7 @@ import {FieldValue, getFirestore, Timestamp} from "firebase-admin/firestore";
 import {HttpsError} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, type OrdemMatchCandidate} from "../models/ordem.js";
+import {StatusOrdem, TipoOrdem, type OrdemMatchCandidate} from "../models/ordem.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -19,6 +19,7 @@ import {
   WALLET_FIELD_BRL_LOCKED,
   WALLET_ROOT,
 } from "./constants.js";
+import {syncOpenOrderIndexFromRef} from "./userOrderIndex.js";
 import {
   readBrlBalance,
   readBrlLocked,
@@ -313,6 +314,11 @@ export async function executeP2pMatch(
         trx.update(buy.ref, {[ORDER_FIELD_QUANTITY]: buyRemaining});
       }
     });
+
+    await Promise.all([
+      syncOpenOrderIndexFromRef(sell.ref, TipoOrdem.Venda),
+      syncOpenOrderIndexFromRef(buy.ref, TipoOrdem.Compra),
+    ]);
 
     logger.info("executeP2pMatch ok", {
       startupId,
