@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
@@ -115,13 +116,35 @@ class _BalcaoQuantidadeTokensScreenState
     return c > 1e-9 ? c : null;
   }
 
-  Future<double> _consultarSaldoTokensPosicao() async {
-    final u = _balcaoAuthUserSeguro();
-    final fid = widget.startup.firestoreId?.trim();
-    if (u == null || fid == null || fid.isEmpty) return 0;
-    final t = await SimulatedWalletService.fetchTokensHeld(u.uid, fid);
+  /// Tokens livres para venda (descontando escrow em ordens P2P abertas).
+  Future<int> _consultarTokensDisponiveisVenda(String uid, String fid) async {
+    final posSnap =
+        await SimulatedWalletPaths.positionsCol(uid).doc(fid).get();
     if (!mounted) return 0;
-    return t ?? 0;
+    final posData = posSnap.data();
+    final tokensHeld = posData?['tokensHeld'] is num
+        ? (posData!['tokensHeld'] as num).toDouble()
+        : 0.0;
+    final tokensLocked = posData?['tokensLockedInOrders'] is int
+        ? posData!['tokensLockedInOrders'] as int
+        : posData?['tokensLockedInOrders'] is num
+            ? (posData!['tokensLockedInOrders'] as num).toInt()
+            : 0;
+    return tokensHeld.floor() - tokensLocked;
+  }
+
+  /// BRL livre para compra (descontando escrow em ordens P2P abertas).
+  Future<double> _consultarBrlDisponivelCompra(String uid) async {
+    final walletSnap = await SimulatedWalletPaths.walletDoc(uid).get();
+    if (!mounted) return 0;
+    final walletData = walletSnap.data();
+    final brlBalance = walletData?['brlBalance'] is num
+        ? (walletData!['brlBalance'] as num).toDouble()
+        : 0.0;
+    final brlLocked = walletData?['brlLockedInOrders'] is num
+        ? (walletData!['brlLockedInOrders'] as num).toDouble()
+        : 0.0;
+    return brlBalance - brlLocked;
   }
 
   Future<bool> _aplicarValidacaoCompleta() async {
@@ -184,25 +207,26 @@ class _BalcaoQuantidadeTokensScreenState
 
     switch (widget.operacao) {
       case BalcaoOperacaoTipo.compra:
-        final saldoDisponivel =
-            await SimulatedWalletService.fetchBrlBalance(user.uid);
+        // Escrow P2P: só conta BRL não bloqueado em ordens abertas.
+        final brlDisponivel = await _consultarBrlDisponivelCompra(user.uid);
         if (!mounted) return false;
-        if (r.amountBrl > saldoDisponivel + balcaoEpsilonBrl) {
+        if (r.amountBrl > brlDisponivel + balcaoEpsilonBrl) {
           setState(
             () => _erroValidacao =
-                'Disponível na carteira: ${formatBrl(saldoDisponivel)}. '
+                'Disponível na carteira: ${formatBrl(brlDisponivel)}. '
                 'O total à mercado (${formatBrl(r.amountBrl)}) excede esse saldo.',
           );
           return false;
         }
         break;
       case BalcaoOperacaoTipo.venda:
-        final maxT = await _consultarSaldoTokensPosicao();
+        final tokensDisponiveis =
+            await _consultarTokensDisponiveisVenda(user.uid, fid);
         if (!mounted) return false;
-        if (r.tokens > maxT + 1e-9) {
+        if (r.tokens > tokensDisponiveis) {
           setState(
             () => _erroValidacao =
-                'Disponível para venda: até ${formatQuantidadeTokensBr(maxT)} tokens.',
+                'Disponível para venda: até $tokensDisponiveis tokens.',
           );
           return false;
         }
@@ -397,16 +421,30 @@ class _BalcaoQuantidadeTokensScreenState
                         ),
                       );
                     }
-                    return StreamBuilder<double>(
-                      stream: SimulatedWalletService.watchTokensHeld(u.uid, fid),
+                    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                      stream: SimulatedWalletPaths.positionsCol(u.uid)
+                          .doc(fid)
+                          .snapshots(),
                       builder: (context, posSnap) {
-                        final t = posSnap.data ?? 0;
+                        final posData = posSnap.data?.data();
+                        final tokensHeld = posData?['tokensHeld'] is num
+                            ? (posData!['tokensHeld'] as num).toDouble()
+                            : 0.0;
+                        final tokensLocked = posData?['tokensLockedInOrders'] is int
+                            ? posData!['tokensLockedInOrders'] as int
+                            : posData?['tokensLockedInOrders'] is num
+                                ? (posData!['tokensLockedInOrders'] as num)
+                                    .toInt()
+                                : 0;
+                        final tokensDisponiveis =
+                            tokensHeld.floor() - tokensLocked;
                         final p = _precoUiPreview;
-                        final reaisFmt =
-                            !(p > 0) ? '—' : formatBrl(t * p);
+                        final reaisFmt = !(p > 0)
+                            ? '—'
+                            : formatBrl(tokensDisponiveis * p);
                         return Text(
                           'Disponível para venda: $reaisFmt '
-                          '(${formatQuantidadeTokensBr(t)} tokens na posição)',
+                          '($tokensDisponiveis tokens livres)',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: AppColors.secondaryLabel(theme),
                           ),
@@ -414,12 +452,19 @@ class _BalcaoQuantidadeTokensScreenState
                       },
                     );
                   }
-                  return StreamBuilder<double>(
-                    stream: SimulatedWalletService.watchBrlBalance(u.uid),
-                    builder: (context, snap) {
-                      final b = snap.data ?? 0;
+                  return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: SimulatedWalletPaths.walletDoc(u.uid).snapshots(),
+                    builder: (context, walletSnap) {
+                      final walletData = walletSnap.data?.data();
+                      final brlBalance = walletData?['brlBalance'] is num
+                          ? (walletData!['brlBalance'] as num).toDouble()
+                          : 0.0;
+                      final brlLocked = walletData?['brlLockedInOrders'] is num
+                          ? (walletData!['brlLockedInOrders'] as num).toDouble()
+                          : 0.0;
+                      final brlDisponivel = brlBalance - brlLocked;
                       return Text(
-                        'Disponível para compras: ${formatBrl(b)}',
+                        'Disponível para compras: ${formatBrl(brlDisponivel)}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.secondaryLabel(theme),
                         ),
