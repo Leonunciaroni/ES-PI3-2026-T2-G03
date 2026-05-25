@@ -40,10 +40,10 @@ void main() {
     await tester.tap(seguranca);
     await tester.pumpAndSettle();
 
-    // Sem sessão: não há interruptor 2FA; mensagem e recuperação de senha mantêm-se.
+    // Sem sessão: não há interruptores; texto alinhado a [SegurancaPrivacidadeScreen].
     expect(
       find.text(
-        'Inicie sessão para ativar ou desativar a verificação em duas etapas.',
+        'Inicie sessão para gerir duas etapas, biometria e outros controles de segurança.',
       ),
       findsOneWidget,
     );

@@ -1,0 +1,18 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Logos referenciados pelo catálogo (ex.: logos/startups/...).
+    // Leitura pública; escrita só pela consola Firebase ou Functions com Admin SDK.
+    match /logos/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Todo o resto: cliente não lê nem escreve (ajuste se acrescentarem uploads por utilizador).
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

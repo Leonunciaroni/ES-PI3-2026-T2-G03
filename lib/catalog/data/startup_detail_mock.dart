@@ -367,6 +367,7 @@ class StartupTeamMember {
     required this.avatarColor,
     this.detailPreview,
     this.firestoreFields,
+    this.isMentorConselho = false,
   });
 
   final String name;
@@ -380,6 +381,9 @@ class StartupTeamMember {
 
   /// Objeto bruto do array `socios` no Firestore (todos os campos da print).
   final Map<String, dynamic>? firestoreFields;
+
+  /// Entrada vinda de `mentores_conselho` — ficha usa rótulos de conselho/mentoria.
+  final bool isMentorConselho;
 }
 
 /// Linha de pergunta e resposta pública (§5.2).
