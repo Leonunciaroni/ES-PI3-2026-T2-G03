@@ -6,6 +6,7 @@
 // Firestore `users/{uid}`. A barra inferior continua a ser a do
 // [MesclaMainShell] — este widget é só o corpo do separador 4.
 
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -19,6 +20,7 @@ import 'ajuda_suporte_screen.dart';
 import 'favoritos_screen.dart';
 import 'modo_aparencia_screen.dart';
 import 'seguranca_privacidade_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Dados de exibição depois de resolver nome (Auth / Firestore / fallback).
 class _PerfilDados {
@@ -115,6 +117,8 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
+  File? _imagemAvatar;
+  final ImagePicker _picker = ImagePicker();
   /// Uma instância por ecrã: evita relançar o [Future] a cada [build].
   late final Future<_PerfilDados> _carga = _carregarPerfil();
 
@@ -265,16 +269,18 @@ class _PerfilScreenState extends State<PerfilScreen> {
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
               title: const Text('Tirar foto'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
+                await _tirarFoto();
               },
             ),
 
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Escolher da galeria'),
-              onTap: () {
+              onTap: () async{
                 Navigator.pop(context);
+                await _escolherGaleria();
               },
             ),
 
@@ -291,6 +297,33 @@ class _PerfilScreenState extends State<PerfilScreen> {
     },
   );
 }
+  
+  Future<void> _tirarFoto() async {
+    final imagem = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+
+    if (imagem == null) return;
+
+    setState(() {
+      _imagemAvatar = File(imagem.path);
+    });
+  }
+
+  Future<void> _escolherGaleria() async {
+    final imagem = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (imagem == null) return;
+
+    setState(() {
+      _imagemAvatar = File(imagem.path);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -344,6 +377,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 theme: theme,
                 cardColor: theme.colorScheme.surface,
                 onAvatarTap: _mostrarOpcoesAvatar,
+                imagemAvatar: _imagemAvatar,
               ),
               const SizedBox(height: 20),
               Text(
@@ -481,6 +515,7 @@ class _PerfilUserCard extends StatelessWidget {
     required this.theme,
     required this.cardColor,
     required this.onAvatarTap,
+    required this.imagemAvatar,
   });
 
   final String iniciais;
@@ -490,6 +525,7 @@ class _PerfilUserCard extends StatelessWidget {
   final ThemeData theme;
   final Color cardColor;
   final VoidCallback onAvatarTap;
+  final File? imagemAvatar;
 
   @override
   Widget build(BuildContext context) {
@@ -506,22 +542,31 @@ class _PerfilUserCard extends StatelessWidget {
             GestureDetector(
               onTap: onAvatarTap,
               child: Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: primary,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                iniciais,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+                width: 72,
+                height: 72,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: primary,
+                  shape: BoxShape.circle,
                 ),
+                child: imagemAvatar != null
+                  ? ClipOval(
+                      child: Image.file(
+                        imagemAvatar!,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Text(
+                      iniciais,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
               ),
             ),
-          ),
             
             const SizedBox(width: 16),
             Expanded(
