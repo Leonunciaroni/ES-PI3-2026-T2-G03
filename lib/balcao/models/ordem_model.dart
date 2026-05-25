@@ -97,6 +97,65 @@ class OrdemModel {
   /// Indica se a ordem ainda pode ser cancelada.
   bool get podeCancelar => status == StatusOrdem.aberta;
 
+  /// Só o dono pode editar/cancelar no app.
+  bool podeGerenciar(String currentUid) =>
+      currentUid.trim().isNotEmpty &&
+      uid.trim() == currentUid.trim() &&
+      podeCancelar;
+
+  /// Mapeia documento do espelho `users/{uid}/balcao_ordens_abertas`.
+  factory OrdemModel.fromUserOpenIndex(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data() ?? <String, dynamic>{};
+
+    final qtyRaw = data['quantity'];
+    final quantity = qtyRaw is int
+        ? qtyRaw
+        : qtyRaw is num
+            ? qtyRaw.round()
+            : 0;
+
+    final priceRaw = data['pricePerToken'];
+
+    DateTime? createdAt;
+    final ts = data['createdAt'];
+    if (ts is Timestamp) {
+      createdAt = ts.toDate();
+    }
+
+    final tipo =
+        TipoOrdem.fromFirestoreValue(data['tipo'] as String?) ?? TipoOrdem.venda;
+
+    return OrdemModel(
+      orderId: _orderIdFromIndexDoc(doc.id, data),
+      tipo: tipo,
+      uid: data['uid'] as String? ?? '',
+      displayName: data['displayName'] as String? ?? '—',
+      startupId: data['startupId'] as String? ?? '',
+      startupName: data['startupName'] as String? ?? '',
+      tokenSigla: data['tokenSigla'] as String? ?? '',
+      quantity: quantity,
+      pricePerToken: priceRaw is num ? priceRaw.toDouble() : 0.0,
+      sortKey: priceRaw is num ? priceRaw.toDouble() : 0.0,
+      status: StatusOrdem.fromFirestoreValue(data['status'] as String?) ??
+          StatusOrdem.aberta,
+      createdAt: createdAt,
+    );
+  }
+
+  static String _orderIdFromIndexDoc(
+    String docId,
+    Map<String, dynamic> data,
+  ) {
+    final fromField = data['orderId'] as String?;
+    if (fromField != null && fromField.isNotEmpty) return fromField;
+    for (final prefix in ['sell_', 'buy_']) {
+      if (docId.startsWith(prefix)) return docId.substring(prefix.length);
+    }
+    return docId;
+  }
+
   /// Mapeia documento Firestore para [OrdemModel].
   ///
   /// [tipo] deve ser informado porque a subcoleção (`sell` ou `buy`) não vem no doc.
