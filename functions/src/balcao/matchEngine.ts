@@ -58,31 +58,43 @@ export async function runMatchEngine(startupId: string): Promise<void> {
     const sells = sellSnap.docs.map(mapSellCandidate);
     const buys = buySnap.docs.map(mapBuyCandidate);
 
-    // 3. Encontra par compatível (sem self-trade)
-    const pair = findMatchablePair(sells, buys);
-    if (!pair) {
-      return;
+    // 3–4. Tenta pares compatíveis em ordem; se um falhar (escrow/saldo), tenta o próximo.
+    let matchedThisRound = false;
+    outer:
+    for (const sell of sells) {
+      for (const buy of buys) {
+        if (sell.uid === buy.uid) {
+          continue;
+        }
+        if (sell.pricePerToken > buy.pricePerToken + 1e-12) {
+          continue;
+        }
+
+        const result = await executeP2pMatch(startupId, sell, buy);
+        if (!result.matched) {
+          logger.info("runMatchEngine: par ignorado", {
+            startupId,
+            reason: result.reason,
+            sellId: sell.id,
+            buyId: buy.id,
+          });
+          continue;
+        }
+
+        logger.info("runMatchEngine: match executado", {
+          startupId,
+          iteration: i + 1,
+          sellId: sell.id,
+          buyId: buy.id,
+        });
+        matchedThisRound = true;
+        break outer;
+      }
     }
 
-    // 4. Executa match dentro de transação
-    const result = await executeP2pMatch(startupId, pair.sell, pair.buy);
-    if (!result.matched) {
-      logger.info("runMatchEngine: par ignorado", {
-        startupId,
-        reason: result.reason,
-        sellId: pair.sell.id,
-        buyId: pair.buy.id,
-      });
-      // Evita loop infinito no mesmo par — encerra esta rodada.
+    if (!matchedThisRound) {
       return;
     }
-
-    logger.info("runMatchEngine: match executado", {
-      startupId,
-      iteration: i + 1,
-      sellId: pair.sell.id,
-      buyId: pair.buy.id,
-    });
   }
 
   logger.warn("runMatchEngine: limite de iterações atingido", {startupId});
@@ -110,23 +122,3 @@ function mapBuyCandidate(
   return mapSellCandidate(doc);
 }
 
-/**
- * Percorre vendas (menor preço) e compras (maior preço) buscando cruzamento.
- * Ignora pares com mesmo UID (self-trade bloqueado).
- */
-function findMatchablePair(
-  sells: OrdemMatchCandidate[],
-  buys: OrdemMatchCandidate[]
-): {sell: OrdemMatchCandidate; buy: OrdemMatchCandidate} | null {
-  for (const sell of sells) {
-    for (const buy of buys) {
-      if (sell.uid === buy.uid) {
-        continue;
-      }
-      if (sell.pricePerToken <= buy.pricePerToken + 1e-12) {
-        return {sell, buy};
-      }
-    }
-  }
-  return null;
-}
