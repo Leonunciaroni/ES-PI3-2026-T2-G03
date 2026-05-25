@@ -6,7 +6,7 @@ import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem} from "./models/ordem.js";
+import {StatusOrdem, TipoOrdem} from "./models/ordem.js";
 import {
   ORDER_FIELD_CREATED_AT,
   ORDER_FIELD_DISPLAY_NAME,
@@ -29,6 +29,8 @@ import {
   readAvailableBrl,
   readBrlLocked,
 } from "./shared/escrowMath.js";
+import {executeDirectP2pBuy} from "./shared/executeDirectP2pBuy.js";
+import {tryRunMatchEngine} from "./shared/matchHelpers.js";
 import {
   assertOrderTotalWithinLimits,
   assertPositiveIntegerQuantity,
@@ -37,16 +39,12 @@ import {
 } from "./shared/orderValidation.js";
 import {resolveDisplayName} from "./shared/resolveDisplayName.js";
 import {readStartupOrderMeta} from "./shared/startupOrderMeta.js";
-import {runMatchEngine} from "./matchEngine.js";
+import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
 
 /**
  * Publica ordem de compra com escrow de BRL.
  *
- * 1. Valida auth e campos
- * 2. Calcula total e verifica saldo disponível (balance − locked)
- * 3. Reserva BRL em `brlLockedInOrders`
- * 4. Cria documento em `orders/{startupId}/buy/{autoId}`
- * 5. Dispara match engine
+ * Com [targetSellOrderId]: compra directa atómica da oferta (sem ordem intermédia).
  */
 export const addBuyOrder = onCall({region: REGION}, async (request) => {
   if (!request.auth?.uid) {
@@ -56,19 +54,47 @@ export const addBuyOrder = onCall({region: REGION}, async (request) => {
 
   const startupId = assertStartupId(request.data?.startupId);
   const quantity = assertPositiveIntegerQuantity(request.data?.quantity);
+  assertPositivePrice(request.data?.pricePerToken);
+
+  const targetSellOrderId =
+    typeof request.data?.targetSellOrderId === "string"
+      ? request.data.targetSellOrderId.trim()
+      : "";
+
+  // Compra directa de oferta — transação única (saldo, ledger, ordem de venda).
+  if (targetSellOrderId) {
+    const trade = await executeDirectP2pBuy({
+      startupId,
+      sellOrderId: targetSellOrderId,
+      buyerUid: uid,
+      quantity,
+    });
+
+    return {
+      ok: true,
+      matched: true,
+      quantity: trade.quantity,
+      amountBrl: trade.amountBrl,
+      pricePerToken: trade.pricePerToken,
+      startupName: trade.startupName,
+      tokenSigla: trade.tokenSigla,
+    };
+  }
+
   const pricePerToken = assertPositivePrice(request.data?.pricePerToken);
   const totalValue = orderBuyLockBrl(quantity, pricePerToken);
   assertOrderTotalWithinLimits(totalValue);
 
   const db = getFirestore();
   const meta = await readStartupOrderMeta(startupId);
-  const displayName = await resolveDisplayName(uid, request.auth.token.email as string | undefined);
+  const displayName = await resolveDisplayName(
+    uid,
+    request.auth.token.email as string | undefined
+  );
 
   const walletRef = db.collection(WALLET_ROOT).doc(uid);
   const orderRootRef = db.collection(ORDERS_COLLECTION).doc(startupId);
   const orderRef = orderRootRef.collection(ORDER_SUBCOL_BUY).doc();
-
-  // sortKey negativo: maior preço de compra fica no topo (ordenação decrescente).
   const sortKey = -pricePerToken;
 
   await db.runTransaction(async (trx) => {
@@ -86,9 +112,7 @@ export const addBuyOrder = onCall({region: REGION}, async (request) => {
     const lockedPrev = readBrlLocked(walletData);
     trx.set(
       walletRef,
-      {
-        [WALLET_FIELD_BRL_LOCKED]: lockedPrev + totalValue,
-      },
+      {[WALLET_FIELD_BRL_LOCKED]: lockedPrev + totalValue},
       {merge: true}
     );
 
@@ -110,7 +134,18 @@ export const addBuyOrder = onCall({region: REGION}, async (request) => {
 
   logger.info("addBuyOrder", {uid, startupId, quantity, pricePerToken, totalValue});
 
-  await runMatchEngine(startupId);
+  await syncOpenOrderIndexFromRef(orderRef, TipoOrdem.Compra);
 
-  return {ok: true, orderId: orderRef.id};
+  await tryRunMatchEngine(startupId);
+
+  return {
+    ok: true,
+    matched: false,
+    orderId: orderRef.id,
+    quantity,
+    amountBrl: totalValue,
+    pricePerToken,
+    startupName: meta.startupName,
+    tokenSigla: meta.tokenSigla,
+  };
 });
