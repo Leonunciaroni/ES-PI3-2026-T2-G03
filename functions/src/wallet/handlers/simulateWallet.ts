@@ -53,6 +53,12 @@ import {
   clip,
   readRequiredStartupTokenPriceBrl,
 } from "../shared/validation.js";
+import {
+  readAvailableBrl,
+  readAvailableTokens,
+  readBrlBalance,
+  readTokensHeld,
+} from "../../balcao/shared/escrowMath.js";
 
 /**
  * Operações simuladas: crédito interno PIX (demo) + compra/venda de tokens no balcão.
@@ -131,18 +137,17 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
     await db.runTransaction(async (trx) => {
       const snap = await trx.get(walletRef);
       const walletData = snap.data() ?? {};
-      const prev =
-        typeof walletData.brlBalance === "number"
-          ? (walletData.brlBalance as number)
-          : 0;
+      // Saque só pode usar BRL livre (não bloqueado em ordens P2P).
+      const disponivel = readAvailableBrl(walletData);
 
-      if (prev + 1e-9 < amountBrl) {
+      if (disponivel + 1e-9 < amountBrl) {
         throw new HttpsError(
           "failed-precondition",
           "Saldo insuficiente para este saque simulado."
         );
       }
 
+      const prev = readBrlBalance(walletData);
       const next = prev - amountBrl;
       trx.set(walletRef, {brlBalance: next}, {merge: true});
       const ledgerRef = walletRef.collection("ledger").doc();
@@ -195,12 +200,11 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
         // - grava ledger
         const ws = await trx.get(walletRef);
         const walletData = ws.data() ?? {};
-        const balance =
-          typeof walletData.brlBalance === "number"
-            ? (walletData.brlBalance as number)
-            : 0;
+        const balance = readBrlBalance(walletData);
+        // Compra no balcão: respeita BRL bloqueado em ordens P2P de compra.
+        const disponivel = readAvailableBrl(walletData);
 
-        if (balance + 1e-9 < amountBrl) {
+        if (disponivel + 1e-9 < amountBrl) {
           throw new HttpsError(
             "failed-precondition",
             "Saldo insuficiente para esta compra simulada."
@@ -316,26 +320,29 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
       // - grava ledger
       const ws = await trx.get(walletRef);
       const walletData = ws.data() ?? {};
-      const balance =
-        typeof walletData.brlBalance === "number"
-          ? (walletData.brlBalance as number)
-          : 0;
+      const balance = readBrlBalance(walletData);
 
       const positionRef = walletRef.collection("positions").doc(startupId);
       const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
       const posSnap = await trx.get(positionRef);
       const startupTrxSnap = await trx.get(startupRef);
       const posData = posSnap.data() ?? {};
-      const tokensHeldRaw =
-        typeof posData.tokensHeld === "number"
-          ? (posData.tokensHeld as number)
-          : 0;
+      const tokensHeldRaw = readTokensHeld(posData);
       const costBasisBrlRaw =
         typeof posData.costBasisBrl === "number"
           ? (posData.costBasisBrl as number)
           : 0;
 
       if (!posSnap.exists) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Quantidade insuficiente de tokens nesta startup."
+        );
+      }
+
+      // Venda no balcão: respeita tokens bloqueados em ordens P2P de venda.
+      const tokensDisponiveis = readAvailableTokens(posData);
+      if (tokensDisponiveis + 1e-9 < tokens) {
         throw new HttpsError(
           "failed-precondition",
           "Quantidade insuficiente de tokens nesta startup."
