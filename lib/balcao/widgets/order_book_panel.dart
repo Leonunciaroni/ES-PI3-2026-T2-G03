@@ -8,6 +8,8 @@ import '../../carteira/format/carteira_brl.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../models/ordem_model.dart';
+import '../screens/comprar_do_mercado_screen.dart';
+import '../screens/comprar_oferta_screen.dart';
 import '../screens/criar_ordem_screen.dart';
 import '../screens/minhas_ordens_screen.dart';
 import '../services/balcao_order_service.dart';
@@ -92,6 +94,11 @@ class OrderBookPanel extends StatelessWidget {
                           tintColor: scheme.errorContainer.withValues(alpha: 0.35),
                           theme: theme,
                           scheme: scheme,
+                          startupId: startupId,
+                          startupName: startupName,
+                          tokenSigla: tokenSigla,
+                          // Só linhas de venda abrem o ecrã de compra P2P.
+                          linhasTocaveis: true,
                         ),
                       ),
                       _DivisorPrecoOficial(
@@ -108,6 +115,30 @@ class OrderBookPanel extends StatelessWidget {
                           theme: theme,
                           scheme: scheme,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Acesso às ofertas de venda já publicadas no livro.
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).push<void>(
+                            MesclaMaterialRoute.fadeSlide(
+                              (_) => ComprarDoMercadoScreen(
+                                startupId: startupId,
+                                startupName: startupName,
+                                tokenSigla: tokenSigla,
+                              ),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: scheme.primary,
+                          side: BorderSide(color: scheme.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text('Comprar ofertas abertas'),
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -214,8 +245,8 @@ class _DivisorPrecoOficial extends StatelessWidget {
   }
 }
 
-/// Secção do livro (venda ou compra) com [AnimatedList].
-class _SecaoOrdens extends StatefulWidget {
+/// Secção do livro (venda ou compra) — lista reactiva ao stream Firestore.
+class _SecaoOrdens extends StatelessWidget {
   const _SecaoOrdens({
     required this.titulo,
     required this.ordens,
@@ -223,6 +254,10 @@ class _SecaoOrdens extends StatefulWidget {
     required this.tintColor,
     required this.theme,
     required this.scheme,
+    this.startupId,
+    this.startupName,
+    this.tokenSigla,
+    this.linhasTocaveis = false,
   });
 
   final String titulo;
@@ -231,128 +266,96 @@ class _SecaoOrdens extends StatefulWidget {
   final Color tintColor;
   final ThemeData theme;
   final ColorScheme scheme;
+  final String? startupId;
+  final String? startupName;
+  final String? tokenSigla;
+  final bool linhasTocaveis;
 
-  @override
-  State<_SecaoOrdens> createState() => _SecaoOrdensState();
-}
+  void _abrirComprarOferta(BuildContext context, OrdemModel ordem) {
+    final sid = startupId?.trim() ?? '';
+    final nome = startupName?.trim() ?? '';
+    final sigla = tokenSigla?.trim() ?? '';
+    if (sid.isEmpty || nome.isEmpty) return;
 
-class _SecaoOrdensState extends State<_SecaoOrdens> {
-  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
-  final List<OrdemModel> _items = <OrdemModel>[];
-
-  @override
-  void initState() {
-    super.initState();
-    _items.addAll(widget.ordens);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SecaoOrdens oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _sincronizarLista(widget.ordens);
-  }
-
-  /// Diff por [orderId]: remove itens ausentes e insere novos com animação.
-  void _sincronizarLista(List<OrdemModel> novas) {
-    final idsNovos = novas.map((o) => o.orderId).toSet();
-
-    for (var i = _items.length - 1; i >= 0; i--) {
-      if (!idsNovos.contains(_items[i].orderId)) {
-        final removido = _items.removeAt(i);
-        _listKey.currentState?.removeItem(
-          i,
-          (context, animation) => _buildLinha(removido, animation, saindo: true),
-          duration: const Duration(milliseconds: 250),
-        );
-      }
-    }
-
-    for (final ordem in novas) {
-      final idx = _items.indexWhere((o) => o.orderId == ordem.orderId);
-      if (idx >= 0) {
-        _items[idx] = ordem;
-      } else {
-        final insertAt = _items.length;
-        _items.add(ordem);
-        _listKey.currentState?.insertItem(
-          insertAt,
-          duration: const Duration(milliseconds: 250),
-        );
-      }
-    }
-
-    // Reordena silenciosamente conforme bubble sort do pai.
-    _items
-      ..clear()
-      ..addAll(novas);
-
-    if (mounted) setState(() {});
+    Navigator.of(context).push<void>(
+      MesclaMaterialRoute.fadeSlide(
+        (_) => ComprarOfertaScreen(
+          oferta: ordem,
+          startupName: nome,
+          tokenSigla: sigla.isNotEmpty ? sigla : ordem.tokenSigla,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: widget.tintColor,
+        color: tintColor,
         borderRadius: BorderRadius.circular(14),
       ),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            widget.titulo,
-            style: widget.theme.textTheme.labelLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: widget.scheme.onSurface,
-            ),
+          Row(
+            children: [
+              Text(
+                titulo,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: scheme.onSurface,
+                ),
+              ),
+              if (linhasTocaveis) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Toque na linha para comprar',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.secondaryLabel(theme),
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 8),
           _HeaderColunas(
-            theme: widget.theme,
-            colunaTerceira: widget.colunaTerceira,
+            theme: theme,
+            colunaTerceira: colunaTerceira,
           ),
           const SizedBox(height: 4),
           Expanded(
-            child: widget.ordens.isEmpty
+            child: ordens.isEmpty
                 ? Center(
                     child: Text(
                       'Nenhuma ordem aberta',
-                      style: widget.theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.secondaryLabel(widget.theme),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.secondaryLabel(theme),
                       ),
                     ),
                   )
-                : AnimatedList(
-                    key: _listKey,
-                    initialItemCount: _items.length,
-                    itemBuilder: (context, index, animation) {
-                      if (index >= _items.length) {
-                        return const SizedBox.shrink();
-                      }
-                      return _buildLinha(_items[index], animation);
+                : ListView.builder(
+                    itemCount: ordens.length,
+                    itemBuilder: (context, index) {
+                      final ordem = ordens[index];
+                      return _LinhaOrdem(
+                        key: ValueKey(ordem.orderId),
+                        ordem: ordem,
+                        colunaTerceira: colunaTerceira,
+                        theme: theme,
+                        tocavel: linhasTocaveis,
+                        onTap: linhasTocaveis
+                            ? () => _abrirComprarOferta(context, ordem)
+                            : null,
+                      );
                     },
                   ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildLinha(
-    OrdemModel ordem,
-    Animation<double> animation, {
-    bool saindo = false,
-  }) {
-    return SizeTransition(
-      sizeFactor: animation,
-      child: FadeTransition(
-        opacity: animation,
-        child: _LinhaOrdem(
-          ordem: ordem,
-          colunaTerceira: widget.colunaTerceira,
-          theme: widget.theme,
-        ),
       ),
     );
   }
@@ -378,7 +381,11 @@ class _HeaderColunas extends StatelessWidget {
       children: [
         Expanded(flex: 2, child: Text('Quantidade', style: style)),
         Expanded(flex: 3, child: Text('Preço/Token', style: style)),
-        Expanded(flex: 3, child: Text(colunaTerceira, style: style, textAlign: TextAlign.end)),
+        Expanded(flex: 3, child: Text('Total', style: style)),
+        Expanded(
+          flex: 3,
+          child: Text(colunaTerceira, style: style, textAlign: TextAlign.end),
+        ),
       ],
     );
   }
@@ -386,38 +393,64 @@ class _HeaderColunas extends StatelessWidget {
 
 class _LinhaOrdem extends StatelessWidget {
   const _LinhaOrdem({
+    super.key,
     required this.ordem,
     required this.colunaTerceira,
     required this.theme,
+    this.tocavel = false,
+    this.onTap,
   });
 
   final OrdemModel ordem;
   final String colunaTerceira;
   final ThemeData theme;
+  final bool tocavel;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final style = theme.textTheme.bodySmall;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: Text('${ordem.quantity}', style: style)),
-          Expanded(
-            flex: 3,
-            child: Text(formatBrl(ordem.pricePerToken), style: style),
+    final conteudo = Row(
+      children: [
+        Expanded(flex: 2, child: Text('${ordem.quantity}', style: style)),
+        Expanded(
+          flex: 3,
+          child: Text(formatBrl(ordem.pricePerToken), style: style),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(formatBrl(ordem.totalValueBrl), style: style),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            ordem.displayName,
+            style: style,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
           ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              ordem.displayName,
-              style: style,
-              textAlign: TextAlign.end,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+        ),
+      ],
+    );
+
+    if (!tocavel || onTap == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: conteudo,
+      );
+    }
+
+    // Linha de venda tocável — abre ecrã de compra da oferta.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: conteudo,
+        ),
       ),
     );
   }
