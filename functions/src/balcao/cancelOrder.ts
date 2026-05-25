@@ -22,6 +22,7 @@ import {
 } from "./shared/constants.js";
 import {orderBuyLockBrl, readBrlLocked, readTokensLocked} from "./shared/escrowMath.js";
 import {assertStartupId} from "./shared/orderValidation.js";
+import {removeUserOpenOrderIndex} from "./shared/userOrderIndex.js";
 
 /**
  * Cancela ordem aberta do utilizador autenticado.
@@ -92,8 +93,6 @@ export const cancelOrder = onCall({region: REGION}, async (request) => {
       throw new HttpsError("failed-precondition", "Ordem com quantidade inválida.");
     }
 
-    trx.update(orderRef, {[ORDER_FIELD_STATUS]: StatusOrdem.Cancelada});
-
     if (subcol === ORDER_SUBCOL_SELL) {
       const positionRef = db
         .collection(WALLET_ROOT)
@@ -102,6 +101,8 @@ export const cancelOrder = onCall({region: REGION}, async (request) => {
         .doc(startupId);
       const posSnap = await trx.get(positionRef);
       const locked = readTokensLocked(posSnap.data());
+
+      trx.update(orderRef, {[ORDER_FIELD_STATUS]: StatusOrdem.Cancelada});
       trx.set(
         positionRef,
         {[POSITION_FIELD_TOKENS_LOCKED]: Math.max(0, locked - quantity)},
@@ -112,6 +113,8 @@ export const cancelOrder = onCall({region: REGION}, async (request) => {
       const walletSnap = await trx.get(walletRef);
       const locked = readBrlLocked(walletSnap.data());
       const releaseBrl = orderBuyLockBrl(quantity, pricePerToken);
+
+      trx.update(orderRef, {[ORDER_FIELD_STATUS]: StatusOrdem.Cancelada});
       trx.set(
         walletRef,
         {[WALLET_FIELD_BRL_LOCKED]: Math.max(0, locked - releaseBrl)},
@@ -121,5 +124,10 @@ export const cancelOrder = onCall({region: REGION}, async (request) => {
   });
 
   logger.info("cancelOrder", {uid, startupId, orderId, tipo: tipoRaw});
+
+  const tipoSide =
+    subcol === ORDER_SUBCOL_SELL ? TipoOrdem.Venda : TipoOrdem.Compra;
+  await removeUserOpenOrderIndex(uid, tipoSide, orderId);
+
   return {ok: true};
 });
