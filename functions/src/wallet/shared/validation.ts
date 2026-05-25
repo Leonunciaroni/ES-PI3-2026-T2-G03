@@ -1,19 +1,33 @@
-/**
- * Autor principal: Pedro Henrique Contardi Soler
- * RA: 25005592
- *
- * Validações e sanitização do módulo Wallet.
- *
- * Nota didática:
- * - validações “baratas” (tipos/limites) evitam gravar dados inválidos;
- * - sanitização (`clip`) reduz risco de poluição de logs / documentos auditáveis;
- * - estas funções são puras e fáceis de testar (ver `handlers/simulateWallet.unit.test.ts`).
- */
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
+//
+// Validações e sanitização do módulo Wallet.
+// Nota didática:
+// - validações “baratas” (tipos/limites) evitam gravar dados inválidos;
+// - sanitização (`clip`) reduz risco de poluição de logs / documentos auditáveis;
+// - estas funções são puras e fáceis de testar (ver `handlers/simulateWallet.unit.test.ts`).
 
 import type {DocumentData} from "firebase-admin/firestore";
 import {HttpsError} from "firebase-functions/https";
 
 import {EPSILON_BRL, STARTUP_FIELD_TOKEN_PRICE} from "./constants.js";
+
+/**
+ * Valida quantidade de tokens como inteiro positivo (contrato do balcão simulado).
+ */
+export function assertPositiveIntegerTokens(raw: unknown): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Informe uma quantidade de tokens válida."
+    );
+  }
+  return n;
+}
 
 /**
  * Valida total ≈ tokens * preço (tolerância de arredondamento).
@@ -28,9 +42,7 @@ export function assertAmountMatchesTrade(
   tokens: number,
   tokenPriceBrl: number
 ): void {
-  if (tokens <= 0 || !Number.isFinite(tokens)) {
-    throw new HttpsError("invalid-argument", "Informe uma quantidade de tokens válida.");
-  }
+  assertPositiveIntegerTokens(tokens);
   if (tokenPriceBrl <= 0 || !Number.isFinite(tokenPriceBrl)) {
     throw new HttpsError("invalid-argument", "Preço por token inválido.");
   }

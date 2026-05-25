@@ -48,6 +48,15 @@ Future<void> _activateFirebaseAppCheck() async {
         providerAndroid: const AndroidDebugProvider(),
         providerApple: const AppleDebugProvider(),
       );
+      // Registe este token em Firebase Console → App Check → Apps → token de debug.
+      try {
+        final token = await FirebaseAppCheck.instance.getToken();
+        if (token != null && token.isNotEmpty) {
+          debugPrint('App Check debug token: $token');
+        }
+      } catch (e) {
+        debugPrint('App Check getToken failed: $e');
+      }
     } else {
       await FirebaseAppCheck.instance.activate(
         providerAndroid: const AndroidPlayIntegrityProvider(),

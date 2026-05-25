@@ -36,11 +36,11 @@ class BalcaoCompraSenhaScreen extends StatefulWidget {
   final CatalogStartup startup;
   final BalcaoOperacaoTipo operacao;
 
-  /// Total em reais já alinhado ao contrato do backend ([balcaoResolveMercadoDesdeBrl] ou quantidade).
+  /// Total em reais alinhado ao contrato do backend ([balcaoResolveMercadoDesdeQuantidadeTokens]).
   final double valorReaisOperacao;
 
-  /// Quantidade de tokens enviada ao `simulateWallet`.
-  final double quantidadeTokensNegocio;
+  /// Quantidade inteira de tokens enviada ao `simulateWallet`.
+  final int quantidadeTokensNegocio;
 
   @override
   State<BalcaoCompraSenhaScreen> createState() => _BalcaoCompraSenhaScreenState();
@@ -58,8 +58,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   /// Evita abrir o diálogo do SO duas vezes ao mesmo tempo.
   bool _disparouPromptBiometriaInicial = false;
 
-  double get _quantidadeTokensNegocio =>
-      widget.quantidadeTokensNegocio;
+  int get _quantidadeTokensNegocio => widget.quantidadeTokensNegocio;
 
   @override
   void initState() {
@@ -177,10 +176,19 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
 
       switch (widget.operacao) {
         case BalcaoOperacaoTipo.compra:
-          final saldo =
-              await SimulatedWalletService.fetchBrlBalance(user.uid);
+          // Escrow P2P: parte do saldo BRL pode estar bloqueada em ordens abertas.
+          final walletSnap =
+              await SimulatedWalletPaths.walletDoc(user.uid).get();
           if (!mounted) return;
-          if (widget.valorReaisOperacao > saldo + balcaoEpsilonBrl) {
+          final walletData = walletSnap.data();
+          final brlBalance = walletData?['brlBalance'] is num
+              ? (walletData!['brlBalance'] as num).toDouble()
+              : 0.0;
+          final brlLocked = walletData?['brlLockedInOrders'] is num
+              ? (walletData!['brlLockedInOrders'] as num).toDouble()
+              : 0.0;
+          final brlDisponivel = brlBalance - brlLocked;
+          if (widget.valorReaisOperacao > brlDisponivel + balcaoEpsilonBrl) {
             setState(() {
               _erro =
                   'Saldo actualizado: o disponível não cobre mais este total. Volte ao passo anterior.';
@@ -195,13 +203,22 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
           );
           break;
         case BalcaoOperacaoTipo.venda:
-          final held = await SimulatedWalletService.fetchTokensHeld(
-            user.uid,
-            fid,
-          );
+          // Escrow P2P: tokens podem estar reservados em ordens de venda abertas.
+          final posSnap = await SimulatedWalletPaths.positionsCol(user.uid)
+              .doc(fid)
+              .get();
           if (!mounted) return;
-          final h = held ?? 0;
-          if (_quantidadeTokensNegocio > h + 1e-9) {
+          final posData = posSnap.data();
+          final tokensHeld = posData?['tokensHeld'] is num
+              ? (posData!['tokensHeld'] as num).toDouble()
+              : 0.0;
+          final tokensLocked = posData?['tokensLockedInOrders'] is int
+              ? posData!['tokensLockedInOrders'] as int
+              : posData?['tokensLockedInOrders'] is num
+                  ? (posData!['tokensLockedInOrders'] as num).toInt()
+                  : 0;
+          final tokensDisponiveis = tokensHeld.floor() - tokensLocked;
+          if (_quantidadeTokensNegocio > tokensDisponiveis) {
             setState(() {
               _erro =
                   'A sua posição mudou desde o passo anterior. Volte para ajustar a quantidade.';
@@ -360,7 +377,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${formatBrl(widget.valorReaisOperacao)} · ${formatQuantidadeTokensBr(_quantidadeTokensNegocio)} tokens',
+                '${formatBrl(widget.valorReaisOperacao)} · ${formatQuantidadeTokensBr(_quantidadeTokensNegocio.toDouble())} tokens',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.secondaryLabel(theme),
                 ),

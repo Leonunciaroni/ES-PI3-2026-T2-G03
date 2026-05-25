@@ -1,12 +1,15 @@
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Formatação de números do Balcão para exibição em **pt-BR** (vírgula decimal),
-// alinhada ao uso de [formatBrl] na Carteira.
+// Formatação de números do Balcão para exibição em **pt-BR** (vírgula decimal),// alinhada ao uso de [formatBrl] na Carteira.
 //
 // Contrato mercado × backend: [`functions/src/wallet/shared/constants.ts`]
 // usa `EPSILON_BRL = 0.06` em `assertAmountMatchesTrade`. Este ficheiro
 // expõe pares `(amountBrl, tokens)` coerentes com essa tolerância.
+// Tokens são sempre **inteiros** (quantidade informada pelo usuário).
 
 /// Tolerância em reais, espelho de `EPSILON_BRL` nas Cloud Functions.
 const double balcaoEpsilonBrl = 0.06;
@@ -28,17 +31,19 @@ class BalcaoMercadoResolved {
   });
 
   final double amountBrl;
-  final double tokens;
+
+  /// Quantidade de tokens — sempre inteiro positivo.
+  final int tokens;
 
   bool get isValid => amountBrl > 0 && tokens > 0;
 }
 
 bool _balcaoImpliedAmountOk(
   double amountBrl,
-  double tokens,
+  int tokens,
   double tokenPriceBrl,
 ) {
-  if (tokens <= 0 || !(tokens.isFinite) || !(tokenPriceBrl > 0)) {
+  if (tokens <= 0 || !(tokenPriceBrl > 0)) {
     return false;
   }
   final implied = tokens * tokenPriceBrl;
@@ -51,62 +56,23 @@ bool _balcaoImpliedAmountOk(
 /// lida em tempo real do Firestore.
 bool balcaoAmountMatchesTrade(
   double amountBrl,
-  double tokens,
+  int tokens,
   double tokenPriceBrl,
 ) {
-  if (tokens <= 0 || !tokens.isFinite) return false;
+  if (tokens <= 0) return false;
   if (!(tokenPriceBrl > 0) || !tokenPriceBrl.isFinite) return false;
   if (!amountBrl.isFinite) return false;
   return _balcaoImpliedAmountOk(amountBrl, tokens, tokenPriceBrl);
 }
 
-/// À mercado definido por **valor em reais** (compra ou venda em R$).
-BalcaoMercadoResolved balcaoResolveMercadoDesdeBrl(
-  double valorBrlInformado,
-  double precoTokenBrl,
-) {
-  if (!(precoTokenBrl > 0) || !(precoTokenBrl.isFinite)) {
-    return const BalcaoMercadoResolved(amountBrl: 0, tokens: 0);
-  }
-
-  double amount = balcaoRoundCentavos(valorBrlInformado);
-  if (amount <= 0) {
-    return const BalcaoMercadoResolved(amountBrl: 0, tokens: 0);
-  }
-
-  double tokens = amount / precoTokenBrl;
-  if (_balcaoImpliedAmountOk(amount, tokens, precoTokenBrl)) {
-    return BalcaoMercadoResolved(amountBrl: amount, tokens: tokens);
-  }
-
-  double implied = tokens * precoTokenBrl;
-  amount = balcaoRoundCentavos(implied);
-  tokens = amount / precoTokenBrl;
-  implied = tokens * precoTokenBrl;
-  if (_balcaoImpliedAmountOk(amount, tokens, precoTokenBrl)) {
-    return BalcaoMercadoResolved(amountBrl: amount, tokens: tokens);
-  }
-
-  for (final int i in <int>[-3, -2, -1, 1, 2, 3]) {
-    final double a = balcaoRoundCentavos(amount + i * 0.01);
-    if (a <= 0) {
-      continue;
-    }
-    final double t = a / precoTokenBrl;
-    if (_balcaoImpliedAmountOk(a, t, precoTokenBrl)) {
-      return BalcaoMercadoResolved(amountBrl: a, tokens: t);
-    }
-  }
-
-  return BalcaoMercadoResolved(amountBrl: amount, tokens: tokens);
-}
-
-/// À mercado quando o utilizador define **quantidade de tokens** (tipicamente na venda).
+/// Negócio à mercado definido por **quantidade inteira de tokens**.
 BalcaoMercadoResolved balcaoResolveMercadoDesdeQuantidadeTokens(
-  double quantidadeTokens,
+  int quantidadeTokens,
   double precoTokenBrl,
 ) {
-  if (!(quantidadeTokens > 0) || !(precoTokenBrl > 0) || !(precoTokenBrl.isFinite)) {
+  if (quantidadeTokens <= 0 ||
+      !(precoTokenBrl > 0) ||
+      !(precoTokenBrl.isFinite)) {
     return const BalcaoMercadoResolved(amountBrl: 0, tokens: 0);
   }
 
@@ -115,16 +81,8 @@ BalcaoMercadoResolved balcaoResolveMercadoDesdeQuantidadeTokens(
     return const BalcaoMercadoResolved(amountBrl: 0, tokens: 0);
   }
 
-  double tokens = amount / precoTokenBrl;
-  if (_balcaoImpliedAmountOk(amount, tokens, precoTokenBrl)) {
-    return BalcaoMercadoResolved(amountBrl: amount, tokens: tokens);
-  }
-
-  double implied = tokens * precoTokenBrl;
-  amount = balcaoRoundCentavos(implied);
-  tokens = amount / precoTokenBrl;
-  if (_balcaoImpliedAmountOk(amount, tokens, precoTokenBrl)) {
-    return BalcaoMercadoResolved(amountBrl: amount, tokens: tokens);
+  if (_balcaoImpliedAmountOk(amount, quantidadeTokens, precoTokenBrl)) {
+    return BalcaoMercadoResolved(amountBrl: amount, tokens: quantidadeTokens);
   }
 
   for (final int i in <int>[-3, -2, -1, 1, 2, 3]) {
@@ -132,13 +90,12 @@ BalcaoMercadoResolved balcaoResolveMercadoDesdeQuantidadeTokens(
     if (a <= 0) {
       continue;
     }
-    final double t = a / precoTokenBrl;
-    if (_balcaoImpliedAmountOk(a, t, precoTokenBrl)) {
-      return BalcaoMercadoResolved(amountBrl: a, tokens: t);
+    if (_balcaoImpliedAmountOk(a, quantidadeTokens, precoTokenBrl)) {
+      return BalcaoMercadoResolved(amountBrl: a, tokens: quantidadeTokens);
     }
   }
 
-  return BalcaoMercadoResolved(amountBrl: amount, tokens: tokens);
+  return const BalcaoMercadoResolved(amountBrl: 0, tokens: 0);
 }
 
 /// Formata **quantidade de tokens** ao estilo brasileiro: vírgula como separador
@@ -160,11 +117,4 @@ String formatQuantidadeTokensBr(double value) {
     s = s.replaceFirst(RegExp(r'\.$'), '');
   }
   return s.replaceAll('.', ',');
-}
-
-/// Quantidade de tokens com **três** casas decimais fixas (ex.: saldo na mesa do Balcão).
-String formatQuantidadeTokensBr3(double value) {
-  if (value.isNaN || value.isInfinite) return '—';
-  final arredondado = double.parse(value.toStringAsFixed(8));
-  return arredondado.toStringAsFixed(3).replaceAll('.', ',');
 }

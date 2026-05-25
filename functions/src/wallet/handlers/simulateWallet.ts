@@ -1,26 +1,27 @@
-/**
- * Autor principal: Pedro Henrique Contardi Soler
- * RA: 25005592
- *
- * Cloud Function callable: `simulateWallet`
- *
- * Objetivo do módulo:
- * - Implementar um “saldo fictício” (BRL) para testes/demonstração.
- * - Persistir no Firestore em `sim_wallet/{uid}`:
- *   - `brlBalance` (saldo disponível)
- *   - `ledger/*` (histórico mínimo)
- *   - `positions/{startupId}` (posição do investidor)
- * - Atualizar `startups/{startupId}` com captação simulada:
- *   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`
- *     (dinheiro líquido agregado de **todos** os investidores que negociam esta startup);
- *   - `progresso_captacao` = captado ÷ `captacao_esperada` (0..1).
- *
- * Decisões importantes:
- * - O cliente **não** pode escrever diretamente em `sim_wallet` (regras Firestore).
- * - Toda atualização é feita via transação (`runTransaction`) para consistência.
- * - A cotação (preço do token) é lida do Firestore `startups/{startupId}.preco_token`
- *   (fonte de verdade), não do payload do app.
- */
+// Autor: Leonardo Miranda Nunciaroni
+// RA: 25002726
+//
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
+//
+// Cloud Function callable: `simulateWallet`
+//
+// Objetivo do módulo:
+// - Implementar um “saldo fictício” (BRL) para testes/demonstração.
+// - Persistir no Firestore em `sim_wallet/{uid}`:
+//   - `brlBalance` (saldo disponível)
+//   - `ledger/*` (histórico mínimo)
+//   - `positions/{startupId}` (posição do investidor)
+// - Atualizar `startups/{startupId}` com captação simulada:
+//   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`
+//     (dinheiro líquido agregado de todos os investidores que negociam esta startup);
+//   - `progresso_captacao` = captado ÷ `captacao_esperada` (0..1).
+//
+// Decisões importantes:
+// - O cliente não pode escrever diretamente em `sim_wallet` (regras Firestore).
+// - Toda atualização é feita via transação (`runTransaction`) para consistência.
+// - A cotação (preço do token) é lida do Firestore `startups/{startupId}.preco_token`
+//   (fonte de verdade), não do payload do app.
 
 import {FieldValue, getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
@@ -48,9 +49,16 @@ import {
 } from "../shared/positionTradeMath.js";
 import {
   assertAmountMatchesTrade,
+  assertPositiveIntegerTokens,
   clip,
   readRequiredStartupTokenPriceBrl,
 } from "../shared/validation.js";
+import {
+  readAvailableBrl,
+  readAvailableTokens,
+  readBrlBalance,
+  readTokensHeld,
+} from "../../balcao/shared/escrowMath.js";
 
 /**
  * Operações simuladas: crédito interno PIX (demo) + compra/venda de tokens no balcão.
@@ -65,7 +73,7 @@ import {
  *
  * Para trade:
  * - startupId: string
- * - tokens: number
+ * - tokens: number (inteiro positivo)
  * - (metadata opcional para ledger): startupName, tokenSigla, category, headline
  */
 export const simulateWallet = onCall({region: REGION}, async (request) => {
@@ -129,18 +137,17 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
     await db.runTransaction(async (trx) => {
       const snap = await trx.get(walletRef);
       const walletData = snap.data() ?? {};
-      const prev =
-        typeof walletData.brlBalance === "number"
-          ? (walletData.brlBalance as number)
-          : 0;
+      // Saque só pode usar BRL livre (não bloqueado em ordens P2P).
+      const disponivel = readAvailableBrl(walletData);
 
-      if (prev + 1e-9 < amountBrl) {
+      if (disponivel + 1e-9 < amountBrl) {
         throw new HttpsError(
           "failed-precondition",
           "Saldo insuficiente para este saque simulado."
         );
       }
 
+      const prev = readBrlBalance(walletData);
       const next = prev - amountBrl;
       trx.set(walletRef, {brlBalance: next}, {merge: true});
       const ledgerRef = walletRef.collection("ledger").doc();
@@ -165,7 +172,7 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
   }
 
   if (actionRaw === "trade_buy" || actionRaw === "trade_sell") {
-    const tokens = Number(request.data?.tokens);
+    const tokens = assertPositiveIntegerTokens(request.data?.tokens);
     const startupId = clip(request.data?.startupId, 200);
     if (!startupId) {
       throw new HttpsError("invalid-argument", "startupId obrigatório para negócio.");
@@ -193,12 +200,11 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
         // - grava ledger
         const ws = await trx.get(walletRef);
         const walletData = ws.data() ?? {};
-        const balance =
-          typeof walletData.brlBalance === "number"
-            ? (walletData.brlBalance as number)
-            : 0;
+        const balance = readBrlBalance(walletData);
+        // Compra no balcão: respeita BRL bloqueado em ordens P2P de compra.
+        const disponivel = readAvailableBrl(walletData);
 
-        if (balance + 1e-9 < amountBrl) {
+        if (disponivel + 1e-9 < amountBrl) {
           throw new HttpsError(
             "failed-precondition",
             "Saldo insuficiente para esta compra simulada."
@@ -314,26 +320,29 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
       // - grava ledger
       const ws = await trx.get(walletRef);
       const walletData = ws.data() ?? {};
-      const balance =
-        typeof walletData.brlBalance === "number"
-          ? (walletData.brlBalance as number)
-          : 0;
+      const balance = readBrlBalance(walletData);
 
       const positionRef = walletRef.collection("positions").doc(startupId);
       const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
       const posSnap = await trx.get(positionRef);
       const startupTrxSnap = await trx.get(startupRef);
       const posData = posSnap.data() ?? {};
-      const tokensHeldRaw =
-        typeof posData.tokensHeld === "number"
-          ? (posData.tokensHeld as number)
-          : 0;
+      const tokensHeldRaw = readTokensHeld(posData);
       const costBasisBrlRaw =
         typeof posData.costBasisBrl === "number"
           ? (posData.costBasisBrl as number)
           : 0;
 
       if (!posSnap.exists) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Quantidade insuficiente de tokens nesta startup."
+        );
+      }
+
+      // Venda no balcão: respeita tokens bloqueados em ordens P2P de venda.
+      const tokensDisponiveis = readAvailableTokens(posData);
+      if (tokensDisponiveis + 1e-9 < tokens) {
         throw new HttpsError(
           "failed-precondition",
           "Quantidade insuficiente de tokens nesta startup."
