@@ -40,6 +40,8 @@ class UserFirestoreService {
 
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
   static const String fieldInvestorStartupIds = 'investorStartupIds';
+  /// URL HTTPS da foto de perfil (download URL do Firebase Storage).
+  /// Gravada após upload em `profilePhoto/users/{uid}/avatar.jpg`.
   static const String fieldPhotoUrl = 'photoUrl';
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
@@ -419,7 +421,7 @@ class UserFirestoreService {
     return null;
   }
 
-  /// URL da foto de perfil do utilizador autenticado.
+  /// Grava a URL de download da foto (retorno de [ProfilePhotoStorageService.enviarFoto]).
   static Future<void> setProfilePhotoUrl(String photoUrl) async {
   final uid = _auth.currentUser?.uid;
   if (uid == null) {
