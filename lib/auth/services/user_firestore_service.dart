@@ -40,6 +40,7 @@ class UserFirestoreService {
 
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
   static const String fieldInvestorStartupIds = 'investorStartupIds';
+  static const String fieldPhotoUrl = 'photoUrl';
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
@@ -417,6 +418,59 @@ class UserFirestoreService {
     }
     return null;
   }
+
+  /// URL da foto de perfil do utilizador autenticado.
+  static Future<void> setProfilePhotoUrl(String photoUrl) async {
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) {
+    throw FirebaseAuthException(
+      code: 'no-current-user',
+      message: 'Sessão não encontrada.',
+    );
+  }
+
+  await _usersCollection.doc(uid).set({
+    fieldPhotoUrl: photoUrl.trim(),
+  }, SetOptions(merge: true));
+}
+
+  static Future<void> removeProfilePhotoUrl() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+
+    await _usersCollection.doc(uid).set({
+      fieldPhotoUrl: FieldValue.delete(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<String?> fetchProfilePhotoUrl() async {
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) {
+    return null;
+  }
+
+  try {
+    final snap = await _usersCollection.doc(uid).get();
+    if (!snap.exists) {
+      return null;
+    }
+
+    final raw = snap.data()?[fieldPhotoUrl];
+
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw.trim();
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+}
 
   /// IDs Firestore das startups favoritas do utilizador autenticado.
   static Future<List<String>> fetchFavoriteStartupIds() async {
