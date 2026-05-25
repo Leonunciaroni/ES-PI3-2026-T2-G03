@@ -1,18 +1,55 @@
 // Autor: Leonardo Miranda Nunciaroni
 // RA: 25002726
-// Descrição: Lista ordens abertas do utilizador com opção de cancelamento.
+// Descrição: Lista ordens abertas do utilizador com opção de editar e cancelar.
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../carteira/format/carteira_brl.dart';
+import '../../navigation/mescla_material_route.dart';
 import '../../theme/app_colors.dart';
 import '../models/ordem_model.dart';
 import '../services/balcao_order_service.dart';
+import 'editar_ordem_screen.dart';
 
 /// Ecrã opcional com ordens abertas do investidor logado.
-class MinhasOrdensScreen extends StatelessWidget {
+class MinhasOrdensScreen extends StatefulWidget {
   const MinhasOrdensScreen({super.key});
+
+  @override
+  State<MinhasOrdensScreen> createState() => _MinhasOrdensScreenState();
+}
+
+class _MinhasOrdensScreenState extends State<MinhasOrdensScreen> {
+  bool _syncedOnce = false;
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncExistingOrders();
+  }
+
+  Future<void> _syncExistingOrders({bool force = false}) async {
+    if ((!force && _syncedOnce) || _syncing) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _syncing = true);
+    try {
+      await BalcaoOrderService.sincronizarMinhasOrdens();
+    } catch (_) {
+      // Espelho pode ainda não existir no backend — o stream continua a funcionar
+      // para ordens novas após deploy das Functions.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _syncing = false;
+          _syncedOnce = true;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +59,25 @@ class MinhasOrdensScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Minhas ordens'),
+        title: const Text('Gerenciar minhas ordens'),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: 'Atualizar lista',
+            onPressed: _syncing ? null : () => _syncExistingOrders(force: true),
+            icon: _syncing
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: scheme.primary,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: user == null
           ? Center(
@@ -38,6 +91,21 @@ class MinhasOrdensScreen extends StatelessWidget {
           : StreamBuilder<List<OrdemModel>>(
               stream: BalcaoOrderService.watchMinhasOrdens(user.uid),
               builder: (context, snap) {
+                if (snap.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Não foi possível carregar suas ordens.\n${snap.error}',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.error,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
                 if (snap.connectionState == ConnectionState.waiting &&
                     !snap.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -64,14 +132,24 @@ class MinhasOrdensScreen extends StatelessWidget {
                     final ordem = ordens[index];
                     return _OrdemCard(
                       ordem: ordem,
+                      currentUid: user.uid,
                       theme: theme,
                       scheme: scheme,
+                      onEditar: () => _editar(context, ordem),
                       onCancelar: () => _cancelar(context, ordem),
                     );
                   },
                 );
               },
             ),
+    );
+  }
+
+  Future<void> _editar(BuildContext context, OrdemModel ordem) async {
+    await Navigator.of(context).push<bool>(
+      MesclaMaterialRoute.fadeSlide(
+        (_) => EditarOrdemScreen(ordem: ordem),
+      ),
     );
   }
 
@@ -98,14 +176,18 @@ class MinhasOrdensScreen extends StatelessWidget {
 class _OrdemCard extends StatelessWidget {
   const _OrdemCard({
     required this.ordem,
+    required this.currentUid,
     required this.theme,
     required this.scheme,
+    required this.onEditar,
     required this.onCancelar,
   });
 
   final OrdemModel ordem;
+  final String currentUid;
   final ThemeData theme;
   final ColorScheme scheme;
+  final VoidCallback onEditar;
   final VoidCallback onCancelar;
 
   @override
@@ -174,17 +256,26 @@ class _OrdemCard extends StatelessWidget {
                 color: AppColors.secondaryLabel(theme),
               ),
             ),
-            if (ordem.podeCancelar) ...[
+            if (ordem.podeGerenciar(currentUid)) ...[
               const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: onCancelar,
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(color: scheme.error),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: onEditar,
+                    child: Text(
+                      'Editar',
+                      style: TextStyle(color: scheme.primary),
+                    ),
                   ),
-                ),
+                  TextButton(
+                    onPressed: onCancelar,
+                    child: Text(
+                      'Cancelar',
+                      style: TextStyle(color: scheme.error),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
