@@ -10,15 +10,13 @@ import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
 import 'package:mescla_invest/catalog/screens/startup_detail_screen.dart';
 import 'package:mescla_invest/theme/app_colors.dart';
 import 'package:mescla_invest/widgets/mescla_chart_reading_card.dart';
+import 'package:mescla_invest/widgets/valuation_evolution_chart_card.dart';
 
 Widget _themedApp(Widget home) {
   final colorScheme = ColorScheme.fromSeed(
     seedColor: AppColors.seedPurple,
     brightness: Brightness.light,
-  ).copyWith(
-    primary: AppColors.seedPurple,
-    onPrimary: const Color(0xFFFFFFFF),
-  );
+  ).copyWith(primary: AppColors.seedPurple, onPrimary: const Color(0xFFFFFFFF));
 
   return MaterialApp(
     theme: ThemeData(
@@ -31,14 +29,95 @@ Widget _themedApp(Widget home) {
 }
 
 void main() {
+  group('ValuationEvolutionChartCard - eixo de datas', () {
+    testWidgets('mensal mostra segundas-feiras e diario nao mostra datas', (
+      tester,
+    ) async {
+      final monthlySeries = ValuationChartSeries(
+        valuationMillions: const [10, 11, 12, 13, 14],
+        sampleTimes: [
+          DateTime(2026, 3),
+          DateTime(2026, 3, 8),
+          DateTime(2026, 3, 16),
+          DateTime(2026, 3, 24),
+          DateTime(2026, 3, 31),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _themedApp(
+          ValuationEvolutionChartCard(
+            selected: ValuationPeriod.mensal,
+            onSelect: (_) {},
+            series: monthlySeries,
+            primary: AppColors.seedPurple,
+            footnote: '',
+          ),
+        ),
+      );
+
+      expect(find.text('02/03'), findsOneWidget);
+      expect(find.text('09/03'), findsOneWidget);
+      expect(find.text('16/03'), findsOneWidget);
+      expect(find.text('23/03'), findsOneWidget);
+      expect(find.text('30/03'), findsOneWidget);
+
+      await tester.pumpWidget(
+        _themedApp(
+          ValuationEvolutionChartCard(
+            selected: ValuationPeriod.diario,
+            onSelect: (_) {},
+            series: monthlySeries,
+            primary: AppColors.seedPurple,
+            footnote: '',
+          ),
+        ),
+      );
+
+      expect(find.text('02/03'), findsNothing);
+      expect(find.text('09/03'), findsNothing);
+    });
+
+    testWidgets('seis meses mostra nomes dos meses', (tester) async {
+      final series = ValuationChartSeries(
+        valuationMillions: const [10, 11, 12, 13, 14, 15],
+        sampleTimes: [
+          DateTime(2026, 1, 5),
+          DateTime(2026, 2, 5),
+          DateTime(2026, 3, 5),
+          DateTime(2026, 4, 5),
+          DateTime(2026, 5, 5),
+          DateTime(2026, 6, 5),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _themedApp(
+          ValuationEvolutionChartCard(
+            selected: ValuationPeriod.seisMeses,
+            onSelect: (_) {},
+            series: series,
+            primary: AppColors.seedPurple,
+            footnote: '',
+          ),
+        ),
+      );
+
+      expect(find.text('jan'), findsOneWidget);
+      expect(find.text('fev'), findsOneWidget);
+      expect(find.text('mar'), findsOneWidget);
+      expect(find.text('abr'), findsOneWidget);
+      expect(find.text('mai'), findsOneWidget);
+      expect(find.text('jun'), findsOneWidget);
+    });
+  });
+
   group('StartupDetailScreen — gráfico de valuation', () {
     testWidgets(
       'rodapé indica data, horário e valuation; toque mostra MesclaChartReadingCard',
       (tester) async {
         await tester.pumpWidget(
-          _themedApp(
-            StartupDetailScreen(catalog: kPreviewCatalogStartup),
-          ),
+          _themedApp(StartupDetailScreen(catalog: kPreviewCatalogStartup)),
         );
         await tester.pumpAndSettle();
 
