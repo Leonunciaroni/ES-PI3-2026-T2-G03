@@ -47,6 +47,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _confirmPasswordController = TextEditingController();
   // Centraliza a abertura de câmera/galeria para a etapa final de foto.
   final _imagePicker = ImagePicker();
+  // Controla a rolagem do documento de termos dentro do card de cadastro.
+  final _termsScrollController = ScrollController();
 
   final _phoneFormatter = MaskTextInputFormatter(
     mask: '(##) #####-####',
@@ -64,6 +66,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _obscureConfirmPassword = true;
   // Marca se o usuário aceitou termos e privacidade.
   bool _acceptedTerms = false;
+  // Só fica true depois que o usuário rola os termos até o final.
+  bool _hasReadTermsToEnd = false;
   // Bloqueia ações repetidas enquanto a câmera/galeria está aberta.
   bool _isPickingPhoto = false;
   // Bloqueia o botão principal enquanto o cadastro está sendo enviado.
@@ -125,6 +129,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     _cpfController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    // Libera o controller da rolagem dos termos para evitar listeners pendurados.
+    _termsScrollController.dispose();
     super.dispose();
   }
 
@@ -184,13 +190,18 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  // Abre a tela completa de Termos de Uso e Política de Privacidade.
-  void _openTermosUsoPrivacidade() {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => const TermosUsoPrivacidadeScreen(),
-      ),
-    );
+  // Recebe eventos da rolagem dos termos para liberar o checkbox no final.
+  bool _handleTermsScrollNotification(ScrollNotification notification) {
+    // Usa os pixels atuais e o máximo da rolagem para saber se chegou ao fim.
+    final metrics = notification.metrics;
+    // Um pequeno arredondamento evita falha por diferença de casas decimais.
+    final reachedEnd = metrics.pixels >= metrics.maxScrollExtent - 8;
+    // Se chegou ao fim pela primeira vez, atualiza a UI e habilita o aceite.
+    if (reachedEnd && !_hasReadTermsToEnd) {
+      setState(() => _hasReadTermsToEnd = true);
+    }
+    // Retorna false para permitir que outros listeners também recebam o evento.
+    return false;
   }
 
   // Extrai a primeira letra de uma parte do nome para montar o avatar padrão.
@@ -329,6 +340,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         // Permite avançar quando as senhas conferem.
         return null;
       case 7:
+        if (!_hasReadTermsToEnd) {
+          return 'Role os Termos de Uso e a Política de Privacidade até o final para habilitar o aceite.';
+        }
         // A etapa de termos exige aceite antes de permitir ir para a foto.
         if (!_acceptedTerms) {
           return 'Aceite os Termos de Uso e a Política de Privacidade para continuar.';
@@ -572,7 +586,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         return 'Digite a mesma senha novamente para evitar erros.';
       case 7:
         // Mantém o ponto de integração para uma tela futura de termos.
-        return 'A tela completa de termos poderá ser conectada aqui posteriormente.';
+        return 'Leia o documento completo até o final para liberar o aceite.';
       case 8:
         // Explica que a foto é opcional e pode usar avatar padrão.
         return 'Você pode tirar uma foto, fazer upload ou seguir com o avatar padrão.';
@@ -912,67 +926,115 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         );
       case 7:
         // Oitava etapa: aceite de termos e política antes de finalizar.
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Checkbox mantém o aceite salvo em _acceptedTerms.
-            Checkbox(
-              value: _acceptedTerms,
-              onChanged: (value) {
-                setState(() => _acceptedTerms = value ?? false);
-              },
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+            // Caixa rolável mantém o documento antigo dentro do novo design.
+            Container(
+              height: 260,
+              decoration: BoxDecoration(
+                color: theme.brightness == Brightness.light
+                    ? const Color(0xFFFCFAFF)
+                    : colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: theme.brightness == Brightness.light
+                      ? const Color(0xFFE8E2F6)
+                      : colorScheme.outlineVariant,
+                ),
               ),
-            ),
-            // Texto legal ocupa o espaço restante ao lado do checkbox.
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 11),
-                // Text.rich permite destacar os nomes dos documentos.
-                child: Text.rich(
-                  TextSpan(
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.35,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: NotificationListener<ScrollNotification>(
+                  // Observa a rolagem para habilitar o aceite apenas no fim.
+                  onNotification: _handleTermsScrollNotification,
+                  child: Scrollbar(
+                    controller: _termsScrollController,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      key: const ValueKey<String>('signup_terms_scroll'),
+                      controller: _termsScrollController,
+                      primary: false,
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 20),
+                      child: const TermosUsoPrivacidadeDocument(
+                        showLogo: false,
+                      ),
                     ),
-                    children: [
-                      const TextSpan(text: 'Li e aceito os '),
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.baseline,
-                        baseline: TextBaseline.alphabetic,
-                        child: GestureDetector(
-                          onTap: _openTermosUsoPrivacidade,
-                          child: Text(
-                            'Termos de Uso',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const TextSpan(text: ' e a '),
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.baseline,
-                        baseline: TextBaseline.alphabetic,
-                        child: GestureDetector(
-                          onTap: _openTermosUsoPrivacidade,
-                          child: Text(
-                            'Política de Privacidade',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 12),
+            // Mensagem muda quando a rolagem completa libera o checkbox.
+            Text(
+              _hasReadTermsToEnd
+                  ? 'Leitura concluída. Agora você pode aceitar os termos.'
+                  : 'Role até o final do documento para habilitar o aceite.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: _hasReadTermsToEnd
+                    ? colorScheme.primary
+                    : AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Checkbox começa desabilitado e só ativa após a rolagem completa.
+                Checkbox(
+                  key: const ValueKey<String>('signup_terms_checkbox'),
+                  value: _acceptedTerms,
+                  onChanged: _hasReadTermsToEnd
+                      ? (value) {
+                          setState(() => _acceptedTerms = value ?? false);
+                        }
+                      : null,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                // Texto legal ocupa o espaço restante ao lado do checkbox.
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 11),
+                    // Text.rich permite destacar os nomes dos documentos.
+                    child: Text.rich(
+                      TextSpan(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: _hasReadTermsToEnd
+                              ? AppColors.textSecondary
+                              : AppColors.textSecondary.withValues(alpha: 0.62),
+                          height: 1.35,
+                        ),
+                        children: [
+                          const TextSpan(text: 'Li e aceito os '),
+                          TextSpan(
+                            text: 'Termos de Uso',
+                            style: TextStyle(
+                              color: _hasReadTermsToEnd
+                                  ? colorScheme.primary
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const TextSpan(text: ' e a '),
+                          TextSpan(
+                            text: 'Política de Privacidade',
+                            style: TextStyle(
+                              color: _hasReadTermsToEnd
+                                  ? colorScheme.primary
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );
