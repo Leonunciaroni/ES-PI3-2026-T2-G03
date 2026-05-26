@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../carteira/format/carteira_brl.dart';
+import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../balcao_format.dart';
 import '../models/balcao_operacao_tipo.dart';
@@ -15,8 +16,8 @@ import '../models/balcao_transacao.dart';
 
 /// Apresenta o resumo da operação (compra ou venda).
 ///
-/// O utilizador volta para a mesa do Balcão com o botão da [AppBar] — o
-/// [Navigator.pop] remove apenas este ecrã da pilha.
+/// Adiciona um botão na parte inferior que permite voltar diretamente para a
+/// aba Balcão.
 class BalcaoTransacaoDetalheScreen extends StatelessWidget {
   const BalcaoTransacaoDetalheScreen({
     super.key,
@@ -143,10 +144,30 @@ class BalcaoTransacaoDetalheScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => _voltarABalcao(context),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text('Voltar ao balcão'),
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _voltarABalcao(BuildContext context) {
+    Navigator.of(context).pushAndRemoveUntil<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const DashboardScreen(initialMainNavIndex: 2),
+      ),
+      (route) => false,
     );
   }
 }

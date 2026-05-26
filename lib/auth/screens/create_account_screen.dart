@@ -1,12 +1,14 @@
 //Miguel Fernandes Costacurta - 25003110
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 import '../services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
 import 'login_screen.dart';
+import 'signup_verification_flow_screen.dart';
 
 /// Tela de cadastro integrada ao Firebase Auth e Firestore (Material 3).
 ///
@@ -27,10 +29,23 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  final _phoneFormatter = MaskTextInputFormatter(
+    mask: '(##) #####-####',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+
+  final _cpfFormatter = MaskTextInputFormatter(
+    mask: '###.###.###-##',
+    filter: {'#': RegExp(r'[0-9]')},
+  );
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _acceptedTerms = false;
   bool _isSubmitting = false;
+
+  /// `false` = MFA por e-mail; `true` = MFA por SMS (Firebase Phone).
+  bool _mfaSmsPreferred = false;
 
   bool get _passwordHasMin8 {
     final value = _passwordController.text;
@@ -122,6 +137,45 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
+  /// Celular BR: 11 dígitos (DDD + 9 + 8), com 9 após o DDD (padrão atual).
+  bool _isValidBrazilMobilePhone(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 11) return false;
+    if (digits[2] != '9') return false;
+    return true;
+  }
+
+  bool _isValidCPF(String value) {
+    final cpf = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (cpf.isEmpty) return false;
+    if (cpf.length != 11) return false;
+
+    if (RegExp(r'^(\d)\1{10}$').hasMatch(cpf)) return false;
+
+    int sum = 0;
+    for (int i = 0; i < 9; i++) {
+      sum += int.parse(cpf[i]) * (10 - i);
+    }
+
+    int firstDigit = (sum * 10) % 11;
+    if (firstDigit == 10) firstDigit = 0;
+
+    if (firstDigit != int.parse(cpf[9])) return false;
+
+    sum = 0;
+    for (int i = 0; i < 10; i++) {
+      sum += int.parse(cpf[i]) * (11 - i);
+    }
+
+    int secondDigit = (sum * 10) % 11;
+    if (secondDigit == 10) secondDigit = 0;
+
+    if (secondDigit != int.parse(cpf[10])) return false;
+
+    return true;
+  }
+
   Future<void> _onCreateAccount() async {
     if (_isSubmitting) return;
 
@@ -133,6 +187,19 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
     if (name.isEmpty || email.isEmpty || phone.isEmpty || cpf.isEmpty) {
       _showFeatureMessage('Preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    if (!_isValidBrazilMobilePhone(phone)) {
+      _showFeatureMessage(
+        'Telefone celular inválido. Informe DDD + 9 dígitos, no formato '
+        '(XX) 9XXXX-XXXX.',
+      );
+      return;
+    }
+
+    if (!_isValidCPF(cpf)) {
+      _showFeatureMessage('CPF inválido. Verifique e tente novamente.');
       return;
     }
 
@@ -168,20 +235,31 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       return;
     }
 
+    final phoneDigits = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    final cpfDigits = cpf.replaceAll(RegExp(r'[^0-9]'), '');
+
     setState(() => _isSubmitting = true);
     try {
+      final normalizedEmail = email.trim().toLowerCase();
       await UserFirestoreService.createUserWithEmailAndPassword(
         name: name,
         email: email,
-        phone: phone,
-        cpf: cpf,
+        phone: phoneDigits,
+        cpf: cpfDigits,
         password: password,
+        mfaDeliveryMethod: _mfaSmsPreferred
+            ? UserFirestoreService.mfaDeliverySms
+            : UserFirestoreService.mfaDeliveryEmail,
       );
 
       if (!mounted) return;
-      _showFeatureMessage('Conta criada com sucesso. Faça login para continuar.');
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      await Navigator.of(context).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => SignupVerificationFlowScreen(
+            userEmail: normalizedEmail,
+          ),
+        ),
+        (route) => false,
       );
     } catch (error) {
       if (!mounted) return;
@@ -284,14 +362,44 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9()\-\s]')),
-                      LengthLimitingTextInputFormatter(15),
-                    ],
+                    inputFormatters: [_phoneFormatter],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: 'Ex: (19) 99999-9999',
                       icon: Icons.phone_outlined,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  _buildLabel(context, 'CÓDIGO NO LOGIN (2º FATOR) *'),
+                  const SizedBox(height: 10),
+                  SegmentedButton<bool>(
+                    segments: const <ButtonSegment<bool>>[
+                      ButtonSegment<bool>(
+                        value: false,
+                        label: Text('E-mail'),
+                        icon: Icon(Icons.mail_outline_rounded),
+                      ),
+                      ButtonSegment<bool>(
+                        value: true,
+                        label: Text('SMS'),
+                        icon: Icon(Icons.sms_outlined),
+                      ),
+                    ],
+                    selected: <bool>{_mfaSmsPreferred},
+                    onSelectionChanged: (Set<bool> next) {
+                      setState(() => _mfaSmsPreferred = next.first);
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, left: 4),
+                    child: Text(
+                      _mfaSmsPreferred
+                          ? 'No login: SMS após associar este número ao Firebase Auth.'
+                          : 'No login: código de 6 dígitos enviado ao seu e-mail.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -301,6 +409,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     controller: _cpfController,
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.next,
+                    inputFormatters: [_cpfFormatter],
                     decoration: _fieldDecoration(
                       context: context,
                       hintText: '000.000.000-00',

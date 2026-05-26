@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Impressão digital / face unlock (API 28+ usa USE_BIOMETRIC). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <!-- Compatibilidade com leitores de impressão digital mais antigos. -->
+    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
     <application
         android:label="Mescla Invest"
         android:name="${applicationName}"

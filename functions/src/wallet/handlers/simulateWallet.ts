@@ -10,6 +10,10 @@
  *   - `brlBalance` (saldo disponível)
  *   - `ledger/*` (histórico mínimo)
  *   - `positions/{startupId}` (posição do investidor)
+ * - Atualizar `startups/{startupId}` com captação simulada:
+ *   - soma `amountBrl` nas compras e subtrai nas vendas → `valor_captado_acumulado_brl`
+ *     (dinheiro líquido agregado de **todos** os investidores que negociam esta startup);
+ *   - `progresso_captacao` = captado ÷ `captacao_esperada` (0..1).
  *
  * Decisões importantes:
  * - O cliente **não** pode escrever diretamente em `sim_wallet` (regras Firestore).
@@ -26,11 +30,22 @@ import {
   MAX_OP_BRL,
   REGION,
   ROOT,
+  STARTUP_FIELD_CAPTACAO_ESPERADA,
   STARTUP_FIELD_INVESTOR_UIDS,
+  STARTUP_FIELD_PROGRESSO_CAPTACAO,
+  STARTUP_FIELD_VALOR_CAPTADO_ACUMULADO,
   STARTUPS_COLLECTION,
   USER_FIELD_INVESTOR_STARTUP_IDS,
   USERS_COLLECTION,
 } from "../shared/constants.js";
+import {
+  computeCaptureProgressFraction,
+  readOptionalNonNegativeNumber,
+} from "../shared/captureProgressMath.js";
+import {
+  computeSellPositionUpdate,
+  mergeBuyPosition,
+} from "../shared/positionTradeMath.js";
 import {
   assertAmountMatchesTrade,
   clip,
@@ -191,19 +206,39 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
         }
 
         const positionRef = walletRef.collection("positions").doc(startupId);
+        const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
         const posSnap = await trx.get(positionRef);
+        const startupTrxSnap = await trx.get(startupRef);
         const posData = posSnap.data() ?? {};
-        let tokensHeld =
-          typeof posData.tokensHeld === "number"
-            ? (posData.tokensHeld as number)
-            : 0;
-        let costBasisBrl =
-          typeof posData.costBasisBrl === "number"
-            ? (posData.costBasisBrl as number)
-            : 0;
+        const prevPos =
+          posSnap.exists &&
+          (typeof posData.tokensHeld === "number" ||
+            typeof posData.costBasisBrl === "number")
+            ? {
+                tokensHeld:
+                  typeof posData.tokensHeld === "number"
+                    ? (posData.tokensHeld as number)
+                    : 0,
+                costBasisBrl:
+                  typeof posData.costBasisBrl === "number"
+                    ? (posData.costBasisBrl as number)
+                    : 0,
+              }
+            : undefined;
+        const {tokensHeld, costBasisBrl} = mergeBuyPosition(
+          prevPos,
+          tokens,
+          amountBrl
+        );
 
-        tokensHeld += tokens;
-        costBasisBrl += amountBrl;
+        const sd = startupTrxSnap.data() ?? {};
+        const esperada =
+          readOptionalNonNegativeNumber(sd[STARTUP_FIELD_CAPTACAO_ESPERADA]) ?? 0;
+        let captado =
+          readOptionalNonNegativeNumber(sd[STARTUP_FIELD_VALOR_CAPTADO_ACUMULADO]) ??
+          0;
+        captado += amountBrl;
+        const progress = computeCaptureProgressFraction(captado, esperada);
 
         trx.set(walletRef, {brlBalance: balance - amountBrl}, {merge: true});
         trx.set(
@@ -229,11 +264,12 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
           {merge: true}
         );
 
-        const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
         trx.set(
           startupRef,
           {
             [STARTUP_FIELD_INVESTOR_UIDS]: FieldValue.arrayUnion(uid),
+            [STARTUP_FIELD_VALOR_CAPTADO_ACUMULADO]: captado,
+            [STARTUP_FIELD_PROGRESSO_CAPTACAO]: progress,
           },
           {merge: true}
         );
@@ -284,34 +320,54 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
           : 0;
 
       const positionRef = walletRef.collection("positions").doc(startupId);
+      const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
       const posSnap = await trx.get(positionRef);
+      const startupTrxSnap = await trx.get(startupRef);
       const posData = posSnap.data() ?? {};
-      let tokensHeld =
+      const tokensHeldRaw =
         typeof posData.tokensHeld === "number"
           ? (posData.tokensHeld as number)
           : 0;
-      const costBasisBrl =
+      const costBasisBrlRaw =
         typeof posData.costBasisBrl === "number"
           ? (posData.costBasisBrl as number)
           : 0;
 
-      if (!posSnap.exists || tokensHeld < tokens - 1e-12) {
+      if (!posSnap.exists) {
         throw new HttpsError(
           "failed-precondition",
           "Quantidade insuficiente de tokens nesta startup."
         );
       }
 
-      const costRemoved =
-        tokensHeld <= 1e-12 ? 0 : costBasisBrl * (tokens / tokensHeld);
+      const sellUp = computeSellPositionUpdate(
+        {tokensHeld: tokensHeldRaw, costBasisBrl: costBasisBrlRaw},
+        tokens
+      );
+      if (!sellUp.ok) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Quantidade insuficiente de tokens nesta startup."
+        );
+      }
 
-      tokensHeld -= tokens;
+      const sdSell = startupTrxSnap.data() ?? {};
+      const esperadaSell =
+        readOptionalNonNegativeNumber(sdSell[STARTUP_FIELD_CAPTACAO_ESPERADA]) ??
+        0;
+      let captadoSell =
+        readOptionalNonNegativeNumber(
+          sdSell[STARTUP_FIELD_VALOR_CAPTADO_ACUMULADO]
+        ) ?? 0;
+      captadoSell = Math.max(0, captadoSell - amountBrl);
+      const progressSell = computeCaptureProgressFraction(
+        captadoSell,
+        esperadaSell
+      );
 
       trx.set(walletRef, {brlBalance: balance + amountBrl}, {merge: true});
 
-      const newCost = Math.max(0, costBasisBrl - costRemoved);
-
-      if (tokensHeld <= 1e-9) {
+      if (sellUp.deletePosition) {
         trx.delete(positionRef);
         const userRef = db.collection(USERS_COLLECTION).doc(uid);
         trx.set(
@@ -321,11 +377,12 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
           },
           {merge: true}
         );
-        const startupRef = db.collection(STARTUPS_COLLECTION).doc(startupId);
         trx.set(
           startupRef,
           {
             [STARTUP_FIELD_INVESTOR_UIDS]: FieldValue.arrayRemove(uid),
+            [STARTUP_FIELD_VALOR_CAPTADO_ACUMULADO]: captadoSell,
+            [STARTUP_FIELD_PROGRESSO_CAPTACAO]: progressSell,
           },
           {merge: true}
         );
@@ -338,11 +395,19 @@ export const simulateWallet = onCall({region: REGION}, async (request) => {
             startupName,
             tokenSigla,
             category,
-            tokensHeld,
-            costBasisBrl: newCost,
+            tokensHeld: sellUp.tokensHeld,
+            costBasisBrl: sellUp.costBasisBrl,
             updatedAt: FieldValue.serverTimestamp(),
           },
           {merge: true},
+        );
+        trx.set(
+          startupRef,
+          {
+            [STARTUP_FIELD_VALOR_CAPTADO_ACUMULADO]: captadoSell,
+            [STARTUP_FIELD_PROGRESSO_CAPTACAO]: progressSell,
+          },
+          {merge: true}
         );
       }
 

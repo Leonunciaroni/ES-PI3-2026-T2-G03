@@ -82,6 +82,7 @@ SocioDetailViewData socioDetailViewDataFromFirestoreSocioMap(
     participationLabel: participationLabel,
     avatarFallbackColor: avatarColor,
     shortBio: pickSingle(<String>[
+      'Biografia',
       'Mini Biografia Profissional',
       'mini_biografia',
       'bio',
@@ -100,11 +101,66 @@ SocioDetailViewData socioDetailViewDataFromFirestoreSocioMap(
     responsibilities: pickSingle(<String>[
       'Responsabilidades na Startup',
       'Responsabilidades na startup',
+      'Responsabilidade na startup',
+      'Responsabilidade na Startup',
       'responsabilidades',
     ]),
     highlights: const <String>[],
     certifications: const <String>[],
     languages: splitList(pickSingle(<String>['Idiomas', 'idiomas'])),
+    isMockPlaceholder: false,
+  );
+}
+
+/// Objeto em `mentores_conselho` — chaves típicas: [Nome], [Biografia],
+/// `Responsabilidade(s) na startup` (singular/plural conforme documento).
+SocioDetailViewData socioDetailViewDataFromFirestoreMentorMap(
+  Map<String, dynamic> f,
+  Color avatarColor,
+) {
+  String? pickSingle(List<String> keys) {
+    for (final String k in keys) {
+      final Object? v = f[k];
+      if (v == null) {
+        continue;
+      }
+      final String s = v.toString().trim();
+      if (s.isNotEmpty) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  final String name = pickSingle(<String>['Nome', 'nome', 'name']) ?? '';
+  final String? resp = pickSingle(<String>[
+    'Responsabilidades na startup',
+    'Responsabilidade na startup',
+    'Responsabilidades na Startup',
+    'Responsabilidade na Startup',
+    'responsabilidades',
+    'responsabilidades_na_startup',
+    'responsabilidade_na_startup',
+  ]);
+
+  final String lineRole =
+      resp != null && resp.isNotEmpty ? resp : 'Mentor / conselho';
+
+  return SocioDetailViewData(
+    fullName: name.isEmpty ? '—' : name,
+    listRoleLine: lineRole,
+    participationLabel:
+        'Membro de mentoria ou conselho — sem quota societária nesta visão.',
+    avatarFallbackColor: avatarColor,
+    shortBio: pickSingle(<String>[
+      'Biografia',
+      'biografia',
+      'Mini Biografia Profissional',
+      'mini_biografia',
+      'bio',
+    ]),
+    linkedinUrl: pickSingle(<String>['LinkedIn', 'linkedin', 'linkedin_url']),
+    responsibilities: resp,
     isMockPlaceholder: false,
   );
 }
@@ -115,6 +171,12 @@ SocioDetailViewData resolveSocioDetailForTeamMember(StartupTeamMember member) {
     return member.detailPreview!;
   }
   if (member.firestoreFields != null && member.firestoreFields!.isNotEmpty) {
+    if (member.isMentorConselho) {
+      return socioDetailViewDataFromFirestoreMentorMap(
+        member.firestoreFields!,
+        member.avatarColor,
+      );
+    }
     return socioDetailViewDataFromFirestoreSocioMap(
       member.firestoreFields!,
       member.avatarColor,

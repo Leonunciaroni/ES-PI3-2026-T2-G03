@@ -6,6 +6,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:mescla_invest/catalog/data/chart_sample_time_axis.dart';
 import 'package:mescla_invest/catalog/data/startup_detail_mock.dart';
 import 'package:mescla_invest/catalog/models/catalog_startup.dart';
 import 'package:mescla_invest/catalog/models/startup_detail_load_state.dart';
@@ -16,6 +17,7 @@ import 'startup_firestore_mapper.dart';
 export 'socio_firestore_mapper.dart'
     show
         socioDetailViewDataFromFirestoreSocioMap,
+        socioDetailViewDataFromFirestoreMentorMap,
         resolveSocioDetailForTeamMember;
 export 'startup_detail_document.dart'
     show
@@ -88,14 +90,14 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
   final String? videoUrl = readFirestoreOptionalString(dNorm, kFieldVideoDemo);
   final String videoTitle = _videoTitleFromFirestore(dNorm, catalog);
   final double captureFraction = captureProgressFractionFromFirestore(dNorm);
+  final double? captacaoEsperadaReais = readFirestoreOptionalDouble(
+    dNorm,
+    kFieldCaptacaoEsperada,
+  );
   final String captureHeadline = _captureHeadlineFromFirestore(dNorm);
   final String valuationHeadline = _valuationHeadlineFromFirestore(dNorm);
-  final String rodadaRaw = readFirestoreString(
-    dNorm,
-    kFieldValuationRodada,
-  ).trim();
-  final String valuationRound = rodadaRaw.isEmpty ? 'VALUATION' : rodadaRaw;
-  final String valuationTrend = _valuationTrendFromFirestore(dNorm);
+  // Rodada não vem mais do Firestore — UI usa texto fixo simples.
+  const String valuationRound = 'VALUATION';
   final String headquarters = _headquartersFromFirestore(dNorm);
 
   return StartupDetailViewData(
@@ -104,13 +106,19 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
     longDescription: descricao.isEmpty ? catalog.description : descricao,
     captureHeadline: captureHeadline,
     captureProgressFraction: captureFraction,
-    captureProgressLabel: captureFraction <= 0
-        ? 'Meta de captação em definição'
-        : '${(captureFraction * 100).round()}% da meta atingida',
+    captureProgressLabel: _labelCaptacaoRodape(
+      captureFraction,
+      captacaoEsperadaReais,
+    ),
     valuationHeadline: valuationHeadline,
     valuationRoundLabel: valuationRound,
-    valuationTrendText: valuationTrend,
-    chartSeriesByPeriod: _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
+    chartSeriesByPeriod: _pinChartMapToValuationAtual(
+      _alignDetailChartSeriesForNow(
+        _chartSeriesFromFirestoreOrFallback(dNorm, catalog),
+        interpolateValues: true,
+      ),
+      readFirestoreOptionalDouble(dNorm, kFieldValuationAtual),
+    ),
     headquarters: headquarters,
     foundedLabel: foundedLabel,
     missionQuote: descricao.isEmpty
@@ -134,36 +142,35 @@ StartupDetailViewData detailViewDataFromFirestoreMap(
   );
 }
 
+/// Texto sob a barra de captação no detalhe: percentual coerente com [captureFraction].
+String _labelCaptacaoRodape(double fraction, double? metaReais) {
+  final bool temMeta = metaReais != null && metaReais > 0;
+  if (temMeta || fraction > 0) {
+    final int pct = (fraction.clamp(0.0, 1.0) * 100).round();
+    return '$pct% da meta atingida';
+  }
+  return 'Meta de captação em definição';
+}
+
 String _captureHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? direct = readFirestoreOptionalString(d, kFieldCaptacaoHeadline);
-  if (direct != null && direct.isNotEmpty) {
-    return direct;
+  final double? esp = readFirestoreOptionalDouble(d, kFieldCaptacaoEsperada);
+  final double? capt =
+      readFirestoreOptionalDouble(d, kFieldValorCaptadoAcumuladoBrl);
+  if (esp != null && esp > 0 && capt != null && capt >= 0) {
+    return 'R\$ ${_formatIntBR(capt.round())} / R\$ ${_formatIntBR(esp.round())}';
   }
-  final double? cap = readFirestoreOptionalDouble(d, kFieldValorCaptadoReais);
-  final double? meta = readFirestoreOptionalDouble(d, kFieldMetaCaptacaoReais);
-  if (cap != null && meta != null && meta > 0) {
-    return 'R\$ ${_formatIntBR(cap.round())} / R\$ ${_formatIntBR(meta.round())}';
-  }
-  if (cap != null) {
-    return 'R\$ ${_formatIntBR(cap.round())}';
+  if (esp != null && esp > 0) {
+    return 'Captação esperada: R\$ ${_formatIntBR(esp.round())}';
   }
   return 'R\$ —';
 }
 
 String _valuationHeadlineFromFirestore(Map<String, dynamic> d) {
-  final String? h = readFirestoreOptionalString(d, kFieldValuationHeadline);
-  if (h != null && h.isNotEmpty) {
-    return h;
+  final double? v = readFirestoreOptionalDouble(d, kFieldValuationAtual);
+  if (v != null && v > 0) {
+    return 'R\$ ${_formatIntBR(v.round())}';
   }
   return 'R\$ —';
-}
-
-String _valuationTrendFromFirestore(Map<String, dynamic> d) {
-  final String? t = readFirestoreOptionalString(d, kFieldValuationTendencia);
-  if (t != null && t.isNotEmpty) {
-    return t;
-  }
-  return '—';
 }
 
 String _headquartersFromFirestore(Map<String, dynamic> d) {
@@ -172,6 +179,167 @@ String _headquartersFromFirestore(Map<String, dynamic> d) {
     return s;
   }
   return '—';
+}
+
+DateTime? _chartInstantFromFirestoreValue(Object? v) {
+  if (v == null) {
+    return null;
+  }
+  if (v is Timestamp) {
+    return v.toDate();
+  }
+  if (v is String) {
+    final String s = v.trim();
+    if (s.isEmpty) {
+      return null;
+    }
+    final DateTime? parsed = DateTime.tryParse(s);
+    return parsed?.toLocal();
+  }
+  if (v is DateTime) {
+    return v.toLocal();
+  }
+  if (v is int) {
+    return DateTime.fromMillisecondsSinceEpoch(v, isUtc: true).toLocal();
+  }
+  if (v is double) {
+    final int ms = v.round();
+    return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+  }
+  return null;
+}
+
+double _interpolateValuationAlongSeries(
+  List<DateTime> tAsc,
+  List<double> v,
+  DateTime x,
+) {
+  if (tAsc.isEmpty) {
+    return 0;
+  }
+  if (tAsc.length != v.length || v.isEmpty) {
+    return v.isNotEmpty ? v.last : 0;
+  }
+  if (x.isBefore(tAsc.first) || x.isAtSameMomentAs(tAsc.first)) {
+    return v.first;
+  }
+  if (!x.isBefore(tAsc.last)) {
+    return v.last;
+  }
+  final int xms = x.millisecondsSinceEpoch;
+  for (var i = 0; i < tAsc.length - 1; i++) {
+    final int t0 = tAsc[i].millisecondsSinceEpoch;
+    final int t1 = tAsc[i + 1].millisecondsSinceEpoch;
+    if (xms >= t0 && xms <= t1) {
+      if (t1 <= t0) {
+        return v[i];
+      }
+      final double w = (xms - t0) / (t1 - t0);
+      return v[i] * (1 - w) + v[i + 1] * w;
+    }
+  }
+  return v.last;
+}
+
+/// Encosta todas as séries ao valuation oficial (`valuation_atual` em **reais** no Firestore),
+/// para o extremo direito de cada chip coincidir com o cartão de valuation.
+Map<ValuationPeriod, ValuationChartSeries> _pinChartMapToValuationAtual(
+  Map<ValuationPeriod, ValuationChartSeries> input,
+  double? valuationAtualReais,
+) {
+  if (valuationAtualReais == null ||
+      !valuationAtualReais.isFinite ||
+      valuationAtualReais <= 0) {
+    return input;
+  }
+  final double targetM = valuationAtualReais / 1e6;
+  final Map<ValuationPeriod, ValuationChartSeries> out =
+      <ValuationPeriod, ValuationChartSeries>{};
+  for (final MapEntry<ValuationPeriod, ValuationChartSeries> e in input.entries) {
+    final ValuationChartSeries s = e.value;
+    final List<double> ys = List<double>.from(s.valuationMillions);
+    if (ys.isEmpty) {
+      out[e.key] = s;
+      continue;
+    }
+    final double last = ys.last;
+    if (last <= 0) {
+      ys[ys.length - 1] = targetM;
+    } else {
+      final double factor = targetM / last;
+      for (var i = 0; i < ys.length; i++) {
+        ys[i] = ys[i] * factor;
+      }
+    }
+    out[e.key] = ValuationChartSeries(
+      valuationMillions: ys,
+      sampleTimes: s.sampleTimes,
+    );
+  }
+  return out;
+}
+
+bool _chartSeriesValuesLikelyFullReais(List<double> rawValues) {
+  if (rawValues.isEmpty) {
+    return false;
+  }
+  double maxAbs = 0;
+  for (final double v in rawValues) {
+    if (!v.isFinite) {
+      continue;
+    }
+    final double a = v.abs();
+    if (a > maxAbs) {
+      maxAbs = a;
+    }
+  }
+  return maxAbs >= 100000;
+}
+
+/// Ancora [sampleTimes] em [DateTime.now] por período (§5.4). Com
+/// [interpolateValues], recalcula Y por interpolação linear na série antiga —
+/// uso típico para dados Firestore; mocks usam `false` (só reposicionam o eixo).
+Map<ValuationPeriod, ValuationChartSeries> _alignDetailChartSeriesForNow(
+  Map<ValuationPeriod, ValuationChartSeries> input, {
+  required bool interpolateValues,
+}) {
+  final DateTime now = DateTime.now();
+  final Map<ValuationPeriod, ValuationChartSeries> out =
+      <ValuationPeriod, ValuationChartSeries>{};
+  for (final MapEntry<ValuationPeriod, ValuationChartSeries> e
+      in input.entries) {
+    final ValuationChartSeries s = e.value;
+    final List<double> ys = s.valuationMillions;
+    final List<DateTime> oldT = s.sampleTimes;
+    final int n = ys.length;
+    if (n == 0) {
+      out[e.key] = s;
+      continue;
+    }
+    final List<DateTime> newTimes = chartEvenlySpacedTimes(
+      chartWindowStartForPeriodIndex(e.key.index, now),
+      now,
+      n,
+    );
+    final List<double> newYs;
+    if (interpolateValues &&
+        oldT.length == n &&
+        n >= 2 &&
+        !oldT.first.isAtSameMomentAs(oldT.last)) {
+      newYs = newTimes
+          .map(
+            (DateTime tx) => _interpolateValuationAlongSeries(oldT, ys, tx),
+          )
+          .toList();
+    } else {
+      newYs = List<double>.from(ys);
+    }
+    out[e.key] = ValuationChartSeries(
+      valuationMillions: newYs,
+      sampleTimes: newTimes,
+    );
+  }
+  return out;
 }
 
 Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
@@ -209,31 +377,35 @@ Map<ValuationPeriod, ValuationChartSeries> _chartSeriesFromFirestoreOrFallback(
     if (value is! List) {
       return null;
     }
-    final List<DateTime> times = [];
-    final List<double> vals = [];
+    final pairs = <({DateTime t, double v})>[];
     for (final Object? item in value) {
       final Map<String, dynamic>? m = _asStringKeyMap(item);
       if (m == null) {
         continue;
       }
-      final String t = readFirestoreString(m, 't');
-      final double? v =
+      final DateTime? dt = _chartInstantFromFirestoreValue(m['t']) ??
+          _chartInstantFromFirestoreValue(m['T']);
+      final double? val =
           readFirestoreOptionalDouble(m, 'v') ??
           readFirestoreOptionalDouble(m, 'valor');
-      if (v == null) {
+      if (dt == null || val == null) {
         continue;
       }
-      final DateTime? dt = DateTime.tryParse(t);
-      if (dt == null) {
-        continue;
-      }
-      times.add(dt);
-      vals.add(v);
+      pairs.add((t: dt, v: val));
     }
-    if (times.isEmpty || times.length != vals.length) {
+    if (pairs.isEmpty) {
       return null;
     }
-    return ValuationChartSeries(valuationMillions: vals, sampleTimes: times);
+    pairs.sort((a, b) => a.t.compareTo(b.t));
+    final List<double> raw = pairs.map((e) => e.v).toList();
+    final bool asReais = _chartSeriesValuesLikelyFullReais(raw);
+    final List<double> millions = raw
+        .map((double v) => asReais ? v / 1e6 : v)
+        .toList();
+    return ValuationChartSeries(
+      valuationMillions: millions,
+      sampleTimes: pairs.map((e) => e.t).toList(),
+    );
   }
 
   final Map<ValuationPeriod, ValuationChartSeries> out = {};
@@ -334,12 +506,54 @@ List<StartupTeamMember> _teamFromFirestore(Map<String, dynamic> d) {
             name: name,
             role: 'Mentor / conselho',
             avatarColor: _avatarColorForString(name),
+            isMentorConselho: true,
           ),
         );
+        continue;
       }
+      final Map<String, dynamic>? map = _asStringKeyMap(m);
+      if (map == null) {
+        continue;
+      }
+      final String nome = socioNomeParaExibicao(map);
+      if (nome.trim().isEmpty) {
+        continue;
+      }
+      final String nomeTrim = nome.trim();
+      final String respons = _mentorResponsibilityFromFirestoreMap(map);
+      final String role =
+          respons.isNotEmpty ? respons : 'Mentor / conselho';
+      out.add(
+        StartupTeamMember(
+          name: nomeTrim,
+          role: role,
+          avatarColor: _avatarColorForString(nomeTrim),
+          firestoreFields: Map<String, dynamic>.from(map),
+          isMentorConselho: true,
+        ),
+      );
     }
   }
   return out;
+}
+
+/// Firestore usa chaves ligeiramente diferentes entre documentos (`Responsabilidade` vs `Responsabilidades`).
+String _mentorResponsibilityFromFirestoreMap(Map<String, dynamic> map) {
+  final List<String> keys = <String>[
+    'Responsabilidades na startup',
+    'Responsabilidade na startup',
+    'Responsabilidades na Startup',
+    'Responsabilidade na Startup',
+    'responsabilidades_na_startup',
+    'responsabilidade_na_startup',
+  ];
+  for (final String k in keys) {
+    final String s = readFirestoreString(map, k).trim();
+    if (s.isNotEmpty) {
+      return s;
+    }
+  }
+  return '';
 }
 
 Color _avatarColorForString(String s) {

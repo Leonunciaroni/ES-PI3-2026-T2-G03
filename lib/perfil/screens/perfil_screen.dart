@@ -6,6 +6,7 @@
 // Firestore `users/{uid}`. A barra inferior continua a ser a do
 // [MesclaMainShell] — este widget é só o corpo do separador 4.
 
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -19,6 +20,7 @@ import 'ajuda_suporte_screen.dart';
 import 'favoritos_screen.dart';
 import 'modo_aparencia_screen.dart';
 import 'seguranca_privacidade_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Dados de exibição depois de resolver nome (Auth / Firestore / fallback).
 class _PerfilDados {
@@ -115,6 +117,8 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
+  File? _imagemAvatar;
+  final ImagePicker _picker = ImagePicker();
   /// Uma instância por ecrã: evita relançar o [Future] a cada [build].
   late final Future<_PerfilDados> _carga = _carregarPerfil();
 
@@ -237,6 +241,144 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  void _mostrarOpcoesAvatar() {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(24),
+      ),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+
+            const Text(
+              'Escolher foto do perfil',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Tirar foto'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _tirarFoto();
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Escolher da galeria'),
+              onTap: () async{
+                Navigator.pop(context);
+                await _escolherGaleria();
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: const Text('Remover foto'),
+              onTap: () {
+                Navigator.pop(context);
+                _removerFoto();
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+  
+  Future<void> _tirarFoto() async {
+    final imagem = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+
+    if (imagem == null) return;
+
+    setState(() {
+      _imagemAvatar = File(imagem.path);
+    });
+  }
+
+  Future<void> _escolherGaleria() async {
+    final imagem = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (imagem == null) return;
+
+    setState(() {
+      _imagemAvatar = File(imagem.path);
+    });
+  }
+
+  Future<void> _removerFoto() async {
+
+    if (_imagemAvatar == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Você não possui foto de perfil'),
+        ),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remover foto'),
+          content: const Text(
+            'Deseja realmente remover sua foto de perfil?',
+          ),
+          actions: [
+
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Cancelar'),
+            ),
+
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Remover'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    setState(() {
+      _imagemAvatar = null;
+    });
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Foto removida com sucesso'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -289,6 +431,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 primary: primary,
                 theme: theme,
                 cardColor: theme.colorScheme.surface,
+                onAvatarTap: _mostrarOpcoesAvatar,
+                imagemAvatar: _imagemAvatar,
               ),
               const SizedBox(height: 20),
               Text(
@@ -425,6 +569,8 @@ class _PerfilUserCard extends StatelessWidget {
     required this.primary,
     required this.theme,
     required this.cardColor,
+    required this.onAvatarTap,
+    required this.imagemAvatar,
   });
 
   final String iniciais;
@@ -433,6 +579,8 @@ class _PerfilUserCard extends StatelessWidget {
   final Color primary;
   final ThemeData theme;
   final Color cardColor;
+  final VoidCallback onAvatarTap;
+  final File? imagemAvatar;
 
   @override
   Widget build(BuildContext context) {
@@ -446,22 +594,35 @@ class _PerfilUserCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: primary,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                iniciais,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+            GestureDetector(
+              onTap: onAvatarTap,
+              child: Container(
+                width: 72,
+                height: 72,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: primary,
+                  shape: BoxShape.circle,
                 ),
+                child: imagemAvatar != null
+                  ? ClipOval(
+                      child: Image.file(
+                        imagemAvatar!,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Text(
+                      iniciais,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
               ),
             ),
+            
             const SizedBox(width: 16),
             Expanded(
               child: Column(

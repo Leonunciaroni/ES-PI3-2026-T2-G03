@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../services/password_reset_service.dart';
+import '../widgets/otp_delivery_banner.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'reset_password_screen.dart';
@@ -346,9 +347,14 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
                                     color: colorScheme.onSurface,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 14),
+                                OtpDeliveryBanner(
+                                  channel: OtpDeliveryChannel.email,
+                                  destinationDetail: widget.email.trim(),
+                                ),
+                                const SizedBox(height: 14),
                                 Text(
-                                  'Digite o código de 6 dígitos enviado para\n${widget.email}',
+                                  'Digite abaixo o código de 6 dígitos recebido neste e-mail.',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: AppColors.secondaryLabel(theme),

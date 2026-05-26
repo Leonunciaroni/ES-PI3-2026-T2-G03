@@ -1,20 +1,24 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Passo de **senha** no fluxo do Balcão. A validação é feita com a **mesma senha
-// do login, via reautenticação no [FirebaseAuth] (a senha não fica armazenada na app).
+// Passo de **confirmação** no fluxo do Balcão: pode ser **biometria local** (se o
+// utilizador activou em Segurança) ou **senha** com reautenticação no [FirebaseAuth]
+// (a senha não fica guardada na app).
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../auth/services/auth_service.dart';
+import '../../auth/services/biometric_auth_service.dart';
+import '../../auth/services/biometric_shortcut_availability.dart';
 import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
 import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../balcao_format.dart';
+import '../balcao_official_price.dart';
 import '../models/balcao_operacao_tipo.dart';
 import '../models/balcao_transacao.dart';
 import 'balcao_transacao_detalhe_screen.dart';
@@ -26,11 +30,17 @@ class BalcaoCompraSenhaScreen extends StatefulWidget {
     required this.startup,
     required this.operacao,
     required this.valorReaisOperacao,
+    required this.quantidadeTokensNegocio,
   });
 
   final CatalogStartup startup;
   final BalcaoOperacaoTipo operacao;
+
+  /// Total em reais já alinhado ao contrato do backend ([balcaoResolveMercadoDesdeBrl] ou quantidade).
   final double valorReaisOperacao;
+
+  /// Quantidade de tokens enviada ao `simulateWallet`.
+  final double quantidadeTokensNegocio;
 
   @override
   State<BalcaoCompraSenhaScreen> createState() => _BalcaoCompraSenhaScreenState();
@@ -42,10 +52,34 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   String? _erro;
   bool _enviando = false;
 
-  double get _quantidadeTokensCalculada {
-    final p = widget.startup.tokenPrice;
-    if (p <= 0) return 0;
-    return widget.valorReaisOperacao / p;
+  /// Se `true`, bloco biométrico + prompt automático (como o ecrã de desbloqueio).
+  bool _oferecerBiometria = false;
+
+  /// Evita abrir o diálogo do SO duas vezes ao mesmo tempo.
+  bool _disparouPromptBiometriaInicial = false;
+
+  double get _quantidadeTokensNegocio =>
+      widget.quantidadeTokensNegocio;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _actualizarOfertaBiometria());
+  }
+
+  /// Só Firestore + armazenamento seguro (igual [AuthGateScreen]), sem pre-check do plugin.
+  Future<void> _actualizarOfertaBiometria() async {
+    final bool ok =
+        await BiometricShortcutAvailability.userWantsBiometricShortcut();
+    if (!mounted) return;
+    setState(() => _oferecerBiometria = ok);
+    if (!ok || _disparouPromptBiometriaInicial) return;
+    _disparouPromptBiometriaInicial = true;
+    // Pequena pausa: o ecrã desenha-se primeiro; depois abrimos o diálogo do SO (como no login).
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+    if (!mounted || !_oferecerBiometria) return;
+    await _onConfirmarComBiometria();
   }
 
   @override
@@ -60,6 +94,155 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
     final n = widget.startup.name;
     if (n.length <= 5) return n.toUpperCase();
     return n.substring(0, 4).toUpperCase();
+  }
+
+  String get _razaoBiometriaBalcao {
+    return widget.operacao == BalcaoOperacaoTipo.compra
+        ? 'Confirme a compra de tokens no Mescla Invest.'
+        : 'Confirme a venda de tokens no Mescla Invest.';
+  }
+
+  /// Caminho alternativo: o SO valida biometria; não chamamos [reauthenticateWithCredential].
+  Future<void> _onConfirmarComBiometria() async {
+    if (_enviando) return;
+
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(
+        () => _erro = 'Sessão expirada. Entre de novo com seu e-mail e senha.',
+      );
+      return;
+    }
+
+    setState(() {
+      _erro = null;
+      _enviando = true;
+    });
+
+    final BiometricAuthOutcome resultado =
+        await BiometricAuthService.instance.authenticate(
+      localizedReason: _razaoBiometriaBalcao,
+      skipPluginAvailabilityPrecheck: true,
+    );
+
+    if (resultado != BiometricAuthOutcome.success) {
+      if (mounted) {
+        setState(() {
+          _erro = BiometricAuthService.messageForOutcome(resultado);
+          _enviando = false;
+        });
+      }
+      return;
+    }
+
+    await _executarNegocioAposIdentidadeVerificada(user);
+  }
+
+  /// Executa cotação, validações e `simulateWallet` depois de saber que o utilizador
+  /// se identificou (senha ou biometria local).
+  Future<void> _executarNegocioAposIdentidadeVerificada(User user) async {
+    try {
+      if (widget.startup.firestoreId == null ||
+          widget.startup.firestoreId!.isEmpty) {
+        throw StateError(
+          'Esta startup não tem ID Firestore necessário ao balcão simulado.',
+        );
+      }
+
+      final fid = widget.startup.firestoreId!;
+      final precoOficial = await fetchPrecoTokenOficialBrl(fid);
+      if (!mounted) return;
+
+      if (precoOficial == null) {
+        setState(() {
+          _erro =
+              'Cotação indisponível no servidor. Tente novamente em instantes.';
+          _enviando = false;
+        });
+        return;
+      }
+
+      if (!balcaoAmountMatchesTrade(
+        widget.valorReaisOperacao,
+        _quantidadeTokensNegocio,
+        precoOficial,
+      )) {
+        setState(() {
+          _erro =
+              'A cotação no servidor atualizou-se. Volte e confira o valor total antes de repetir.';
+          _enviando = false;
+        });
+        return;
+      }
+
+      switch (widget.operacao) {
+        case BalcaoOperacaoTipo.compra:
+          final saldo =
+              await SimulatedWalletService.fetchBrlBalance(user.uid);
+          if (!mounted) return;
+          if (widget.valorReaisOperacao > saldo + balcaoEpsilonBrl) {
+            setState(() {
+              _erro =
+                  'Saldo actualizado: o disponível não cobre mais este total. Volte ao passo anterior.';
+              _enviando = false;
+            });
+            return;
+          }
+          await SimulatedWalletService.tradeBuy(
+            startup: widget.startup,
+            valorReais: widget.valorReaisOperacao,
+            quantidadeTokens: _quantidadeTokensNegocio,
+          );
+          break;
+        case BalcaoOperacaoTipo.venda:
+          final held = await SimulatedWalletService.fetchTokensHeld(
+            user.uid,
+            fid,
+          );
+          if (!mounted) return;
+          final h = held ?? 0;
+          if (_quantidadeTokensNegocio > h + 1e-9) {
+            setState(() {
+              _erro =
+                  'A sua posição mudou desde o passo anterior. Volte para ajustar a quantidade.';
+              _enviando = false;
+            });
+            return;
+          }
+          await SimulatedWalletService.tradeSell(
+            startup: widget.startup,
+            valorReais: widget.valorReaisOperacao,
+            quantidadeTokens: _quantidadeTokensNegocio,
+          );
+          break;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _erro = SimulatedWalletService.messageForUser(e);
+        _enviando = false;
+      });
+      return;
+    }
+
+    setState(() => _enviando = false);
+    if (!mounted) return;
+
+    final agora = DateTime.now();
+    final detalhe = BalcaoTransacaoDetalhe(
+      operacao: widget.operacao,
+      nomeToken: _nomeToken,
+      quantidadeTokens: _quantidadeTokensNegocio,
+      valorReais: widget.valorReaisOperacao,
+      dataHora: agora,
+      status: 'Concluída',
+    );
+
+    Navigator.of(context).pushReplacement(
+      MesclaMaterialRoute.fadeSlide<void>(
+        (context) => BalcaoTransacaoDetalheScreen(detalhe: detalhe),
+      ),
+    );
   }
 
   /// Confere a senha com o Firebase: tem de ser a mesma do login (e-mail + senha).
@@ -122,57 +305,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
 
     if (!mounted) return;
 
-    try {
-      if (widget.startup.firestoreId == null ||
-          widget.startup.firestoreId!.isEmpty) {
-        throw StateError(
-          'Esta startup não tem ID Firestore necessário ao balcão simulado.',
-        );
-      }
-
-      switch (widget.operacao) {
-        case BalcaoOperacaoTipo.compra:
-          await SimulatedWalletService.tradeBuy(
-            startup: widget.startup,
-            valorReais: widget.valorReaisOperacao,
-            quantidadeTokens: _quantidadeTokensCalculada,
-          );
-          break;
-        case BalcaoOperacaoTipo.venda:
-          await SimulatedWalletService.tradeSell(
-            startup: widget.startup,
-            valorReais: widget.valorReaisOperacao,
-            quantidadeTokens: _quantidadeTokensCalculada,
-          );
-          break;
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _erro = SimulatedWalletService.messageForUser(e);
-        _enviando = false;
-      });
-      return;
-    }
-
-    setState(() => _enviando = false);
-    if (!mounted) return;
-
-    final agora = DateTime.now();
-    final detalhe = BalcaoTransacaoDetalhe(
-      operacao: widget.operacao,
-      nomeToken: _nomeToken,
-      quantidadeTokens: _quantidadeTokensCalculada,
-      valorReais: widget.valorReaisOperacao,
-      dataHora: agora,
-      status: 'Concluída',
-    );
-
-    Navigator.of(context).pushReplacement(
-      MesclaMaterialRoute.fadeSlide<void>(
-        (context) => BalcaoTransacaoDetalheScreen(detalhe: detalhe),
-      ),
-    );
+    await _executarNegocioAposIdentidadeVerificada(user);
   }
 
   @override
@@ -227,12 +360,81 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${formatBrl(widget.valorReaisOperacao)} ≈ ${formatQuantidadeTokensBr(_quantidadeTokensCalculada)} tokens',
+                '${formatBrl(widget.valorReaisOperacao)} · ${formatQuantidadeTokensBr(_quantidadeTokensNegocio)} tokens',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.secondaryLabel(theme),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              if (_oferecerBiometria) ...[
+                Material(
+                  color: AppColors.themeCardSurface(theme),
+                  borderRadius: BorderRadius.circular(16),
+                  elevation: 1,
+                  shadowColor: Colors.black.withValues(alpha: 0.06),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Icon(
+                          Icons.fingerprint_rounded,
+                          size: 44,
+                          color: scheme.primary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Primeiro: biometria deste aparelho',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'O sistema deve pedir rosto ou digital (como ao abrir o app). '
+                          'Se cancelar, use a senha mais abaixo.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppColors.secondaryLabel(theme),
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed: _enviando ? null : _onConfirmarComBiometria,
+                          icon: const Icon(Icons.fingerprint_rounded),
+                          label: const Text('Tentar biometria de novo'),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: AppColors.cardDivider(theme))),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'ou senha do login',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: AppColors.secondaryLabel(theme),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.cardDivider(theme))),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
               TextField(
                 controller: _senhaController,
                 obscureText: _ocultarSenha,
@@ -301,7 +503,9 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Usamos a mesma senha com que você entra no app.',
+                _oferecerBiometria
+                    ? 'A biometria confirma só neste aparelho; a senha revalida a conta no Firebase.'
+                    : 'Usamos a mesma senha com que você entra no app.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: AppColors.secondaryLabel(theme),

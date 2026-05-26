@@ -5,12 +5,18 @@
 // A lista vem da callable `listStartups` via [StartupCatalogFunctionsService];
 // em testes injeta-se [startupsFutureForTesting].
 
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/catalog_startup.dart';
 import '../services/startup_catalog_functions_service.dart';
 import '../services/startup_catalog_list_cache.dart';
+import '../services/startup_firestore_mapper.dart';
 import '../services/startup_logo_precache_service.dart';
 import '../widgets/catalog_startup_card.dart';
 import '../../theme/app_colors.dart';
@@ -24,6 +30,15 @@ enum _ChipFilter {
   novas,
   emOperacao,
   emExpansao,
+}
+
+/// Firebase inicializado (Firestore ao vivo para `preco_token`).
+bool _catalogFirebaseAoVivo() {
+  try {
+    return Firebase.apps.isNotEmpty;
+  } catch (_) {
+    return false;
+  }
 }
 
 // --- Tela principal ---------------------------------------------------------
@@ -71,10 +86,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   static const _horizontalPadding = 20.0;
 
+  /// Uma vez por instalação: backfill dos contadores de captação a partir do ledger histórico.
+  static const _kLedgerCaptureBackfillDone = 'ledger_capture_backfill_done_v1';
+
   late final StartupCatalogFunctionsService _functionsService;
 
   /// Pedido atual à callable (ou future de teste); novo objeto quando mudam chip/busca em produção.
   Future<List<CatalogStartup>>? _loadFuture;
+  Timer? _searchDebounce;
+  static const Duration _kSearchDebounceDelay = Duration(milliseconds: 300);
 
   @override
   void initState() {
@@ -83,6 +103,29 @@ class _CatalogScreenState extends State<CatalogScreen> {
         widget.catalogFunctionsService ?? StartupCatalogFunctionsService();
     _loadFuture = _createLoadFuture();
     _kickLogoPrefetchWhenListReady();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeRunLedgerCaptureBackfillOnce());
+    });
+  }
+
+  /// Após deploy das Functions, alinha documentos `startups/*` com o ledger já existente.
+  Future<void> _maybeRunLedgerCaptureBackfillOnce() async {
+    if (!_catalogFirebaseAoVivo()) return;
+    if (widget.startupsFutureForTesting != null) return;
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_kLedgerCaptureBackfillDone) == true) return;
+      await _functionsService.reconcileAllStartupsCapture();
+      await prefs.setBool(_kLedgerCaptureBackfillDone, true);
+      if (!mounted) return;
+      StartupCatalogListCache.instance.clear();
+      setState(() {
+        _loadFuture = _createLoadFuture();
+      });
+      _kickLogoPrefetchWhenListReady();
+    } catch (_) {
+      // Mantém o catálogo utilizável; pode tentar de novo no próximo arranque.
+    }
   }
 
   /// Após cada regressão ao backend (callable ou cache global), aquece fotos Storage em fundo
@@ -157,9 +200,22 @@ class _CatalogScreenState extends State<CatalogScreen> {
     _kickLogoPrefetchWhenListReady();
   }
 
+  void _onSearchChanged() {
+    if (widget.startupsFutureForTesting != null) {
+      setState(() {});
+      return;
+    }
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_kSearchDebounceDelay, () {
+      if (!mounted) return;
+      _reloadFromBackendIfNeeded();
+    });
+  }
+
   @override
   void dispose() {
     // Sem isto, o TextEditingController mantém referências depois de sair da tela.
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -192,6 +248,71 @@ class _CatalogScreenState extends State<CatalogScreen> {
   /// Lista visível após aplicar chip + texto de busca sobre [all].
   List<CatalogStartup> _visibleFrom(List<CatalogStartup> all) {
     return all.where((s) => _matchesChip(s) && _matchesSearch(s)).toList();
+  }
+
+  /// Cards do Explorar; em produção com Firebase, `preco_token` e progresso de captação
+  /// vêm dos snapshots da coleção [kFirestoreStartupsCollection] (scheduler / carteira).
+  Widget _catalogListaComPrecoAoVivo({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required List<CatalogStartup> raw,
+  }) {
+    final List<CatalogStartup> visible =
+        widget.startupsFutureForTesting != null
+            ? _visibleFrom(raw)
+            : raw;
+
+    Widget coluna(List<CatalogStartup> rows) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ...rows.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: CatalogStartupCard(
+                startup: s,
+                primary: colorScheme.primary,
+                functionsService: _functionsService,
+                onInvestir: widget.onInvestir,
+              ),
+            ),
+          ),
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 32),
+              child: Text(
+                'Nenhuma startup encontrada.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    if (widget.startupsFutureForTesting != null || !_catalogFirebaseAoVivo()) {
+      return coluna(visible);
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection(kFirestoreStartupsCollection)
+          .snapshots(),
+      builder: (context, fsSnap) {
+        List<CatalogStartup> merged = raw;
+        if (fsSnap.hasData) {
+          final Map<String, Map<String, dynamic>> byId = <String, Map<String, dynamic>>{
+            for (final QueryDocumentSnapshot<Map<String, dynamic>> d in fsSnap.data!.docs)
+              d.id: d.data(),
+          };
+          merged = catalogMergeLiveFirestoreDocs(raw, byId);
+        }
+        final rows = merged;
+        return coluna(rows);
+      },
+    );
   }
 
   /// Borda arredondada tipo "pílula" para o campo de busca.
@@ -253,13 +374,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         // Campo de busca: cor de fundo #E2E2E2 definida em [AppColors.searchFieldFill].
                         TextField(
                           controller: _searchController,
-                          onChanged: (_) {
-                            if (widget.startupsFutureForTesting != null) {
-                              setState(() {});
-                            } else {
-                              _reloadFromBackendIfNeeded();
-                            }
-                          },
+                          onChanged: (_) => _onSearchChanged(),
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             hintText: 'Buscar startups, setores...',
@@ -344,36 +459,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
                               );
                             }
                             final List<CatalogStartup> raw = snapshot.data!;
-                            final List<CatalogStartup> visible =
-                                widget.startupsFutureForTesting != null
-                                    ? _visibleFrom(raw)
-                                    : raw;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                ...visible.map(
-                                  (s) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: CatalogStartupCard(
-                                      startup: s,
-                                      primary: colorScheme.primary,
-                                      functionsService: _functionsService,
-                                      onInvestir: widget.onInvestir,
-                                    ),
-                                  ),
-                                ),
-                                if (visible.isEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 32),
-                                    child: Text(
-                                      'Nenhuma startup encontrada.',
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodyLarge?.copyWith(
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                            return _catalogListaComPrecoAoVivo(
+                              theme: theme,
+                              colorScheme: colorScheme,
+                              raw: raw,
                             );
                           },
                         ),
