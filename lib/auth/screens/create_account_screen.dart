@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 import '../services/user_firestore_service.dart';
+import '../../perfil/screens/termos_uso_privacidade_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/auth_service.dart';
@@ -131,6 +132,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _openTermosUsoPrivacidade() {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const TermosUsoPrivacidadeScreen(),
+      ),
+    );
+  }
+
   bool _isEmailPlausible(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return false;
@@ -255,9 +264,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       if (!mounted) return;
       await Navigator.of(context).pushAndRemoveUntil<void>(
         MaterialPageRoute<void>(
-          builder: (_) => SignupVerificationFlowScreen(
-            userEmail: normalizedEmail,
-          ),
+          builder: (_) =>
+              SignupVerificationFlowScreen(userEmail: normalizedEmail),
         ),
         (route) => false,
       );
@@ -532,19 +540,37 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               ),
                               children: [
                                 const TextSpan(text: 'Li e aceito os '),
-                                TextSpan(
-                                  text: 'Termos de Uso',
-                                  style: TextStyle(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w700,
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.baseline,
+                                  baseline: TextBaseline.alphabetic,
+                                  child: GestureDetector(
+                                    onTap: _openTermosUsoPrivacidade,
+                                    child: Text(
+                                      'Termos de Uso',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.35,
+                                          ),
+                                    ),
                                   ),
                                 ),
                                 const TextSpan(text: ' e a '),
-                                TextSpan(
-                                  text: 'Politica de Privacidade',
-                                  style: TextStyle(
-                                    color: colorScheme.primary,
-                                    fontWeight: FontWeight.w700,
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.baseline,
+                                  baseline: TextBaseline.alphabetic,
+                                  child: GestureDetector(
+                                    onTap: _openTermosUsoPrivacidade,
+                                    child: Text(
+                                      'Política de Privacidade',
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.35,
+                                          ),
+                                    ),
                                   ),
                                 ),
                               ],
