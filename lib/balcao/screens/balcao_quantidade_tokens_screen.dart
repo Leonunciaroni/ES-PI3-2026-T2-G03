@@ -1,19 +1,19 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Compra: valor em reais a investir. Venda: o utilizador escolhe **em reais**
-// ou **em tokens** (dois modos), depois confirma no diálogo e segue para a senha.
-// Montantes enviados à Cloud Function são alinhados ao `EPSILON_BRL` ([balcao_format]).
+// Compra e venda à mercado: o utilizador informa **quantidade inteira de tokens**,
+// confirma no diálogo e segue para a senha. Montantes em BRL alinham-se ao
+// `EPSILON_BRL` ([balcao_format]).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../../navigation/mescla_material_route.dart';
 import '../../carteira/format/carteira_brl.dart';
-import '../../carteira/format/carteira_valor_input.dart';
 import '../../carteira/services/simulated_wallet_service.dart';
 import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
@@ -22,16 +22,10 @@ import '../balcao_official_price.dart';
 import '../models/balcao_operacao_tipo.dart';
 import 'balcao_compra_senha_screen.dart';
 
-/// Modo de entrada na **venda**: valor total em reais ou quantidade de tokens.
-enum BalcaoVendaUnidade {
-  reais,
-  tokens,
-}
-
-double? _parseQuantidadeTokens(String raw) {
-  final t = raw.trim().replaceAll(' ', '').replaceAll(',', '.');
+int? _parseQuantidadeTokensInteira(String raw) {
+  final t = raw.trim();
   if (t.isEmpty) return null;
-  return double.tryParse(t);
+  return int.tryParse(t);
 }
 
 bool _balcaoFirebaseProntoParaStreams() {
@@ -51,7 +45,7 @@ User? _balcaoAuthUserSeguro() {
   }
 }
 
-/// Ecrã de valor (compra em R$; venda em R$ ou em tokens conforme escolha).
+/// Ecrã de quantidade de tokens (compra ou venda à mercado).
 class BalcaoQuantidadeTokensScreen extends StatefulWidget {
   const BalcaoQuantidadeTokensScreen({
     super.key,
@@ -73,11 +67,7 @@ class BalcaoQuantidadeTokensScreen extends StatefulWidget {
 
 class _BalcaoQuantidadeTokensScreenState
     extends State<BalcaoQuantidadeTokensScreen> {
-  final _valorReaisController = TextEditingController(text: '150,00');
-  final _tokensVendaController = TextEditingController(text: '10');
-
-  /// Só usado na venda: vender pelo valor em R$ ou pela quantidade de tokens.
-  BalcaoVendaUnidade _vendaUnidade = BalcaoVendaUnidade.reais;
+  final _quantidadeController = TextEditingController(text: '2');
 
   String? _erroValidacao;
 
@@ -85,25 +75,21 @@ class _BalcaoQuantidadeTokensScreenState
 
   @override
   void dispose() {
-    _valorReaisController.dispose();
-    _tokensVendaController.dispose();
+    _quantidadeController.dispose();
     super.dispose();
   }
 
   String get _tituloAppBar {
     switch (widget.operacao) {
       case BalcaoOperacaoTipo.compra:
-        return 'Valor do investimento · mercado';
+        return 'Compra à mercado';
       case BalcaoOperacaoTipo.venda:
         return 'Venda à mercado';
     }
   }
 
-  double? get _valorReaisParsed =>
-      parseValorReaisInput(_valorReaisController.text);
-
-  double? get _quantidadeTokensVendaParsed =>
-      _parseQuantidadeTokens(_tokensVendaController.text);
+  int? get _quantidadeParsed =>
+      _parseQuantidadeTokensInteira(_quantidadeController.text);
 
   /// Pré-visualização síncrona: cotação vinda da mesa ou do catálogo.
   double get _precoUiPreview {
@@ -112,20 +98,13 @@ class _BalcaoQuantidadeTokensScreenState
     return widget.startup.tokenPrice;
   }
 
-  double get _tokensEquivalentesCompra {
-    final v = _valorReaisParsed;
-    if (v == null || v <= 0) return 0;
+  BalcaoMercadoResolved? get _previewResolvido {
+    final q = _quantidadeParsed;
+    if (q == null || q <= 0) return null;
     final p = _precoUiPreview;
-    if (!(p > 0)) return 0;
-    return balcaoResolveMercadoDesdeBrl(v, p).tokens;
-  }
-
-  double get _reaisEquivalentesVendaTokens {
-    final q = _quantidadeTokensVendaParsed;
-    if (q == null || q <= 0) return 0;
-    final p = _precoUiPreview;
-    if (!(p > 0)) return 0;
-    return balcaoResolveMercadoDesdeQuantidadeTokens(q, p).amountBrl;
+    if (!(p > 0)) return null;
+    final r = balcaoResolveMercadoDesdeQuantidadeTokens(q, p);
+    return r.isValid ? r : null;
   }
 
   Future<double?> _resolverPrecoMercadoNegocio(String fid) async {
@@ -137,14 +116,35 @@ class _BalcaoQuantidadeTokensScreenState
     return c > 1e-9 ? c : null;
   }
 
-  Future<double> _consultarSaldoTokensPosicao() async {
-    final u = _balcaoAuthUserSeguro();
-    final fid = widget.startup.firestoreId?.trim();
-    if (u == null || fid == null || fid.isEmpty) return 0;
-    final t =
-        await SimulatedWalletService.fetchTokensHeld(u.uid, fid);
+  /// Tokens livres para venda (descontando escrow em ordens P2P abertas).
+  Future<int> _consultarTokensDisponiveisVenda(String uid, String fid) async {
+    final posSnap =
+        await SimulatedWalletPaths.positionsCol(uid).doc(fid).get();
     if (!mounted) return 0;
-    return t ?? 0;
+    final posData = posSnap.data();
+    final tokensHeld = posData?['tokensHeld'] is num
+        ? (posData!['tokensHeld'] as num).toDouble()
+        : 0.0;
+    final tokensLocked = posData?['tokensLockedInOrders'] is int
+        ? posData!['tokensLockedInOrders'] as int
+        : posData?['tokensLockedInOrders'] is num
+            ? (posData!['tokensLockedInOrders'] as num).toInt()
+            : 0;
+    return tokensHeld.floor() - tokensLocked;
+  }
+
+  /// BRL livre para compra (descontando escrow em ordens P2P abertas).
+  Future<double> _consultarBrlDisponivelCompra(String uid) async {
+    final walletSnap = await SimulatedWalletPaths.walletDoc(uid).get();
+    if (!mounted) return 0;
+    final walletData = walletSnap.data();
+    final brlBalance = walletData?['brlBalance'] is num
+        ? (walletData!['brlBalance'] as num).toDouble()
+        : 0.0;
+    final brlLocked = walletData?['brlLockedInOrders'] is num
+        ? (walletData!['brlLockedInOrders'] as num).toDouble()
+        : 0.0;
+    return brlBalance - brlLocked;
   }
 
   Future<bool> _aplicarValidacaoCompleta() async {
@@ -154,176 +154,102 @@ class _BalcaoQuantidadeTokensScreenState
     final user = _balcaoAuthUserSeguro();
     final fid = widget.startup.firestoreId?.trim();
 
+    if (user == null) {
+      setState(
+        () => _erroValidacao = widget.operacao == BalcaoOperacaoTipo.compra
+            ? 'Inicie sessão para usar o balcão com saldo fictício.'
+            : 'Inicie sessão para vender tokens simulados.',
+      );
+      return false;
+    }
+    if (fid == null || fid.isEmpty) {
+      setState(
+        () => _erroValidacao =
+            'Esta startup não está registada no catálogo Firebase (sem ID).',
+      );
+      return false;
+    }
+
+    final precoResolved = await _resolverPrecoMercadoNegocio(fid);
+    if (!mounted) return false;
+    if (precoResolved == null || !(precoResolved > 0)) {
+      setState(
+        () => _erroValidacao = widget.operacao == BalcaoOperacaoTipo.compra
+            ? 'Cotação do token indisponível. Atualize a lista e volte ao Balcão.'
+            : 'Cotação do token indisponível.',
+      );
+      return false;
+    }
+
+    final q = _quantidadeParsed;
+    if (q == null) {
+      setState(
+        () => _erroValidacao =
+            'Informe uma quantidade válida de tokens (número inteiro).',
+      );
+      return false;
+    }
+    if (q <= 0) {
+      setState(
+        () => _erroValidacao = 'A quantidade deve ser maior que zero.',
+      );
+      return false;
+    }
+
+    final r = balcaoResolveMercadoDesdeQuantidadeTokens(q, precoResolved);
+    if (!r.isValid) {
+      setState(
+        () => _erroValidacao =
+            'Quantidade e cotação não geram uma ordem válida. Ajuste a quantidade.',
+      );
+      return false;
+    }
+
     switch (widget.operacao) {
       case BalcaoOperacaoTipo.compra:
-        if (user == null) {
-          setState(
-            () => _erroValidacao =
-                'Inicie sessão para usar o balcão com saldo fictício.',
-          );
-          return false;
-        }
-        if (fid == null || fid.isEmpty) {
-          setState(
-            () => _erroValidacao =
-                'Esta startup não está registada no catálogo Firebase (sem ID).',
-          );
-          return false;
-        }
-        final precoResolved = await _resolverPrecoMercadoNegocio(fid);
+        // Escrow P2P: só conta BRL não bloqueado em ordens abertas.
+        final brlDisponivel = await _consultarBrlDisponivelCompra(user.uid);
         if (!mounted) return false;
-        if (precoResolved == null || !(precoResolved > 0)) {
+        if (r.amountBrl > brlDisponivel + balcaoEpsilonBrl) {
           setState(
             () => _erroValidacao =
-                'Cotação do token indisponível. Atualize a lista e volte ao Balcão.',
-          );
-          return false;
-        }
-        final preco = precoResolved;
-        final v = _valorReaisParsed;
-        if (v == null) {
-          setState(
-            () => _erroValidacao =
-                'Informe um valor válido em reais.',
-          );
-          return false;
-        }
-        if (v <= 0) {
-          setState(
-            () => _erroValidacao =
-                'O valor deve ser maior que zero.',
-          );
-          return false;
-        }
-        final r = balcaoResolveMercadoDesdeBrl(v, preco);
-        if (!r.isValid) {
-          setState(
-            () => _erroValidacao =
-                'Valor e cotação não geram uma ordem válida. Ajuste o montante.',
-          );
-          return false;
-        }
-
-        final saldoDisponivel =
-            await SimulatedWalletService.fetchBrlBalance(user.uid);
-        if (!mounted) return false;
-        if (r.amountBrl > saldoDisponivel + balcaoEpsilonBrl) {
-          setState(
-            () => _erroValidacao =
-                'Disponível na carteira: ${formatBrl(saldoDisponivel)}. '
+                'Disponível na carteira: ${formatBrl(brlDisponivel)}. '
                 'O total à mercado (${formatBrl(r.amountBrl)}) excede esse saldo.',
           );
           return false;
         }
-        _resolvidoOperacaoMercado = r;
-        return true;
-
+        break;
       case BalcaoOperacaoTipo.venda:
-        if (user == null) {
-          setState(
-            () => _erroValidacao =
-                'Inicie sessão para vender tokens simulados.',
-          );
-          return false;
-        }
-        if (fid == null || fid.isEmpty) {
-          setState(
-            () => _erroValidacao =
-                'Esta startup não está registada no catálogo Firebase (sem ID).',
-          );
-          return false;
-        }
-        final precoResolved = await _resolverPrecoMercadoNegocio(fid);
+        final tokensDisponiveis =
+            await _consultarTokensDisponiveisVenda(user.uid, fid);
         if (!mounted) return false;
-        if (precoResolved == null || !(precoResolved > 0)) {
+        if (r.tokens > tokensDisponiveis) {
           setState(
             () => _erroValidacao =
-                'Cotação do token indisponível.',
+                'Disponível para venda: até $tokensDisponiveis tokens.',
           );
           return false;
         }
-        final preco = precoResolved;
-
-        late final BalcaoMercadoResolved rMercado;
-
-        if (_vendaUnidade == BalcaoVendaUnidade.reais) {
-          final v = _valorReaisParsed;
-          if (v == null) {
-            setState(
-              () =>
-                  _erroValidacao = 'Informe um valor válido em reais.',
-            );
-            return false;
-          }
-          if (v <= 0) {
-            setState(
-              () =>
-                  _erroValidacao = 'O valor deve ser maior que zero.',
-            );
-            return false;
-          }
-          rMercado = balcaoResolveMercadoDesdeBrl(v, preco);
-        } else {
-          final q = _quantidadeTokensVendaParsed;
-          if (q == null) {
-            setState(
-              () =>
-                  _erroValidacao =
-                      'Informe uma quantidade válida de tokens.',
-            );
-            return false;
-          }
-          if (q <= 0) {
-            setState(
-              () =>
-                  _erroValidacao =
-                      'A quantidade deve ser maior que zero.',
-            );
-            return false;
-          }
-          rMercado = balcaoResolveMercadoDesdeQuantidadeTokens(q, preco);
-        }
-
-        if (!rMercado.isValid) {
-          setState(
-            () =>
-                _erroValidacao =
-                    'Ordem não pôde ser calculada pela cotação atual.',
-          );
-          return false;
-        }
-
-        final maxT = await _consultarSaldoTokensPosicao();
-        if (!mounted) return false;
-        if (rMercado.tokens > maxT + 1e-9) {
-          setState(
-            () => _erroValidacao =
-                'Disponível para venda: até ${formatQuantidadeTokensBr(maxT)} tokens.',
-          );
-          return false;
-        }
-
-        _resolvidoOperacaoMercado = rMercado;
-        return true;
+        break;
     }
+
+    _resolvidoOperacaoMercado = r;
+    return true;
   }
 
   String _textoModalConfirmacao(BalcaoMercadoResolved resolvido) {
-    final tokTxt = formatQuantidadeTokensBr(resolvido.tokens);
+    final tokTxt = formatQuantidadeTokensBr(resolvido.tokens.toDouble());
     final totalTxt = formatBrl(resolvido.amountBrl);
+    final unit = resolvido.tokens > 0
+        ? resolvido.amountBrl / resolvido.tokens
+        : _precoUiPreview;
+
     switch (widget.operacao) {
       case BalcaoOperacaoTipo.compra:
-        final unit = resolvido.tokens > 1e-12
-            ? resolvido.amountBrl / resolvido.tokens
-            : _precoUiPreview;
-        return 'Confirmar compra à mercado por um total de $totalTxt?\n'
-            '$tokTxt tokens (${formatBrl(unit)} / token).';
-
+        return 'Confirmar compra à mercado de $tokTxt tokens por $totalTxt?\n'
+            '(${formatBrl(unit)} / token).';
       case BalcaoOperacaoTipo.venda:
-        return _vendaUnidade == BalcaoVendaUnidade.tokens
-            ? 'Confirmar venda à mercado de $tokTxt tokens por $totalTxt?'
-            : 'Confirmar venda à mercado por $totalTxt?\n'
-                'Equivale a $tokTxt tokens.';
+        return 'Confirmar venda à mercado de $tokTxt tokens por $totalTxt?';
     }
   }
 
@@ -424,6 +350,7 @@ class _BalcaoQuantidadeTokensScreenState
     final overlay = AppColors.shellOverlayStyle(theme.brightness);
     final onSurface = scheme.onSurface;
     final fid = widget.startup.firestoreId?.trim();
+    final preview = _previewResolvido;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: overlay,
@@ -468,17 +395,25 @@ class _BalcaoQuantidadeTokensScreenState
                   color: AppColors.secondaryLabel(theme),
                 ),
               ),
-              if (isVenda) ...[
-                const SizedBox(height: 8),
-                StreamBuilder<User?>(
-                  stream: _balcaoFirebaseProntoParaStreams()
-                      ? FirebaseAuth.instance.authStateChanges()
-                      : Stream<User?>.value(null),
-                  builder: (context, authSnap) {
-                    final u = authSnap.data;
-                    if (u == null ||
-                        fid == null ||
-                        fid.isEmpty) {
+              const SizedBox(height: 8),
+              StreamBuilder<User?>(
+                stream: _balcaoFirebaseProntoParaStreams()
+                    ? FirebaseAuth.instance.authStateChanges()
+                    : Stream<User?>.value(null),
+                builder: (context, authSnap) {
+                  final u = authSnap.data;
+                  if (u == null) {
+                    return Text(
+                      isVenda
+                          ? 'Disponível para venda: faça login e use uma startup do catálogo Firebase.'
+                          : 'Disponível para compras: faça login para ver o saldo BRL fictício.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.secondaryLabel(theme),
+                      ),
+                    );
+                  }
+                  if (isVenda) {
+                    if (fid == null || fid.isEmpty) {
                       return Text(
                         'Disponível para venda: faça login e use uma startup do catálogo Firebase.',
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -486,162 +421,92 @@ class _BalcaoQuantidadeTokensScreenState
                         ),
                       );
                     }
-                    return StreamBuilder<double>(
-                      stream:
-                          SimulatedWalletService.watchTokensHeld(
-                        u.uid,
-                        fid,
-                      ),
+                    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                      stream: SimulatedWalletPaths.positionsCol(u.uid)
+                          .doc(fid)
+                          .snapshots(),
                       builder: (context, posSnap) {
-                        final t = posSnap.data ?? 0;
+                        final posData = posSnap.data?.data();
+                        final tokensHeld = posData?['tokensHeld'] is num
+                            ? (posData!['tokensHeld'] as num).toDouble()
+                            : 0.0;
+                        final tokensLocked = posData?['tokensLockedInOrders'] is int
+                            ? posData!['tokensLockedInOrders'] as int
+                            : posData?['tokensLockedInOrders'] is num
+                                ? (posData!['tokensLockedInOrders'] as num)
+                                    .toInt()
+                                : 0;
+                        final tokensDisponiveis =
+                            tokensHeld.floor() - tokensLocked;
                         final p = _precoUiPreview;
                         final reaisFmt = !(p > 0)
                             ? '—'
-                            : formatBrl(t * p);
+                            : formatBrl(tokensDisponiveis * p);
                         return Text(
                           'Disponível para venda: $reaisFmt '
-                          '(${formatQuantidadeTokensBr(t)} tokens na posição)',
+                          '($tokensDisponiveis tokens livres)',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: AppColors.secondaryLabel(theme),
                           ),
                         );
                       },
                     );
-                  },
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Como deseja vender?',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<BalcaoVendaUnidade>(
-                  segments: const [
-                    ButtonSegment<BalcaoVendaUnidade>(
-                      value: BalcaoVendaUnidade.reais,
-                      label: Text('Em reais'),
-                      icon: Icon(Icons.payments_outlined, size: 18),
-                    ),
-                    ButtonSegment<BalcaoVendaUnidade>(
-                      value: BalcaoVendaUnidade.tokens,
-                      label: Text('Em tokens'),
-                      icon: Icon(Icons.toll_outlined, size: 18),
-                    ),
-                  ],
-                  selected: {_vendaUnidade},
-                  onSelectionChanged: (Set<BalcaoVendaUnidade> next) {
-                    setState(() {
-                      _vendaUnidade = next.single;
-                      _erroValidacao = null;
-                    });
-                  },
-                ),
-              ] else ...[
-                const SizedBox(height: 8),
-                StreamBuilder<User?>(
-                  stream: _balcaoFirebaseProntoParaStreams()
-                      ? FirebaseAuth.instance.authStateChanges()
-                      : Stream<User?>.value(null),
-                  builder: (context, authSnap) {
-                    final u = authSnap.data;
-                    if (u == null) {
+                  }
+                  return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                    stream: SimulatedWalletPaths.walletDoc(u.uid).snapshots(),
+                    builder: (context, walletSnap) {
+                      final walletData = walletSnap.data?.data();
+                      final brlBalance = walletData?['brlBalance'] is num
+                          ? (walletData!['brlBalance'] as num).toDouble()
+                          : 0.0;
+                      final brlLocked = walletData?['brlLockedInOrders'] is num
+                          ? (walletData!['brlLockedInOrders'] as num).toDouble()
+                          : 0.0;
+                      final brlDisponivel = brlBalance - brlLocked;
                       return Text(
-                        'Disponível para compras: faça login para ver o saldo BRL fictício.',
+                        'Disponível para compras: ${formatBrl(brlDisponivel)}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AppColors.secondaryLabel(theme),
                         ),
                       );
-                    }
-                    return StreamBuilder<double>(
-                      stream: SimulatedWalletService.watchBrlBalance(u.uid),
-                      builder: (context, snap) {
-                        final b = snap.data ?? 0;
-                        return Text(
-                          'Disponível para compras: ${formatBrl(b)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AppColors.secondaryLabel(theme),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ],
+                    },
+                  );
+                },
+              ),
               const SizedBox(height: 16),
-              if (!isVenda || _vendaUnidade == BalcaoVendaUnidade.reais) ...[
-                Text(
-                  isVenda
-                      ? 'Informe o total em reais da venda à mercado. Aceita vírgula ou ponto (ex.: 1.500,50).'
-                      : 'Quanto deseja investir em reais à mercado? Aceita vírgula ou ponto (ex.: 1.500,50).',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.secondaryLabel(theme),
-                    fontSize: 12,
+              Text(
+                isVenda
+                    ? 'Informe quantos tokens deseja vender à mercado (número inteiro).'
+                    : 'Informe quantos tokens deseja comprar à mercado (número inteiro).',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.secondaryLabel(theme),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _quantidadeController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) {
+                  setState(() {
+                    if (_erroValidacao != null) _erroValidacao = null;
+                  });
+                },
+                decoration: InputDecoration(
+                  labelText: 'Quantidade de tokens',
+                  hintText: 'Ex.: 2 ou 10',
+                  filled: true,
+                  fillColor: AppColors.searchFieldFillForTheme(theme),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: AppColors.cardDivider(theme)),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _valorReaisController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onChanged: (_) {
-                    setState(() {
-                      if (_erroValidacao != null) _erroValidacao = null;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: isVenda
-                        ? 'Total em reais (venda)'
-                        : 'Total em reais (compra)',
-                    hintText: 'Ex.: 150 ou 1.500,50',
-                    filled: true,
-                    fillColor: AppColors.searchFieldFillForTheme(theme),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: AppColors.cardDivider(theme)),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                Text(
-                  'Informe quantos tokens deseja vender à mercado. Use vírgula ou ponto para decimais.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: AppColors.secondaryLabel(theme),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _tokensVendaController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onChanged: (_) {
-                    setState(() {
-                      if (_erroValidacao != null) _erroValidacao = null;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Quantidade de tokens',
-                    hintText: 'Ex.: 10 ou 2,5',
-                    filled: true,
-                    fillColor: AppColors.searchFieldFillForTheme(theme),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: AppColors.cardDivider(theme)),
-                    ),
-                  ),
-                ),
-              ],
+              ),
               if (_erroValidacao != null) ...[
                 const SizedBox(height: 10),
                 Text(
@@ -653,40 +518,16 @@ class _BalcaoQuantidadeTokensScreenState
                 ),
               ],
               const SizedBox(height: 16),
-              if (!isVenda)
-                Text(
-                  _valorReaisParsed != null && _valorReaisParsed! > 0
-                      ? 'Total estimado: ${formatBrl(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, _precoUiPreview).amountBrl)} · '
-                          '${formatQuantidadeTokensBr(_tokensEquivalentesCompra)} tokens'
-                      : 'Total estimado: —',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: scheme.primary,
-                  ),
-                )
-              else if (_vendaUnidade == BalcaoVendaUnidade.reais)
-                Text(
-                  _valorReaisParsed != null && _valorReaisParsed! > 0
-                      ? 'Total estimado: ${formatBrl(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, _precoUiPreview).amountBrl)} · '
-                          '${formatQuantidadeTokensBr(balcaoResolveMercadoDesdeBrl(_valorReaisParsed!, _precoUiPreview).tokens)} tokens'
-                      : 'Total estimado: —',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: scheme.primary,
-                  ),
-                )
-              else
-                Text(
-                  _quantidadeTokensVendaParsed != null &&
-                          _quantidadeTokensVendaParsed! > 0
-                      ? 'Total estimado: ${formatBrl(_reaisEquivalentesVendaTokens)} · '
-                          '${formatQuantidadeTokensBr(_quantidadeTokensVendaParsed!)} tokens'
-                      : 'Total estimado: —',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: scheme.primary,
-                  ),
+              Text(
+                preview != null
+                    ? 'Total estimado: ${formatBrl(preview.amountBrl)} · '
+                        '${formatQuantidadeTokensBr(preview.tokens.toDouble())} tokens'
+                    : 'Total estimado: —',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: scheme.primary,
                 ),
+              ),
               const SizedBox(height: 28),
               FilledButton(
                 onPressed: _onContinuar,

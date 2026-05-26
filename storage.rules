@@ -10,7 +10,14 @@ service firebase.storage {
       allow write: if false;
     }
 
-    // Todo o resto: cliente não lê nem escreve (ajuste se acrescentarem uploads por utilizador).
+    // Fotos de perfil: profilePhoto/users/{userId}/avatar.jpg
+    // Só o dono faz upload/apaga; qualquer utilizador autenticado pode ver (perfil).
+    match /profilePhoto/users/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Todo o resto: cliente não lê nem escreve.
     match /{allPaths=**} {
       allow read, write: if false;
     }

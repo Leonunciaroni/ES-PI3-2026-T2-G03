@@ -43,7 +43,7 @@ class BalcaoTransacaoDetalhe {
 
   /// Nome ou sigla exibida ao utilizador (ex.: "GFLO" ou nome da startup).
   final String nomeToken;
-  final double quantidadeTokens;
+  final int quantidadeTokens;
   final double valorReais;
   final DateTime dataHora;
 
