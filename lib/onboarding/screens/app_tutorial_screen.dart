@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../dashboard/screens/dashboard_screen.dart';
 import '../widgets/tutorial_page_widget.dart';
 
 class AppTutorialScreen extends StatefulWidget {
@@ -44,6 +45,15 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     },
   ];
 
+  void _goToDashboard() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const DashboardScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
   void _nextPage() {
     if (_currentPage < _pages.length - 1) {
       _pageController.nextPage(
@@ -51,8 +61,14 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      debugPrint('Tutorial finalizado');
+      _goToDashboard();
     }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   @override
@@ -67,7 +83,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
               alignment: Alignment.topRight,
               child: TextButton(
                 onPressed: () {
-                  debugPrint('Tutorial pulado');
+                  _goToDashboard();
                 },
                 child: const Text('Pular'),
               ),
