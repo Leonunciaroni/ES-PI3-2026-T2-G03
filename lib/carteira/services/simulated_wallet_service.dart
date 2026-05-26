@@ -54,7 +54,7 @@ abstract final class SimulatedWalletService {
   static Future<void> tradeBuy({
     required CatalogStartup startup,
     required double valorReais,
-    required double quantidadeTokens,
+    required int quantidadeTokens,
   }) async {
     final id = startup.firestoreId;
     if (id == null || id.isEmpty) {
@@ -63,7 +63,7 @@ abstract final class SimulatedWalletService {
     if (!(valorReais > 0) || !valorReais.isFinite) {
       throw StateError('Montante em reais inválido para negócio.');
     }
-    if (!(quantidadeTokens > 0) || !quantidadeTokens.isFinite) {
+    if (quantidadeTokens <= 0) {
       throw StateError('Quantidade de tokens inválida para negócio.');
     }
     await _fn().httpsCallable('simulateWallet').call(<String, dynamic>{
@@ -80,7 +80,7 @@ abstract final class SimulatedWalletService {
   static Future<void> tradeSell({
     required CatalogStartup startup,
     required double valorReais,
-    required double quantidadeTokens,
+    required int quantidadeTokens,
   }) async {
     final id = startup.firestoreId;
     if (id == null || id.isEmpty) {
@@ -89,7 +89,7 @@ abstract final class SimulatedWalletService {
     if (!(valorReais > 0) || !valorReais.isFinite) {
       throw StateError('Montante em reais inválido para negócio.');
     }
-    if (!(quantidadeTokens > 0) || !quantidadeTokens.isFinite) {
+    if (quantidadeTokens <= 0) {
       throw StateError('Quantidade de tokens inválida para negócio.');
     }
     await _fn().httpsCallable('simulateWallet').call(<String, dynamic>{

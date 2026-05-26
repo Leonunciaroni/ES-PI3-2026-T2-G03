@@ -2,6 +2,9 @@
   "functions": {
     "source": "functions",
     "codebase": "default",
+    "predeploy": [
+      "node functions/node_modules/typescript/bin/tsc --project functions"
+    ],
     "ignore": [
       "node_modules",
       ".git",

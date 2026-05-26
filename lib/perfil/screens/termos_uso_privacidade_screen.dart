@@ -1,7 +1,7 @@
 // Autor principal: Matheus Teixeira
 // RA: 25014927
 //
-// Termos de Uso e Politica de Privacidade conforme prototipo da task #220.
+// Termos de Uso e Política de Privacidade conforme protótipo da task #220.
 
 import 'package:flutter/material.dart';
 
@@ -28,7 +28,7 @@ class TermosUsoPrivacidadeScreen extends StatelessWidget {
                   ? const Color(0xFFF7F7FC)
                   : theme.colorScheme.surface,
             ),
-            child: const _TermsDocument(),
+            child: const TermosUsoPrivacidadeDocument(),
           ),
         ],
       ),
@@ -36,216 +36,220 @@ class TermosUsoPrivacidadeScreen extends StatelessWidget {
   }
 }
 
-class _TermsDocument extends StatelessWidget {
-  const _TermsDocument();
+class TermosUsoPrivacidadeDocument extends StatelessWidget {
+  const TermosUsoPrivacidadeDocument({super.key, this.showLogo = true});
+
+  final bool showLogo;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: const [
-        Center(child: MesclaBrandLogo(boxWidth: 230, boxHeight: 86)),
-        SizedBox(height: 14),
-        _DocumentTitle('Termos de Uso - MesclaInvest'),
-        SizedBox(height: 36),
-        _TermsSection(
-          title: '1. Aceitacao dos Termos',
+      children: [
+        if (showLogo) ...const [
+          Center(child: MesclaBrandLogo(boxWidth: 230, boxHeight: 86)),
+          SizedBox(height: 14),
+        ],
+        const _DocumentTitle('Termos de Uso - MesclaInvest'),
+        const SizedBox(height: 36),
+        const _TermsSection(
+          title: '1. Aceitação dos Termos',
           paragraphs: [
-            'Ao acessar ou utilizar a plataforma MesclaInvest, o usuario declara estar ciente e de acordo com os presentes Termos de Uso, comprometendo-se a respeitar todas as regras e condicoes estabelecidas neste documento.',
-            'O MesclaInvest e um projeto academico desenvolvido no contexto da disciplina Projeto Integrador 3 da Pontificia Universidade Catolica de Campinas (PUC-Campinas), possuindo finalidade exclusivamente educacional e demonstrativa.',
+            'Ao acessar ou utilizar a plataforma MesclaInvest, o usuário declara estar ciente e de acordo com os presentes Termos de Uso, comprometendo-se a respeitar todas as regras e condições estabelecidas neste documento.',
+            'O MesclaInvest é um projeto acadêmico desenvolvido no contexto da disciplina Projeto Integrador 3 da Pontifícia Universidade Católica de Campinas (PUC-Campinas), com finalidade exclusivamente educacional e demonstrativa.',
           ],
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '2. Natureza da Plataforma',
           paragraphs: [
-            'O MesclaInvest consiste em um ambiente digital de simulacao de investimentos em startups, baseado em negociacao ficticia de tokens digitais.',
+            'O MesclaInvest consiste em um ambiente digital de simulação de investimentos em startups, baseado em negociação fictícia de tokens digitais.',
             'A plataforma:',
           ],
           bullets: [
-            'Nao realiza operacoes financeiras reais;',
-            'Nao intermedia investimentos reais;',
-            'Nao possui integracao com instituicoes bancarias;',
-            'Nao utiliza blockchain real;',
-            'Nao representa oferta publica de valores mobiliarios;',
-            'Nao garante qualquer retorno financeiro.',
+            'Não realiza operações financeiras reais;',
+            'Não intermedia investimentos reais;',
+            'Não possui integração com instituições bancárias;',
+            'Não utiliza blockchain real;',
+            'Não representa oferta pública de valores mobiliários;',
+            'Não garante qualquer retorno financeiro.',
           ],
           footer:
-              'Todos os valores, transacoes, tokens e indicadores apresentados possuem carater exclusivamente academico e simulado.',
+              'Todos os valores, transações, tokens e indicadores apresentados possuem caráter exclusivamente acadêmico e simulado.',
         ),
-        _TermsSection(
-          title: '3. Cadastro do Usuario',
+        const _TermsSection(
+          title: '3. Cadastro do Usuário',
           paragraphs: [
-            'Para utilizacao da plataforma, o usuario devera realizar cadastro individual, fornecendo informacoes verdadeiras, completas e atualizadas.',
-            'O usuario e responsavel por:',
+            'Para utilizar a plataforma, o usuário deverá realizar um cadastro individual, fornecendo informações verdadeiras, completas e atualizadas.',
+            'O usuário é responsável por:',
           ],
           bullets: [
             'Manter a confidencialidade de sua senha;',
-            'Nao compartilhar sua conta com terceiros;',
+            'Não compartilhar sua conta com terceiros;',
             'Garantir a veracidade dos dados informados;',
-            'Utilizar a plataforma de forma etica e responsavel.',
+            'Utilizar a plataforma de forma ética e responsável.',
           ],
           footer:
-              'O fornecimento de informacoes falsas podera resultar em suspensao ou exclusao da conta.',
+              'O fornecimento de informações falsas poderá resultar em suspensão ou exclusão da conta.',
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '4. Uso Permitido',
           paragraphs: [
-            'O usuario compromete-se a utilizar o MesclaInvest exclusivamente para fins academicos, educacionais e demonstrativos.',
-            'E proibido:',
+            'O usuário compromete-se a utilizar o MesclaInvest exclusivamente para fins acadêmicos, educacionais e demonstrativos.',
+            'É proibido:',
           ],
           bullets: [
             'Tentar explorar vulnerabilidades do sistema;',
-            'Realizar engenharia reversa da aplicacao;',
-            'Utilizar automacoes maliciosas;',
-            'Compartilhar conteudos ofensivos ou ilegais;',
+            'Realizar engenharia reversa da aplicação;',
+            'Utilizar automações maliciosas;',
+            'Compartilhar conteúdos ofensivos ou ilegais;',
             'Manipular indevidamente o funcionamento da plataforma;',
-            'Utilizar dados de terceiros sem autorizacao.',
+            'Utilizar dados de terceiros sem autorização.',
           ],
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '5. Disponibilidade do Sistema',
           paragraphs: [
-            'Por se tratar de um prototipo academico, o MesclaInvest podera apresentar:',
+            'Por se tratar de um protótipo acadêmico, o MesclaInvest poderá apresentar:',
           ],
           bullets: [
             'Instabilidades;',
-            'Interrupcoes temporarias;',
+            'Interrupções temporárias;',
             'Perda de dados;',
-            'Alteracoes de funcionalidades;',
-            'Manutencoes sem aviso previo.',
+            'Alterações de funcionalidades;',
+            'Manutenções sem aviso prévio.',
           ],
-          footer: 'Nao ha garantia de disponibilidade continua da aplicacao.',
+          footer: 'Não há garantia de disponibilidade contínua da aplicação.',
         ),
-        _TermsSection(
-          title: '6. Limitacao de Responsabilidade',
+        const _TermsSection(
+          title: '6. Limitação de Responsabilidade',
           paragraphs: [
-            'Os responsaveis pelo projeto nao se responsabilizam por:',
+            'Os responsáveis pelo projeto não se responsabilizam por:',
           ],
           bullets: [
-            'Decisoes tomadas com base nas informacoes simuladas da plataforma;',
-            'Perda de dados decorrente de falhas tecnicas;',
-            'Interrupcoes do sistema;',
+            'Decisões tomadas com base nas informações simuladas da plataforma;',
+            'Perda de dados decorrente de falhas técnicas;',
+            'Interrupções do sistema;',
             'Uso indevido realizado por terceiros;',
-            'Danos causados por utilizacao inadequada da aplicacao.',
+            'Danos causados pela utilização inadequada da aplicação.',
           ],
           footer:
-              'O sistema nao deve ser utilizado para armazenamento de informacoes sensiveis ou operacoes reais.',
+              'O sistema não deve ser utilizado para armazenamento de informações sensíveis ou operações reais.',
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '7. Propriedade Intelectual',
-          paragraphs: ['Todo o conteudo do MesclaInvest, incluindo:'],
+          paragraphs: ['Todo o conteúdo do MesclaInvest, incluindo:'],
           bullets: [
             'Interface;',
-            'Codigo-fonte;',
+            'Código-fonte;',
             'Layouts;',
             'Identidade visual;',
-            'Estrutura da aplicacao;',
-            'Documentacao;',
+            'Estrutura da aplicação;',
+            'Documentação;',
           ],
           footer:
-              'Destina-se exclusivamente ao contexto academico do Projeto Integrador 3. E proibida a reproducao, comercializacao ou reutilizacao sem autorizacao dos responsaveis.',
+              'Destina-se exclusivamente ao contexto acadêmico do Projeto Integrador 3. É proibida a reprodução, comercialização ou reutilização sem autorização dos responsáveis.',
         ),
-        _TermsSection(
-          title: '8. Alteracoes nos Termos',
+        const _TermsSection(
+          title: '8. Alterações nos Termos',
           paragraphs: [
-            'Os presentes Termos de Uso poderao ser modificados a qualquer momento para adequacao do projeto academico, sem necessidade de aviso previo.',
+            'Os presentes Termos de Uso poderão ser modificados a qualquer momento para adequação do projeto acadêmico, sem necessidade de aviso prévio.',
           ],
         ),
-        SizedBox(height: 30),
-        _DocumentTitle('Politica de Privacidade - MesclaInvest'),
-        SizedBox(height: 26),
-        _TermsSection(
-          title: '1. Introducao',
+        const SizedBox(height: 30),
+        const _DocumentTitle('Política de Privacidade - MesclaInvest'),
+        const SizedBox(height: 26),
+        const _TermsSection(
+          title: '1. Introdução',
           paragraphs: [
-            'A presente Politica de Privacidade descreve como os dados dos usuarios poderao ser coletados, utilizados e armazenados durante a utilizacao da plataforma MesclaInvest.',
-            'O documento possui carater ficticio e academico, sendo utilizado exclusivamente para fins educacionais.',
+            'A presente Política de Privacidade descreve como os dados dos usuários poderão ser coletados, utilizados e armazenados durante a utilização da plataforma MesclaInvest.',
+            'O documento possui caráter fictício e acadêmico, sendo utilizado exclusivamente para fins educacionais.',
           ],
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '2. Dados Coletados',
           paragraphs: [
-            'Durante a utilizacao da plataforma, poderao ser coletados os seguintes dados:',
+            'Durante a utilização da plataforma, poderão ser coletados os seguintes dados:',
           ],
           bullets: [
             'Nome completo;',
             'E-mail;',
             'CPF;',
-            'Numero de telefone;',
+            'Número de telefone;',
             'Senha de acesso;',
-            'Historico de operacoes simuladas;',
-            'Informacoes de autenticacao;',
-            'Dados de navegacao dentro da aplicacao.',
+            'Histórico de operações simuladas;',
+            'Informações de autenticação;',
+            'Dados de navegação dentro da aplicação.',
           ],
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '3. Finalidade da Coleta',
-          paragraphs: ['Os dados poderao ser utilizados para:'],
+          paragraphs: ['Os dados poderão ser utilizados para:'],
           bullets: [
-            'Permitir autenticacao do usuario;',
-            'Garantir funcionamento da plataforma;',
-            'Simular operacoes de compra e venda de tokens;',
+            'Permitir a autenticação do usuário;',
+            'Garantir o funcionamento da plataforma;',
+            'Simular operações de compra e venda de tokens;',
             'Gerenciar contas cadastradas;',
-            'Permitir recuperacao de senha;',
+            'Permitir recuperação de senha;',
             'Melhorar funcionalidades do sistema;',
-            'Gerar analises academicas sobre utilizacao da aplicacao.',
+            'Gerar análises acadêmicas sobre a utilização da aplicação.',
           ],
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '4. Compartilhamento de Dados',
           paragraphs: [
-            'Os dados nao serao vendidos ou comercializados.',
-            'As informacoes poderao ser acessadas apenas por:',
+            'Os dados não serão vendidos ou comercializados.',
+            'As informações poderão ser acessadas apenas por:',
           ],
           bullets: [
             'Integrantes da equipe desenvolvedora;',
             'Professores orientadores;',
-            'Administradores tecnicos da aplicacao;',
-            'Ferramentas utilizadas no ambiente academico.',
+            'Administradores técnicos da aplicação;',
+            'Ferramentas utilizadas no ambiente acadêmico.',
           ],
         ),
-        _TermsSection(
-          title: '5. Armazenamento das Informacoes',
+        const _TermsSection(
+          title: '5. Armazenamento das Informações',
           paragraphs: [
-            'As informacoes poderao ser armazenadas em servicos de banco de dados e infraestrutura em nuvem utilizados pela aplicacao, incluindo Firebase Firestore.',
-            'Apesar da adocao de boas praticas de desenvolvimento, nao ha garantia absoluta de seguranca, considerando tratar-se de um prototipo academico.',
+            'As informações poderão ser armazenadas em serviços de banco de dados e infraestrutura em nuvem utilizados pela aplicação, incluindo o Firebase Firestore.',
+            'Apesar da adoção de boas práticas de desenvolvimento, não há garantia absoluta de segurança, considerando tratar-se de um protótipo acadêmico.',
           ],
         ),
-        _TermsSection(
-          title: '6. Seguranca',
+        const _TermsSection(
+          title: '6. Segurança',
           paragraphs: [
-            'O MesclaInvest podera utilizar mecanismos basicos de seguranca, incluindo:',
+            'O MesclaInvest poderá utilizar mecanismos básicos de segurança, incluindo:',
           ],
           bullets: [
-            'Autenticacao por senha;',
+            'Autenticação por senha;',
             'Criptografia de credenciais;',
             'Controle de acesso;',
-            'Autenticacao multifator (2FA/MFA), quando habilitada.',
+            'Autenticação multifator (2FA/MFA), quando habilitada.',
           ],
           footer:
-              'Ainda assim, o usuario reconhece que nenhum sistema e totalmente livre de riscos.',
+              'Ainda assim, o usuário reconhece que nenhum sistema é totalmente livre de riscos.',
         ),
-        _TermsSection(
-          title: '7. Direitos do Usuario',
-          paragraphs: ['O usuario podera solicitar:'],
+        const _TermsSection(
+          title: '7. Direitos do Usuário',
+          paragraphs: ['O usuário poderá solicitar:'],
           bullets: [
-            'Atualizacao de dados cadastrais;',
-            'Recuperacao de acesso;',
-            'Exclusao da conta;',
-            'Encerramento de utilizacao da plataforma.',
+            'Atualização de dados cadastrais;',
+            'Recuperação de acesso;',
+            'Exclusão da conta;',
+            'Encerramento de utilização da plataforma.',
           ],
           footer:
-              'As solicitacoes serao tratadas conforme a disponibilidade da equipe responsavel pelo projeto academico.',
+              'As solicitações serão tratadas conforme a disponibilidade da equipe responsável pelo projeto acadêmico.',
         ),
-        _TermsSection(
-          title: '8. Retencao dos Dados',
+        const _TermsSection(
+          title: '8. Retenção dos Dados',
           paragraphs: [
-            'Os dados poderao permanecer armazenados durante o periodo letivo da disciplina e posteriormente serem removidos, conforme decisao da equipe responsavel.',
+            'Os dados poderão permanecer armazenados durante o período letivo da disciplina e posteriormente ser removidos, conforme decisão da equipe responsável.',
           ],
         ),
-        _TermsSection(
+        const _TermsSection(
           title: '9. Consentimento',
           paragraphs: [
-            'Ao utilizar o MesclaInvest, o usuario declara estar ciente e concordar com esta Politica de Privacidade e com os Termos de Uso da plataforma.',
+            'Ao utilizar o MesclaInvest, o usuário declara estar ciente e concordar com esta Política de Privacidade e com os Termos de Uso da plataforma.',
           ],
         ),
       ],

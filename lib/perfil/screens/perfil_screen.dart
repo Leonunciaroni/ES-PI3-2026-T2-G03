@@ -6,6 +6,7 @@
 // Firestore `users/{uid}`. A barra inferior continua a ser a do
 // [MesclaMainShell] — este widget é só o corpo do separador 4.
 
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -15,10 +16,12 @@ import '../../catalog/models/catalog_startup.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../../theme/theme_mode_controller.dart';
+import '../services/profile_photo_storage_service.dart';
 import 'ajuda_suporte_screen.dart';
 import 'favoritos_screen.dart';
 import 'modo_aparencia_screen.dart';
 import 'seguranca_privacidade_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 /// Dados de exibição depois de resolver nome (Auth / Firestore / fallback).
 class _PerfilDados {
@@ -115,8 +118,37 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
+  /// Ficheiro escolhido na câmara/galeria — mostramos na hora, antes do upload terminar.
+  File? _imagemAvatar;
+
+  /// URL HTTPS gravada no Firestore (download URL do Firebase Storage).
+  String? _urlFotoPerfil;
+
+  /// `true` enquanto enviamos ou removemos foto (bloqueia ações duplicadas).
+  bool _enviandoFoto = false;
+
+  final ImagePicker _picker = ImagePicker();
+
   /// Uma instância por ecrã: evita relançar o [Future] a cada [build].
   late final Future<_PerfilDados> _carga = _carregarPerfil();
+
+  @override
+  void initState() {
+    super.initState();
+    // Ao abrir o perfil, buscamos a foto já salva (se existir).
+    _carregarUrlFotoSalva();
+  }
+
+  /// Lê `users/{uid}.photoUrl` no Firestore e atualiza o avatar na tela.
+  Future<void> _carregarUrlFotoSalva() async {
+    final url = await UserFirestoreService.fetchProfilePhotoUrl();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _urlFotoPerfil = url;
+    });
+  }
 
   static const _logoHeight = 52.0;
   static const _paddingH = 20.0;
@@ -237,6 +269,242 @@ class _PerfilScreenState extends State<PerfilScreen> {
     }
   }
 
+  /// Abre o bottom sheet com câmara, galeria ou remover foto.
+  void _mostrarOpcoesAvatar() {
+    if (_enviandoFoto) {
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Escolher foto do perfil',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Tirar foto'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _tirarFoto();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Escolher da galeria'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _escolherGaleria();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Remover foto'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _removerFoto();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Abre a câmara, depois envia a imagem para o Storage.
+  Future<void> _tirarFoto() async {
+    final imagem = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
+
+    if (imagem == null) {
+      return;
+    }
+
+    await _enviarFotoParaStorage(File(imagem.path));
+  }
+
+  /// Abre a galeria, depois envia a imagem para o Storage.
+  Future<void> _escolherGaleria() async {
+    final imagem = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+
+    if (imagem == null) {
+      return;
+    }
+
+    await _enviarFotoParaStorage(File(imagem.path));
+  }
+
+  /// Fluxo completo: preview local → upload Storage → salvar URL no Firestore.
+  ///
+  /// Caminho no Storage: `profilePhoto/users/{uid}/avatar.jpg`
+  /// (a pasta é criada automaticamente no primeiro upload).
+  Future<void> _enviarFotoParaStorage(File arquivo) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Faça login para alterar a foto.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _imagemAvatar = arquivo;
+      _enviandoFoto = true;
+    });
+
+    try {
+      // 1) Envia bytes para o Firebase Storage e recebe a URL de download.
+      final url = await ProfilePhotoStorageService.enviarFoto(
+        arquivoLocal: arquivo,
+        uid: uid,
+      );
+
+      // 2) Grava a URL no documento `users/{uid}` (campo `photoUrl`).
+      await UserFirestoreService.setProfilePhotoUrl(url);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _urlFotoPerfil = url;
+        _imagemAvatar = null;
+        _enviandoFoto = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto de perfil atualizada.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _imagemAvatar = null;
+        _enviandoFoto = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível enviar a foto. Tente novamente.'),
+        ),
+      );
+    }
+  }
+
+  /// Remove foto do Storage, apaga `photoUrl` no Firestore e limpa a UI.
+  Future<void> _removerFoto() async {
+    final temFotoLocal = _imagemAvatar != null;
+    final temFotoRemota =
+        _urlFotoPerfil != null && _urlFotoPerfil!.trim().isNotEmpty;
+
+    if (!temFotoLocal && !temFotoRemota) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Você não possui foto de perfil')),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remover foto'),
+          content: const Text(
+            'Deseja realmente remover sua foto de perfil?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Remover'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true || !mounted) {
+      return;
+    }
+
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Faça login para alterar a foto.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _enviandoFoto = true;
+    });
+
+    try {
+      // Apaga o ficheiro no Storage (ignora se já não existir).
+      await ProfilePhotoStorageService.removerFoto(uid);
+
+      // Remove o campo `photoUrl` do Firestore.
+      await UserFirestoreService.removeProfilePhotoUrl();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _imagemAvatar = null;
+        _urlFotoPerfil = null;
+        _enviandoFoto = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto removida com sucesso')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _enviandoFoto = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível remover a foto. Tente novamente.'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -289,6 +557,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 primary: primary,
                 theme: theme,
                 cardColor: theme.colorScheme.surface,
+                onAvatarTap: _mostrarOpcoesAvatar,
+                imagemAvatar: _imagemAvatar,
+                urlFotoRemota: _urlFotoPerfil,
+                enviandoFoto: _enviandoFoto,
               ),
               const SizedBox(height: 20),
               Text(
@@ -425,6 +697,10 @@ class _PerfilUserCard extends StatelessWidget {
     required this.primary,
     required this.theme,
     required this.cardColor,
+    required this.onAvatarTap,
+    required this.imagemAvatar,
+    required this.urlFotoRemota,
+    required this.enviandoFoto,
   });
 
   final String iniciais;
@@ -433,6 +709,59 @@ class _PerfilUserCard extends StatelessWidget {
   final Color primary;
   final ThemeData theme;
   final Color cardColor;
+  final VoidCallback onAvatarTap;
+  final File? imagemAvatar;
+
+  /// URL vinda do Firestore (foto já enviada ao Storage).
+  final String? urlFotoRemota;
+
+  /// Mostra um indicador de carregamento por cima do avatar.
+  final bool enviandoFoto;
+
+  /// Decide o que mostrar dentro do círculo do avatar.
+  Widget _conteudoAvatar() {
+    // Prioridade 1: preview local (foto acabada de escolher).
+    if (imagemAvatar != null) {
+      return ClipOval(
+        child: Image.file(
+          imagemAvatar!,
+          width: 72,
+          height: 72,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    // Prioridade 2: foto remota salva no Storage (via URL no Firestore).
+    final url = urlFotoRemota?.trim();
+    if (url != null && url.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          url,
+          width: 72,
+          height: 72,
+          fit: BoxFit.cover,
+          // Se a URL falhar (rede, ficheiro apagado), voltamos às iniciais.
+          errorBuilder: (context, error, stackTrace) => Text(
+            iniciais,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Prioridade 3: sem foto — mostra iniciais do nome.
+    return Text(
+      iniciais,
+      style: theme.textTheme.headlineSmall?.copyWith(
+        color: Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -446,22 +775,41 @@ class _PerfilUserCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: primary,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                iniciais,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+            GestureDetector(
+              onTap: enviandoFoto ? null : onAvatarTap,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: _conteudoAvatar(),
+                  ),
+                  if (enviandoFoto)
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
+            
             const SizedBox(width: 16),
             Expanded(
               child: Column(

@@ -1,23 +1,18 @@
-/**
- * Autor principal: Pedro Henrique Contardi Soler
- * RA: 25005592
- *
- * Testes unitários do módulo Wallet (pure functions).
- *
- * Objetivo:
- * - garantir que validações e sanitização funcionam;
- * - manter testes rápidos (não dependem do emulador nem do Firestore real).
- *
- * Execução:
- * - `cd functions && npm test`
- *   (o script compila TS → JS e roda `node --test` nos arquivos `*.test.js`).
- */
+// Autor principal: Pedro Henrique Contardi Soler
+// RA: 25005592
+//
+// Testes unitários do módulo Wallet (pure functions).
+// Objetivo:
+// - garantir que validações e sanitização funcionam;
+// - manter testes rápidos (não dependem do emulador nem do Firestore real).
+// Execução: `cd functions && npm test`
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
   assertAmountMatchesTrade,
+  assertPositiveIntegerTokens,
   clip,
   readRequiredStartupTokenPriceBrl,
 } from "../shared/validation.js";
@@ -40,12 +35,33 @@ test("readRequiredStartupTokenPriceBrl throws on missing/invalid", () => {
   );
 });
 
+test("assertPositiveIntegerTokens accepts positive integers", () => {
+  assert.equal(assertPositiveIntegerTokens(2), 2);
+  assert.equal(assertPositiveIntegerTokens("3"), 3);
+});
+
+test("assertPositiveIntegerTokens rejects fractions and non-positive", () => {
+  assert.throws(
+    () => assertPositiveIntegerTokens(2.466),
+    /quantidade de tokens/
+  );
+  assert.throws(() => assertPositiveIntegerTokens(0), /quantidade de tokens/);
+  assert.throws(() => assertPositiveIntegerTokens(-1), /quantidade de tokens/);
+});
+
 test("assertAmountMatchesTrade validates implied amount within epsilon", () => {
   assert.doesNotThrow(() => assertAmountMatchesTrade(10.0, 2, 5.0));
   assert.doesNotThrow(() => assertAmountMatchesTrade(10.05, 2, 5.0));
   assert.throws(
     () => assertAmountMatchesTrade(10.2, 2, 5.0),
     /não conferem/
+  );
+});
+
+test("assertAmountMatchesTrade rejects fractional tokens", () => {
+  assert.throws(
+    () => assertAmountMatchesTrade(12.34, 2.466, 5.0),
+    /quantidade de tokens/
   );
 });
 
