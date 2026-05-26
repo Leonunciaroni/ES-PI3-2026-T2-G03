@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Logos referenciados pelo catálogo (ex.: logos/startups/...).
+    // Leitura pública; escrita só pela consola Firebase ou Functions com Admin SDK.
+    match /logos/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Fotos de perfil: profilePhoto/users/{userId}/avatar.jpg
+    // Só o dono faz upload/apaga; qualquer utilizador autenticado pode ver (perfil).
+    match /profilePhoto/users/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Todo o resto: cliente não lê nem escreve.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

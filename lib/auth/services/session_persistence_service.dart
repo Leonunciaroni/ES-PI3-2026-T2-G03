@@ -1,20 +1,21 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Número de abas do shell principal (alinhado a [kMesclaMainTabCount] em `mescla_main_shell.dart`).
-const int _kMainTabCount = 5;
-
-/// Persistência leve da sessão: prazo de validade (24h após login) e última aba do shell.
+/// Persistência leve da sessão: prazo de validade (24h após login).
 ///
 /// Regras de produto:
-/// * Processo morto (cold start): o [AuthGateScreen] faz sign-out Firebase e remove só o
-///   prazo, mantendo o índice da última aba para restaurar após o próximo login.
-/// * Sair explicitamente: limpa tudo, incluindo a última aba.
+/// * Cold start: o [AuthGateScreen] faz sign-out Firebase e remove o prazo.
+/// * Sair explicitamente: limpa o prazo (`clearSessionMetadata`).
 /// * App em memória: o [DashboardScreen] verifica o prazo ao voltar do background.
+///
+/// Abertura pós-login: sempre na aba inicial (Dashboard / Início), sem restaurar
+/// última tab do shell.
 class SessionPersistenceService {
   SessionPersistenceService._();
 
   static const String _deadlineKey = 'mescla_session_deadline_ms';
-  static const String _lastNavKey = 'mescla_last_nav_index';
+
+  /// Chave antiga (restauração de tab); removida em cold start / logout.
+  static const String _legacyLastNavKey = 'mescla_last_nav_index';
 
   /// Duração da sessão “quente” após autenticação bem sucedida.
   static const Duration sessionDuration = Duration(hours: 24);
@@ -31,13 +32,14 @@ class SessionPersistenceService {
   static Future<void> clearSessionDeadline() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove(_deadlineKey);
+    await prefs.remove(_legacyLastNavKey);
   }
 
-  /// Remove prazo e última aba (logout explícito ou encerramento de sessão completo).
+  /// Remove prazo (logout explícito ou encerramento de sessão completo).
   static Future<void> clearSessionMetadata() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove(_deadlineKey);
-    await prefs.remove(_lastNavKey);
+    await prefs.remove(_legacyLastNavKey);
   }
 
   static Future<bool> hasSessionDeadline() async {
@@ -54,17 +56,9 @@ class SessionPersistenceService {
     return DateTime.now().millisecondsSinceEpoch < d;
   }
 
-  static Future<void> setLastNavIndex(int index) async {
-    if (index < 0 || index >= _kMainTabCount) {
-      return;
-    }
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_lastNavKey, index);
-  }
-
+  /// O produto abre sempre na aba inicial após login; mantemos o método para
+  /// telas antigas que ainda pedem o índice guardado (retorno fixo `0`).
   static Future<int> getLastNavIndex() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final int raw = prefs.getInt(_lastNavKey) ?? 0;
-    return raw.clamp(0, _kMainTabCount - 1);
+    return 0;
   }
 }

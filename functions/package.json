@@ -5,6 +5,8 @@
     "build": "node ./node_modules/typescript/bin/tsc",
     "build:watch": "node ./node_modules/typescript/bin/tsc --watch",
     "test": "npm run build && node --test \"lib/**/*.test.js\"",
+    "migrate:floor-tokens-held": "npm run build && node lib/wallet/scripts/migrateFloorTokensHeld.js",
+    "migrate:floor-tokens-held:dry": "npm run build && node lib/wallet/scripts/migrateFloorTokensHeld.js --dry-run",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",

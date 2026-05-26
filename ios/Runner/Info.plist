@@ -71,5 +71,11 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>O Mescla Invest usa Face ID para desbloquear o app e confirmar operações seguras, sem gravar a sua imagem.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>O Mescla Invest precisa acessar a câmera para você tirar a foto de perfil.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>O Mescla Invest precisa acessar suas fotos para você escolher a imagem de perfil.</string>
 </dict>
 </plist>

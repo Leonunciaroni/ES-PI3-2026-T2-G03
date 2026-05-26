@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../carteira/models/pix_chave_ui.dart';
+import 'biometric_enrollment_storage.dart';
 import 'session_persistence_service.dart';
 
 class UserFirestoreService {
@@ -24,23 +25,62 @@ class UserFirestoreService {
 
   /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
   static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
+
+  /// `true` = novo registo ainda não concluiu a verificação inicial de e-mail + telefone.
+  /// Após o primeiro onboarding, deve ficar `false`. Documentos antigos sem este campo
+  /// tratam-se como já concluídos ([isFirstAccessPending] é false).
+  static const String fieldFirstAccess = 'firstAccess';
+
+  /// Canal do segundo fator: [mfaDeliveryEmail] (callable + e-mail) ou [mfaDeliverySms] (Firebase Phone).
+  static const String fieldMfaDeliveryMethod = 'mfaDeliveryMethod';
+
+  /// Valores gravados em [fieldMfaDeliveryMethod] (strings estáveis para Firestore).
+  static const String mfaDeliveryEmail = 'email';
+  static const String mfaDeliverySms = 'sms';
+
   static const String fieldFavoriteStartupIds = 'favoriteStartupIds';
   static const String fieldInvestorStartupIds = 'investorStartupIds';
+  /// URL HTTPS da foto de perfil (download URL do Firebase Storage).
+  /// Gravada após upload em `profilePhoto/users/{uid}/avatar.jpg`.
+  static const String fieldPhotoUrl = 'photoUrl';
 
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
 
-  static Future<void> _removeLegacyPasswordFieldForEmail(
-    String normalizedEmail,
-  ) async {
-    final query = await _usersCollection
-        .where('emailLowercase', isEqualTo: normalizedEmail)
-        .get();
+  /// Preferência: utilizador quer desbloquear o app com biometria (Face ID / digital).
+  static const String fieldBiometricEnabled = 'biometricEnabled';
 
-    for (final doc in query.docs) {
-      if (doc.data().containsKey('password')) {
+  /// Última vez que entrou com biometria (metadado; auditoria simples).
+  static const String fieldLastBiometricLoginAt = 'lastBiometricLoginAt';
+
+  /// Marca o aparelho como confiável quando o utilizador activa a biometria aqui.
+  static const String fieldTrustedDevice = 'trustedDevice';
+
+  /// Remove o campo legado `password` do documento `users/{uid}`.
+  ///
+  /// **Problema resolvido (login):** após `signInWithEmailAndPassword` bem-sucedido
+  /// no Firebase Auth, o código antigo fazia uma **consulta** à coleção
+  /// `users` com `where('emailLowercase', …)`. Com regras Firestore típicas
+  /// (acesso só a `users/{uid}` quando `request.auth.uid == uid`), essa query
+  /// gerava `PERMISSION_DENIED` nos logs. O erro era um [FirebaseException],
+  /// não [FirebaseAuthException], pelo que o [AuthService.messageForError] na
+  /// [LoginScreen] mostrava apenas *«Não foi possível concluir a operação agora.»*
+  /// mesmo com sessão Auth válida.
+  ///
+  /// **Correção:** usar só leitura/escrita em `users/{uid}` após autenticação e
+  /// envolver em `try/catch` para a migração legada nunca bloquear o fluxo.
+  static Future<void> _removeLegacyPasswordFieldForUid(String uid) async {
+    try {
+      final doc = await _usersCollection.doc(uid).get();
+      if (!doc.exists) return;
+      final data = doc.data();
+      if (data != null && data.containsKey('password')) {
         await doc.reference.update({'password': FieldValue.delete()});
       }
+    } on FirebaseException {
+      // Rede / permissões — não impedir cadastro ou sessão Auth.
+    } catch (_) {
+      // Idem.
     }
   }
 
@@ -50,6 +90,9 @@ class UserFirestoreService {
     required String phone,
     required String cpf,
     required String password,
+
+    /// [mfaDeliveryEmail] ou [mfaDeliverySms] — define o canal de OTP quando o 2FA está ligado.
+    required String mfaDeliveryMethod,
   }) async {
     final normalizedEmail = email.trim().toLowerCase();
     final credential = await _auth.createUserWithEmailAndPassword(
@@ -75,15 +118,19 @@ class UserFirestoreService {
         'cpf': cpf.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         fieldTwoFactorEnabled: true,
+        fieldMfaDeliveryMethod: mfaDeliveryMethod == mfaDeliverySms
+            ? mfaDeliverySms
+            : mfaDeliveryEmail,
         fieldFavoriteStartupIds: <String>[],
         fieldInvestorStartupIds: <String>[],
         fieldChavesPix: <Map<String, dynamic>>[],
+        fieldFirstAccess: true,
+        fieldBiometricEnabled: false,
       }, SetOptions(merge: true));
 
-      await _removeLegacyPasswordFieldForEmail(normalizedEmail);
+      await _removeLegacyPasswordFieldForUid(uid);
 
-      // Mantém o fluxo atual da interface: após cadastro, volta para tela de login.
-      await _auth.signOut();
+      // Mantém a sessão Firebase Auth: o fluxo continua no app (OTP e-mail → telefone).
     } catch (_) {
       // Evita usuário órfão no Auth caso o perfil em Firestore falhe.
       try {
@@ -95,6 +142,44 @@ class UserFirestoreService {
     }
   }
 
+  /// Indica se o utilizador autenticado ainda deve passar pelo ecrã de primeiro acesso
+  /// (validar e-mail no Auth e telefone com SMS).
+  static Future<bool> isFirstAccessPending() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return false;
+    }
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) {
+        return false;
+      }
+      final v = snap.data()?[fieldFirstAccess];
+      return v is bool && v;
+    } on FirebaseException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Marca o onboarding inicial como concluído (`firstAccess: false`).
+  static Future<void> markFirstAccessCompleted() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    await _usersCollection.doc(uid).set({
+      fieldFirstAccess: false,
+    }, SetOptions(merge: true));
+  }
+
+  /// Login com e-mail/senha; em seguida remove eventual campo legado `password`
+  /// só em `users/{uid}` (nunca por query na coleção — ver
+  /// [_removeLegacyPasswordFieldForUid]).
   static Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -104,11 +189,17 @@ class UserFirestoreService {
       email: normalizedEmail,
       password: password,
     );
-    await _removeLegacyPasswordFieldForEmail(normalizedEmail);
+    // Limpeza legado só no doc do utilizador (evita query à coleção — ver doc de
+    // [_removeLegacyPasswordFieldForUid]).
+    final uid = _auth.currentUser?.uid;
+    if (uid != null) {
+      await _removeLegacyPasswordFieldForUid(uid);
+    }
   }
 
   /// Encerra a sessão no Firebase Auth (ex.: botão Sair do Perfil).
   static Future<void> signOut() async {
+    await BiometricEnrollmentStorage.clearEnrollment();
     await SessionPersistenceService.clearSessionMetadata();
     await _auth.signOut();
   }
@@ -174,6 +265,146 @@ class UserFirestoreService {
     });
   }
 
+  /// Lê [fieldBiometricEnabled]; documento antigo sem campo ⇒ `false`.
+  static Future<bool> fetchBiometricEnabled() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return false;
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) return false;
+      final v = snap.data()?[fieldBiometricEnabled];
+      return v is bool && v;
+    } on FirebaseException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Emite alterações a [fieldBiometricEnabled] em tempo real (default `false`).
+  static Stream<bool> watchBiometricEnabled() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return Stream<bool>.value(false);
+    }
+    return _usersCollection.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) return false;
+      final v = snap.data()?[fieldBiometricEnabled];
+      return v is bool && v;
+    });
+  }
+
+  /// Grava a preferência de biometria e, se activa, marca dispositivo confiável.
+  static Future<void> setBiometricEnabled(bool enabled) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    await _usersCollection.doc(uid).set({
+      fieldBiometricEnabled: enabled,
+      fieldTrustedDevice: enabled,
+    }, SetOptions(merge: true));
+  }
+
+  /// Actualiza só o horário do último login por biometria (servidor).
+  static Future<void> recordLastBiometricLoginNow() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await _usersCollection.doc(uid).set({
+        fieldLastBiometricLoginAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } on FirebaseException {
+      // Falha de rede: não bloqueia o fluxo de UI.
+    } catch (_) {}
+  }
+
+  /// Lê o campo [fieldMfaDeliveryMethod] uma vez (por omissão [mfaDeliveryEmail]).
+  static Future<String> fetchMfaDeliveryMethod() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return mfaDeliveryEmail;
+    }
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) {
+        return mfaDeliveryEmail;
+      }
+      return _parseMfaDeliveryMethod(snap.data()?[fieldMfaDeliveryMethod]);
+    } on FirebaseException {
+      return mfaDeliveryEmail;
+    } catch (_) {
+      return mfaDeliveryEmail;
+    }
+  }
+
+  /// Normaliza o valor bruto do Firestore para [mfaDeliveryEmail] ou [mfaDeliverySms].
+  static String _parseMfaDeliveryMethod(Object? raw) {
+    if (raw is! String) {
+      return mfaDeliveryEmail;
+    }
+    final v = raw.trim().toLowerCase();
+    if (v == mfaDeliverySms) {
+      return mfaDeliverySms;
+    }
+    return mfaDeliveryEmail;
+  }
+
+  /// Emite alterações ao método MFA (default [mfaDeliveryEmail]).
+  static Stream<String> watchMfaDeliveryMethod() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return Stream<String>.value(mfaDeliveryEmail);
+    }
+    return _usersCollection.doc(uid).snapshots().map((snap) {
+      if (!snap.exists) {
+        return mfaDeliveryEmail;
+      }
+      return _parseMfaDeliveryMethod(snap.data()?[fieldMfaDeliveryMethod]);
+    });
+  }
+
+  /// Grava o canal MFA em `users/{uid}` (apenas `email` ou `sms`).
+  static Future<void> setMfaDeliveryMethod(String method) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+    final normalized = method.trim().toLowerCase() == mfaDeliverySms
+        ? mfaDeliverySms
+        : mfaDeliveryEmail;
+    await _usersCollection.doc(uid).set({
+      fieldMfaDeliveryMethod: normalized,
+    }, SetOptions(merge: true));
+  }
+
+  /// Dígitos do telefone gravados em `users/{uid}.phone` (cadastro), só números; `null` se ausente.
+  static Future<String?> fetchProfilePhoneDigits() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      return null;
+    }
+    try {
+      final snap = await _usersCollection.doc(uid).get();
+      if (!snap.exists) {
+        return null;
+      }
+      final raw = snap.data()?['phone'];
+      if (raw is! String || raw.trim().isEmpty) {
+        return null;
+      }
+      return raw.replaceAll(RegExp(r'\D'), '');
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Nome do cadastro em `users/{uid}`; `null` se não houver documento ou em erro
   /// (testes sem Firebase, rede, etc.).
   static Future<String?> fetchNameFromFirestore(String uid) async {
@@ -189,6 +420,59 @@ class UserFirestoreService {
     }
     return null;
   }
+
+  /// Grava a URL de download da foto (retorno de [ProfilePhotoStorageService.enviarFoto]).
+  static Future<void> setProfilePhotoUrl(String photoUrl) async {
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) {
+    throw FirebaseAuthException(
+      code: 'no-current-user',
+      message: 'Sessão não encontrada.',
+    );
+  }
+
+  await _usersCollection.doc(uid).set({
+    fieldPhotoUrl: photoUrl.trim(),
+  }, SetOptions(merge: true));
+}
+
+  static Future<void> removeProfilePhotoUrl() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw FirebaseAuthException(
+        code: 'no-current-user',
+        message: 'Sessão não encontrada.',
+      );
+    }
+
+    await _usersCollection.doc(uid).set({
+      fieldPhotoUrl: FieldValue.delete(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<String?> fetchProfilePhotoUrl() async {
+  final uid = _auth.currentUser?.uid;
+  if (uid == null) {
+    return null;
+  }
+
+  try {
+    final snap = await _usersCollection.doc(uid).get();
+    if (!snap.exists) {
+      return null;
+    }
+
+    final raw = snap.data()?[fieldPhotoUrl];
+
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw.trim();
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
+}
 
   /// IDs Firestore das startups favoritas do utilizador autenticado.
   static Future<List<String>> fetchFavoriteStartupIds() async {
