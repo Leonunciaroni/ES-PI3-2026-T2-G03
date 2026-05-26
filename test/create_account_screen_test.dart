@@ -56,6 +56,21 @@ void main() {
     await tapPrimary(tester, 'Continuar');
   }
 
+  // Rola o documento completo de termos até o fim para liberar o checkbox.
+  Future<void> readTermsUntilEnd(WidgetTester tester) async {
+    // Localiza a área rolável interna da etapa de termos.
+    final termsScroll = find.byKey(
+      const ValueKey<String>('signup_terms_scroll'),
+    );
+    // Arrasta várias vezes para garantir que o final do documento foi alcançado.
+    for (int i = 0; i < 8; i++) {
+      await tester.drag(termsScroll, const Offset(0, -500));
+      await tester.pump();
+    }
+    // Aguarda o listener de rolagem atualizar a tela.
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('Renderiza cadastro em etapas separadas', (
     WidgetTester tester,
   ) async {
@@ -102,7 +117,9 @@ void main() {
     await fillValidStepsUntilTerms(tester);
 
     // Localiza o checkbox de aceite de termos.
-    final checkboxFinder = find.byType(Checkbox);
+    final checkboxFinder = find.byKey(
+      const ValueKey<String>('signup_terms_checkbox'),
+    );
     // Garante que exista exatamente um checkbox na etapa.
     expect(checkboxFinder, findsOneWidget);
 
@@ -110,6 +127,16 @@ void main() {
     Checkbox checkbox = tester.widget<Checkbox>(checkboxFinder);
     // Confirma que o aceite começa desmarcado.
     expect(checkbox.value, isFalse);
+    // Confirma que o checkbox começa desabilitado antes da leitura completa.
+    expect(checkbox.onChanged, isNull);
+
+    // Rola os termos até o final para habilitar o aceite.
+    await readTermsUntilEnd(tester);
+
+    // Lê novamente o checkbox após a rolagem completa.
+    checkbox = tester.widget<Checkbox>(checkboxFinder);
+    // Confirma que o checkbox foi habilitado.
+    expect(checkbox.onChanged, isNotNull);
 
     // Garante que o checkbox esteja visível antes do toque.
     await tester.ensureVisible(checkboxFinder);
@@ -134,6 +161,8 @@ void main() {
 
     // Chega até termos com dados válidos nas etapas anteriores.
     await fillValidStepsUntilTerms(tester);
+    // Lê os termos até o final, mas não marca o aceite.
+    await readTermsUntilEnd(tester);
     // Tenta avançar sem marcar o checkbox.
     await tapPrimary(tester, 'Continuar');
 
@@ -190,8 +219,16 @@ void main() {
     // Chega até a etapa de termos com dados válidos.
     await fillValidStepsUntilTerms(tester);
 
+    // Rola o documento completo para habilitar o aceite.
+    await readTermsUntilEnd(tester);
+    // Garante que o checkbox voltou a ficar visível após a rolagem interna.
+    await tester.ensureVisible(
+      find.byKey(const ValueKey<String>('signup_terms_checkbox')),
+    );
     // Marca o aceite dos termos.
-    await tester.tap(find.byType(Checkbox));
+    await tester.tap(
+      find.byKey(const ValueKey<String>('signup_terms_checkbox')),
+    );
     // Aguarda o estado do checkbox atualizar.
     await tester.pumpAndSettle();
     // Avança para a etapa final de foto.
