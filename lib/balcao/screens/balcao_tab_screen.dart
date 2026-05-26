@@ -374,12 +374,24 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
     final hoje = DateTime(now.year, now.month, now.day);
     final picked = await showDateRangePicker(
       context: context,
+      locale: const Locale('pt', 'BR'),
       firstDate: DateTime(now.year - 5),
       lastDate: hoje,
       initialDateRange: DateTimeRange(
         start: _mesaExtratoFiltroInicioDia,
         end: _mesaExtratoFiltroFimDia,
       ),
+      helpText: 'Selecionar período',
+      cancelText: 'Cancelar',
+      confirmText: 'Confirmar',
+      saveText: 'Aplicar',
+      errorFormatText: 'Data inválida',
+      errorInvalidText: 'Data fora do período permitido',
+      errorInvalidRangeText: 'A data final deve ser após a inicial',
+      fieldStartHintText: 'Data inicial',
+      fieldEndHintText: 'Data final',
+      fieldStartLabelText: 'Início',
+      fieldEndLabelText: 'Fim',
     );
     if (!mounted || picked == null) return;
     setState(() {
@@ -596,8 +608,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
       builder: (context, snapshot) {
         final StartupDetailViewData detail =
             snapshot.hasData && snapshot.data != null
-                ? snapshot.data!
-                : startupDetailFor(mesaStartup);
+            ? snapshot.data!
+            : startupDetailFor(mesaStartup);
         return coluna(detail);
       },
     );
@@ -833,11 +845,11 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                             final totalPosicaoFmt = !carteiraAoVivo
                                 ? '—'
                                 : !precoConhecido
-                                    ? '—'
-                                    : balcaoBrlDisponivel(
-                                        saldoTokensEmCarteira * precoMercadoBrl,
-                                        true,
-                                      );
+                                ? '—'
+                                : balcaoBrlDisponivel(
+                                    saldoTokensEmCarteira * precoMercadoBrl,
+                                    true,
+                                  );
 
                             if (!carteiraAoVivo) {
                               return _balcaoMesaComAbas(
@@ -859,8 +871,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                         startup: mesaStartup,
                                         comprarPlataforma: () =>
                                             _iniciarFluxoOperacao(
-                                          BalcaoOperacaoTipo.compra,
-                                        ),
+                                              BalcaoOperacaoTipo.compra,
+                                            ),
                                       ),
                                       vender: () => _iniciarFluxoOperacao(
                                         BalcaoOperacaoTipo.venda,
@@ -895,9 +907,9 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                 QuerySnapshot<Map<String, dynamic>>>(
                               stream:
                                   SimulatedWalletService.watchLedgerRecentForChart(
-                                user.uid,
-                                limit: 500,
-                              ),
+                                    user.uid,
+                                    limit: 500,
+                                  ),
                               builder: (context, ledgerShot) {
                                 final txs = ledgerShot.hasData
                                     ? _filtrarTradesLedgerPorStartupEIntervalo(
@@ -932,8 +944,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                           startup: mesaStartup,
                                           comprarPlataforma: () =>
                                               _iniciarFluxoOperacao(
-                                            BalcaoOperacaoTipo.compra,
-                                          ),
+                                                BalcaoOperacaoTipo.compra,
+                                              ),
                                         ),
                                         vender: () => _iniciarFluxoOperacao(
                                           BalcaoOperacaoTipo.venda,
@@ -1006,10 +1018,10 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                           'Nenhuma compra ou venda neste par no período.',
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                            color: AppColors.secondaryLabel(
-                                              theme,
-                                            ),
-                                          ),
+                                                color: AppColors.secondaryLabel(
+                                                  theme,
+                                                ),
+                                              ),
                                         )
                                       else
                                         Column(
@@ -1095,8 +1107,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
 
                               final semSnapshot =
                                   statsSnap.connectionState ==
-                                          ConnectionState.waiting &&
-                                      !statsSnap.hasData;
+                                      ConnectionState.waiting &&
+                                  !statsSnap.hasData;
 
                               final double precoMercado;
                               if (oficial != null && oficial > 1e-9) {
@@ -1141,8 +1153,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                 builder: (context, snapshot) {
                                   final StartupDetailViewData detail =
                                       snapshot.hasData && snapshot.data != null
-                                          ? snapshot.data!
-                                          : startupDetailFor(mesaStartup);
+                                      ? snapshot.data!
+                                      : startupDetailFor(mesaStartup);
                                   return tradingComCarteiraAoVivo(
                                     detail,
                                     precoMercadoBrl: precoMercado,
