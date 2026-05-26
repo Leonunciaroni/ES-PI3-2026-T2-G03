@@ -456,7 +456,14 @@ class _DashboardScreenState extends State<DashboardScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const MesclaHeaderRow(),
+              MesclaHeaderRow(
+                trailing: IconButton(
+                  onPressed: () {},
+                  icon: const Icon(Icons.notifications_none_outlined),
+                  color: colorScheme.onSurface,
+                  tooltip: 'Notificações',
+                ),
+              ),
               const SizedBox(height: 20),
               _painelTituloSaudacao(labelCaps, user),
               const SizedBox(height: 8),
