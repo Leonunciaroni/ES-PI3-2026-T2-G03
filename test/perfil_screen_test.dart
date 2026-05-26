@@ -21,7 +21,7 @@ void main() {
     expect(find.text('SESSÃO'), findsOneWidget);
     expect(find.text('Sair da Conta'), findsOneWidget);
     expect(find.text('Segurança e Privacidade'), findsOneWidget);
-    expect(find.text('Favoritos'), findsOneWidget);
+    expect(find.text('Lista de Desejos'), findsOneWidget);
   });
 
   testWidgets('Toque em Segurança abre subpágina', (WidgetTester tester) async {

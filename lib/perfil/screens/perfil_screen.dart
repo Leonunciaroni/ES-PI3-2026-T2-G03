@@ -313,10 +313,10 @@ class _PerfilScreenState extends State<PerfilScreen> {
                         final qtd = favSnap.data?.length ?? 0;
                         final subtitulo = qtd == 0
                             ? 'Ver lista de desejos'
-                            : '$qtd ${qtd == 1 ? "startup favorita" : "startups favoritas"}';
+                            : '$qtd ${qtd == 1 ? "startup" : "startups"} na lista de desejos';
                         return _PerfilConfigRow(
                           icon: Icons.favorite_border_rounded,
-                          titulo: 'Favoritos',
+                          titulo: 'Lista de Desejos',
                           subtitulo: subtitulo,
                           onTap: () {
                             Navigator.of(context).push<void>(

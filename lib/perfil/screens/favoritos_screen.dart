@@ -13,7 +13,7 @@ import '../../catalog/widgets/catalog_startup_card.dart';
 import '../../catalog/widgets/mescla_detail_header.dart';
 import '../../theme/app_colors.dart';
 
-/// Ecrã dedicado aos favoritos (aberto a partir do Perfil).
+/// Ecrã dedicado à lista de desejos (aberto a partir do Perfil).
 class FavoritosScreen extends StatefulWidget {
   const FavoritosScreen({super.key, this.onInvestir});
 
@@ -91,7 +91,7 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                         const MesclaDetailHeader(),
                         const SizedBox(height: 16),
                         Text(
-                          'Favoritos',
+                          'Lista de Desejos',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
@@ -145,7 +145,7 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 36),
                                 child: Text(
-                                  'Ainda não tem favoritos.\n'
+                                  'Ainda não há startups na lista de desejos.\n'
                                   'Abra uma startup em Explorar e use Lista de desejos.',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyLarge?.copyWith(
