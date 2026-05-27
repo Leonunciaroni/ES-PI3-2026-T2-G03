@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Integração Firebase Auth e fluxo pós-login.
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -37,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
+  /// Quando true, a senha aparece como pontos; o usuário pode alternar.
   bool _obscurePassword = true;
   bool _isSubmitting = false;
 
@@ -47,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    // Libertação de recursos: os controllers mantêm listeners; sem dispose há fugas de memória.
+    // Liberação de recursos: os controllers mantêm listeners; sem dispose há vazamentos de memória.
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -113,7 +114,9 @@ class _LoginScreenState extends State<LoginScreen> {
           return;
         }
         await Navigator.of(context).pushAndRemoveUntil<void>(
-          MaterialPageRoute<void>(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) => const DashboardScreen(),
+          ),
           (route) => false,
         );
         return;
@@ -166,8 +169,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
           final linkedOk = await Navigator.of(context).push<bool>(
             MaterialPageRoute<bool>(
-              builder: (_) =>
-                  const LinkPhoneForMfaScreen(continueToLoginOtp: true),
+              builder: (_) => const LinkPhoneForMfaScreen(
+                continueToLoginOtp: true,
+              ),
             ),
           );
           if (!mounted) {
@@ -282,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
-                  // Em ecrãs pequenos o teclado empurra o conteúdo; scroll evita overflow.
+                  // Em telas pequenas o teclado empurra o conteúdo; scroll evita overflow.
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 20,
