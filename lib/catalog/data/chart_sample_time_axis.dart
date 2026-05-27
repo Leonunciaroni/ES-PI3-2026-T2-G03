@@ -5,6 +5,28 @@
 // local, sem dependência circular com o mock de detalhe — usa o índice do enum
 // [ValuationPeriod] (0=diario … 4=ytd).
 
+import 'startup_detail_mock.dart';
+
+/// Início inclusivo da janela do chip — **mesma regra** que Carteira e Balcão
+/// ([_carteiraInicioPeriodo] / [balcaoPeriodWindowStart]).
+DateTime chartPeriodWindowStart(ValuationPeriod period, DateTime now) {
+  final inicioDia = DateTime(now.year, now.month, now.day);
+  DateTime janelaDeslizanteDias(int dias) =>
+      inicioDia.subtract(Duration(days: dias));
+  switch (period) {
+    case ValuationPeriod.diario:
+      return inicioDia;
+    case ValuationPeriod.semanal:
+      return janelaDeslizanteDias(7);
+    case ValuationPeriod.mensal:
+      return janelaDeslizanteDias(30);
+    case ValuationPeriod.seisMeses:
+      return janelaDeslizanteDias(180);
+    case ValuationPeriod.ytd:
+      return DateTime(now.year, 1, 1);
+  }
+}
+
 /// Início inclusivo da janela do chip, na mesma ordem de [ValuationPeriod.values].
 ///
 /// - **diário:** últimas 24 h
