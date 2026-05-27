@@ -374,24 +374,12 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
     final hoje = DateTime(now.year, now.month, now.day);
     final picked = await showDateRangePicker(
       context: context,
-      locale: const Locale('pt', 'BR'),
       firstDate: DateTime(now.year - 5),
       lastDate: hoje,
       initialDateRange: DateTimeRange(
         start: _mesaExtratoFiltroInicioDia,
         end: _mesaExtratoFiltroFimDia,
       ),
-      helpText: 'Selecionar período',
-      cancelText: 'Cancelar',
-      confirmText: 'Confirmar',
-      saveText: 'Aplicar',
-      errorFormatText: 'Data inválida',
-      errorInvalidText: 'Data fora do período permitido',
-      errorInvalidRangeText: 'A data final deve ser após a inicial',
-      fieldStartHintText: 'Data inicial',
-      fieldEndHintText: 'Data final',
-      fieldStartLabelText: 'Início',
-      fieldEndLabelText: 'Fim',
     );
     if (!mounted || picked == null) return;
     setState(() {
