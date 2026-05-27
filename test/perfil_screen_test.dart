@@ -4,16 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mescla_invest/perfil/screens/perfil_screen.dart';
 
 void main() {
-  testWidgets('Perfil mostra título, CONTA e Sair da Conta', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: PerfilScreen(wrapWithSafeArea: false),
+  Widget buildPerfil({Stream<List<String>>? favoriteStartupIdsStream}) {
+    return MaterialApp(
+      home: Scaffold(
+        body: PerfilScreen(
+          wrapWithSafeArea: false,
+          favoriteStartupIdsStream: favoriteStartupIdsStream,
         ),
       ),
     );
+  }
+
+  testWidgets('Perfil mostra título, CONTA e Sair da Conta', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(buildPerfil());
     await tester.pumpAndSettle();
 
     expect(find.text('Perfil'), findsOneWidget);
@@ -21,17 +26,35 @@ void main() {
     expect(find.text('SESSÃO'), findsOneWidget);
     expect(find.text('Sair da Conta'), findsOneWidget);
     expect(find.text('Segurança e Privacidade'), findsOneWidget);
-    expect(find.text('Favoritos'), findsOneWidget);
+    expect(find.text('Lista de Desejos'), findsOneWidget);
+  });
+
+  testWidgets('Perfil mostra contador da lista de desejos', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      buildPerfil(favoriteStartupIdsStream: Stream.value(const <String>[])),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('0 startups na lista de desejos'), findsOneWidget);
+
+    await tester.pumpWidget(
+      buildPerfil(favoriteStartupIdsStream: Stream.value(const <String>['s1'])),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('1 startup na lista de desejos'), findsOneWidget);
+
+    await tester.pumpWidget(
+      buildPerfil(
+        favoriteStartupIdsStream: Stream.value(const <String>['s1', 's2']),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('2 startups na lista de desejos'), findsOneWidget);
   });
 
   testWidgets('Toque em Segurança abre subpágina', (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: PerfilScreen(wrapWithSafeArea: false),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildPerfil());
     await tester.pumpAndSettle();
 
     final seguranca = find.text('Segurança e Privacidade');
@@ -53,13 +76,7 @@ void main() {
   testWidgets('Sair da Conta abre diálogo de confirmação', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: PerfilScreen(wrapWithSafeArea: false),
-        ),
-      ),
-    );
+    await tester.pumpWidget(buildPerfil());
     await tester.pumpAndSettle();
 
     final sair = find.text('Sair da Conta');
