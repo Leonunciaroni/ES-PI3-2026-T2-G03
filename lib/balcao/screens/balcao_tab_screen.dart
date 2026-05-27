@@ -781,57 +781,63 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
       ),
     );
 
-    final mesaBody = Padding(
-      padding: const EdgeInsets.fromLTRB(
-        _horizontalPadding,
-        8,
-        _horizontalPadding,
-        8,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _BalcaoMesaTopRow(onBack: _limparMesa),
-          const SizedBox(height: 12),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: MesclaMaterialRoute.kTransitionDuration,
-              reverseDuration: MesclaMaterialRoute.kReverseTransitionDuration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                final curved = CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                );
-                return FadeTransition(
-                  opacity: curved,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.035),
-                      end: Offset.zero,
-                    ).animate(curved),
-                    child: child,
-                  ),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey<String>(_balcaoPainelKey),
-                child: !_mesaFirebaseAppsProntos()
-                    ? _balcaoMesaSemFirebaseAoVivo(
-                        theme: theme,
-                        scheme: scheme,
-                        onSurface: onSurface,
-                      )
-                    : StreamBuilder<User?>(
-                        stream: FirebaseAuth.instance.authStateChanges(),
-                        builder: (context, authSnap) {
-                          final mesaStartup = _mesaStartup!;
-                          final fid = mesaStartup.firestoreId?.trim();
-                          final user = authSnap.data;
-                          final carteiraAoVivo =
-                              user != null && fid != null && fid.isNotEmpty;
+    Widget mesaBody() {
+      if (_mesaStartup == null) {
+        // Proteção: evita construir a árvore da mesa (que assume `_mesaStartup!`)
+        // quando ainda estamos no modo lista (ex.: em testes).
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          _horizontalPadding,
+          8,
+          _horizontalPadding,
+          8,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _BalcaoMesaTopRow(onBack: _limparMesa),
+            const SizedBox(height: 12),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MesclaMaterialRoute.kTransitionDuration,
+                reverseDuration: MesclaMaterialRoute.kReverseTransitionDuration,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.035),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<String>(_balcaoPainelKey),
+                  child: !_mesaFirebaseAppsProntos()
+                      ? _balcaoMesaSemFirebaseAoVivo(
+                          theme: theme,
+                          scheme: scheme,
+                          onSurface: onSurface,
+                        )
+                      : StreamBuilder<User?>(
+                          stream: FirebaseAuth.instance.authStateChanges(),
+                          builder: (context, authSnap) {
+                            final mesaStartup = _mesaStartup!;
+                            final fid = mesaStartup.firestoreId?.trim();
+                            final user = authSnap.data;
+                            final carteiraAoVivo =
+                                user != null && fid != null && fid.isNotEmpty;
 
                           Widget montarPainelCarteiraStreams({
                             required StartupDetailViewData detail,
@@ -1164,14 +1170,15 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                               );
                             },
                           );
-                        },
-                      ),
+                          },
+                        ),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppColors.shellOverlayStyle(theme.brightness),
@@ -1188,7 +1195,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                 colors: AppColors.shellGradientColors(theme.brightness),
               ),
             ),
-            child: _mesaStartup == null ? listaScroll : mesaBody,
+            child: _mesaStartup == null ? listaScroll : mesaBody(),
           ),
         ),
       ),
