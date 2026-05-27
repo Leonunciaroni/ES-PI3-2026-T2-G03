@@ -105,6 +105,7 @@ class PerfilScreen extends StatefulWidget {
     super.key,
     this.wrapWithSafeArea = true,
     this.onInvestir,
+    this.favoriteStartupIdsStream,
   });
 
   /// Quando o pai já aplicou [SafeArea] (ex.: [MesclaMainShell]), passa `false`.
@@ -112,6 +113,9 @@ class PerfilScreen extends StatefulWidget {
 
   /// Repassado a [FavoritosScreen] — «Investir Agora» abre o Balcão (ex.: [DashboardScreen]).
   final void Function(CatalogStartup)? onInvestir;
+
+  /// Permite injetar a lista de desejos em testes sem depender de Firebase.
+  final Stream<List<String>>? favoriteStartupIdsStream;
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -141,7 +145,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   /// Lê `users/{uid}.photoUrl` no Firestore e atualiza o avatar na tela.
   Future<void> _carregarUrlFotoSalva() async {
-    final url = await UserFirestoreService.fetchProfilePhotoUrl();
+    String? url;
+    try {
+      url = await UserFirestoreService.fetchProfilePhotoUrl();
+    } catch (_) {
+      url = null;
+    }
     if (!mounted) {
       return;
     }
@@ -278,9 +287,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
@@ -290,10 +297,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             children: [
               const Text(
                 'Escolher foto do perfil',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
               ListTile(
@@ -435,9 +439,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Remover foto'),
-          content: const Text(
-            'Deseja realmente remover sua foto de perfil?',
-          ),
+          content: const Text('Deseja realmente remover sua foto de perfil?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -524,21 +526,13 @@ class _PerfilScreenState extends State<PerfilScreen> {
         final iniciais = dados?.iniciais ?? '…';
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            _paddingH,
-            8,
-            _paddingH,
-            32,
-          ),
+          padding: const EdgeInsets.fromLTRB(_paddingH, 8, _paddingH, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  MesclaBrandLogo(
-                    boxHeight: _logoHeight,
-                    boxWidth: 200,
-                  ),
+                  MesclaBrandLogo(boxHeight: _logoHeight, boxWidth: 200),
                 ],
               ),
               const SizedBox(height: 20),
@@ -580,15 +574,16 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 child: Column(
                   children: [
                     StreamBuilder<List<String>>(
-                      stream: UserFirestoreService.watchFavoriteStartupIds(),
+                      stream:
+                          widget.favoriteStartupIdsStream ??
+                          UserFirestoreService.watchFavoriteStartupIds(),
                       builder: (context, favSnap) {
                         final qtd = favSnap.data?.length ?? 0;
-                        final subtitulo = qtd == 0
-                            ? 'Ver lista de desejos'
-                            : '$qtd ${qtd == 1 ? "startup favorita" : "startups favoritas"}';
+                        final subtitulo =
+                            '$qtd ${qtd == 1 ? "startup" : "startups"} na lista de desejos';
                         return _PerfilConfigRow(
                           icon: Icons.favorite_border_rounded,
-                          titulo: 'Favoritos',
+                          titulo: 'Lista de Desejos',
                           subtitulo: subtitulo,
                           onTap: () {
                             Navigator.of(context).push<void>(
@@ -809,7 +804,6 @@ class _PerfilUserCard extends StatelessWidget {
                 ],
               ),
             ),
-            
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -895,11 +889,7 @@ class _PerfilConfigRow extends StatelessWidget {
                   color: iconCircle,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  color: AppColors.textSecondary,
-                  size: 22,
-                ),
+                child: Icon(icon, color: AppColors.textSecondary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -923,10 +913,7 @@ class _PerfilConfigRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),

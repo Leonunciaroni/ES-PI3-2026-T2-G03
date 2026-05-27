@@ -17,7 +17,7 @@ import '../../catalog/widgets/catalog_startup_card.dart';
 import '../../catalog/widgets/mescla_detail_header.dart';
 import '../../theme/app_colors.dart';
 
-/// Ecrã dedicado aos favoritos (aberto a partir do Perfil).
+/// Ecrã dedicado à lista de desejos (aberto a partir do Perfil).
 class FavoritosScreen extends StatefulWidget {
   const FavoritosScreen({super.key, this.onInvestir});
 
@@ -45,11 +45,13 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
     if (ids.isEmpty) {
       return const <CatalogStartup>[];
     }
-    final startups =
-        await StartupCatalogListCache.instance.fullList(_functionsService);
+    final startups = await StartupCatalogListCache.instance.fullList(
+      _functionsService,
+    );
     final byId = <String, CatalogStartup>{
       for (final s in startups)
-        if (s.firestoreId != null && s.firestoreId!.isNotEmpty) s.firestoreId!: s,
+        if (s.firestoreId != null && s.firestoreId!.isNotEmpty)
+          s.firestoreId!: s,
     };
     final out = <CatalogStartup>[];
     for (final id in ids) {
@@ -95,7 +97,7 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                         const MesclaDetailHeader(),
                         const SizedBox(height: 16),
                         Text(
-                          'Favoritos',
+                          'Lista de Desejos',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.bold,
@@ -134,10 +136,13 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 !snapshot.hasData) {
                               return const Padding(
                                 padding: EdgeInsets.only(top: 48),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               );
                             }
-                            final list = snapshot.data ?? const <CatalogStartup>[];
+                            final list =
+                                snapshot.data ?? const <CatalogStartup>[];
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!context.mounted || list.isEmpty) return;
                               StartupLogoPrecacheService.schedulePreloadForStartupList(
@@ -149,8 +154,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 36),
                                 child: Text(
-                                  'Ainda não tem favoritos.\n'
-                                  'Abra uma startup em Explorar e use Lista de desejos.',
+                                  'Ainda não há startups na lista de desejos.\n'
+                                  'Abra uma startup em Explorar e use Lista de Desejos.',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: AppColors.textSecondary,

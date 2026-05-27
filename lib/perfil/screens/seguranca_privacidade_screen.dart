@@ -15,6 +15,7 @@ import '../../auth/services/biometric_enrollment_storage.dart';
 import '../../auth/services/user_firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../widgets/mescla_subpage_scaffold.dart';
+import 'termos_uso_privacidade_screen.dart';
 
 /// Dados lidos uma vez para o texto do tipo de leitor (digital, Face ID, …).
 class _BioUiInfo {
@@ -32,7 +33,8 @@ class SegurancaPrivacidadeScreen extends StatefulWidget {
       _SegurancaPrivacidadeScreenState();
 }
 
-class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen> {
+class _SegurancaPrivacidadeScreenState
+    extends State<SegurancaPrivacidadeScreen> {
   bool _persisting = false;
 
   /// Carrega capacidades do aparelho (biometria disponível + texto para o subtítulo).
@@ -46,10 +48,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
 
   Future<_BioUiInfo> _carregarBioUiInfo() async {
     if (!_plataformaComBiometriaNativa()) {
-      return const _BioUiInfo(
-        podeUsar: false,
-        descricaoHardware: '',
-      );
+      return const _BioUiInfo(podeUsar: false, descricaoHardware: '');
     }
     final svc = BiometricAuthService.instance;
     final pode = await svc.deviceCanUseBiometrics();
@@ -73,11 +72,12 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
     final String? uid = _currentUidOrNull();
     if (uid != null) {
       final bool prefBio = await UserFirestoreService.fetchBiometricEnabled();
-      final bool inscrito =
-          await BiometricEnrollmentStorage.isEnrolledForUser(uid);
+      final bool inscrito = await BiometricEnrollmentStorage.isEnrolledForUser(
+        uid,
+      );
       if (prefBio && inscrito) {
-        final BiometricAuthOutcome prova =
-            await BiometricAuthService.instance.authenticate(
+        final BiometricAuthOutcome
+        prova = await BiometricAuthService.instance.authenticate(
           localizedReason:
               'Confirme com a biometria para alterar a verificação em duas etapas.',
           skipPluginAvailabilityPrecheck: true,
@@ -110,7 +110,11 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Não foi possível atualizar a preferência.')),
+        SnackBar(
+          content: Text(
+            e.message ?? 'Não foi possível atualizar a preferência.',
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -171,11 +175,12 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
     final String? uidMfa = _currentUidOrNull();
     if (uidMfa != null) {
       final bool prefBio = await UserFirestoreService.fetchBiometricEnabled();
-      final bool inscrito =
-          await BiometricEnrollmentStorage.isEnrolledForUser(uidMfa);
+      final bool inscrito = await BiometricEnrollmentStorage.isEnrolledForUser(
+        uidMfa,
+      );
       if (prefBio && inscrito) {
-        final BiometricAuthOutcome prova =
-            await BiometricAuthService.instance.authenticate(
+        final BiometricAuthOutcome
+        prova = await BiometricAuthService.instance.authenticate(
           localizedReason:
               'Confirme com a biometria para alterar o canal do código MFA.',
           skipPluginAvailabilityPrecheck: true,
@@ -206,9 +211,8 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         if (!hasPhone) {
           final linked = await Navigator.of(context).push<bool>(
             MaterialPageRoute<bool>(
-              builder: (_) => const LinkPhoneForMfaScreen(
-                continueToLoginOtp: false,
-              ),
+              builder: (_) =>
+                  const LinkPhoneForMfaScreen(continueToLoginOtp: false),
             ),
           );
           if (!mounted || linked != true) {
@@ -224,19 +228,15 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Próximo login: código MFA por SMS.',
-            ),
-          ),
+          const SnackBar(content: Text('Próximo login: código MFA por SMS.')),
         );
       } catch (e) {
         if (!mounted) {
           return;
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       } finally {
         if (mounted) {
           setState(() => _persisting = false);
@@ -261,10 +261,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
             message: 'Conta sem e-mail.',
           );
         }
-        final cred = EmailAuthProvider.credential(
-          email: email,
-          password: pw,
-        );
+        final cred = EmailAuthProvider.credential(email: email, password: pw);
         await user.reauthenticateWithCredential(cred);
         await UserFirestoreService.setMfaDeliveryMethod(
           UserFirestoreService.mfaDeliveryEmail,
@@ -285,16 +282,16 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message ?? 'Senha incorreta.'),
-          ),
+          SnackBar(content: Text(e.message ?? 'Senha incorreta.')),
         );
       } catch (_) {
         if (!mounted) {
           return;
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível atualizar o canal MFA.')),
+          const SnackBar(
+            content: Text('Não foi possível atualizar o canal MFA.'),
+          ),
         );
       } finally {
         if (mounted) {
@@ -313,9 +310,7 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Próximo login: código MFA por e-mail.'),
-        ),
+        const SnackBar(content: Text('Próximo login: código MFA por e-mail.')),
       );
     } finally {
       if (mounted) {
@@ -353,7 +348,9 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Não foi possível actualizar a preferência.'),
+            content: Text(
+              e.message ?? 'Não foi possível actualizar a preferência.',
+            ),
           ),
         );
       } catch (_) {
@@ -393,17 +390,15 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
       return;
     }
 
-    final BiometricAuthOutcome prova =
-        await BiometricAuthService.instance.authenticate(
-      localizedReason: 'Activar biometria no Mescla Invest.',
-      skipPluginAvailabilityPrecheck: true,
-    );
+    final BiometricAuthOutcome prova = await BiometricAuthService.instance
+        .authenticate(
+          localizedReason: 'Activar biometria no Mescla Invest.',
+          skipPluginAvailabilityPrecheck: true,
+        );
     if (prova != BiometricAuthOutcome.success) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(BiometricAuthService.messageForOutcome(prova)),
-        ),
+        SnackBar(content: Text(BiometricAuthService.messageForOutcome(prova))),
       );
       return;
     }
@@ -500,21 +495,22 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                               ),
                             ),
                             value: ativo,
-                            onChanged:
-                                _persisting ? null : _onTwoFactorChanged,
+                            onChanged: _persisting ? null : _onTwoFactorChanged,
                           ),
                         ),
                         if (ativo) ...[
                           const SizedBox(height: 12),
                           StreamBuilder<String>(
-                            stream: UserFirestoreService.watchMfaDeliveryMethod(),
+                            stream:
+                                UserFirestoreService.watchMfaDeliveryMethod(),
                             builder: (context, snapMfa) {
                               if (snapMfa.connectionState ==
                                       ConnectionState.waiting &&
                                   !snapMfa.hasData) {
                                 return const SizedBox.shrink();
                               }
-                              final method = snapMfa.data ??
+                              final method =
+                                  snapMfa.data ??
                                   UserFirestoreService.mfaDeliveryEmail;
                               return Material(
                                 color: AppColors.themeCardSurface(theme),
@@ -533,15 +529,16 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                         'Canal do código MFA',
                                         style: theme.textTheme.titleSmall
                                             ?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          color: theme.colorScheme.onSurface,
-                                        ),
+                                              fontWeight: FontWeight.w700,
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                            ),
                                       ),
                                     ),
                                     RadioListTile<String>(
                                       title: const Text('E-mail'),
-                                      value: UserFirestoreService
-                                          .mfaDeliveryEmail,
+                                      value:
+                                          UserFirestoreService.mfaDeliveryEmail,
                                       groupValue: method,
                                       onChanged: _persisting
                                           ? null
@@ -573,11 +570,13 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                       ),
                                       child: Text(
                                         'Se perder o telefone, escolha e-mail e confirme com a senha.',
-                                        style:
-                                            theme.textTheme.bodySmall?.copyWith(
-                                          color: AppColors.secondaryLabel(theme),
-                                          height: 1.35,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.secondaryLabel(
+                                                theme,
+                                              ),
+                                              height: 1.35,
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -613,7 +612,8 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                         ),
                       );
                     }
-                    final hw = snapHw.data ??
+                    final hw =
+                        snapHw.data ??
                         const _BioUiInfo(
                           podeUsar: false,
                           descricaoHardware: '',
@@ -682,9 +682,9 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                 onChanged: _persisting
                                     ? null
                                     : (_) => _onBiometricUserChoice(
-                                          querAtivar: false,
-                                          valorFirestoreActual: bioActiva,
-                                        ),
+                                        querAtivar: false,
+                                        valorFirestoreActual: bioActiva,
+                                      ),
                               ),
                               RadioListTile<bool>(
                                 title: const Text('Usar biometria'),
@@ -698,9 +698,9 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                                 onChanged: _persisting || !hw.podeUsar
                                     ? null
                                     : (_) => _onBiometricUserChoice(
-                                          querAtivar: true,
-                                          valorFirestoreActual: bioActiva,
-                                        ),
+                                        querAtivar: true,
+                                        valorFirestoreActual: bioActiva,
+                                      ),
                               ),
                               const SizedBox(height: 8),
                             ],
@@ -712,6 +712,32 @@ class _SegurancaPrivacidadeScreenState extends State<SegurancaPrivacidadeScreen>
                 ),
               ],
             ),
+          const SizedBox(height: 24),
+          Text(
+            'Documentos',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: AppColors.secondaryLabel(theme),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Material(
+            color: AppColors.themeCardSurface(theme),
+            borderRadius: BorderRadius.circular(16),
+            child: ListTile(
+              leading: const Icon(Icons.description_outlined),
+              title: const Text('Termos de Uso'),
+              subtitle: const Text('Politica de Privacidade'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const TermosUsoPrivacidadeScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
           const SizedBox(height: 24),
           Text(
             'Senha',
