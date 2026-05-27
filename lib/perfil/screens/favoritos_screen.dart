@@ -41,11 +41,13 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
     if (ids.isEmpty) {
       return const <CatalogStartup>[];
     }
-    final startups =
-        await StartupCatalogListCache.instance.fullList(_functionsService);
+    final startups = await StartupCatalogListCache.instance.fullList(
+      _functionsService,
+    );
     final byId = <String, CatalogStartup>{
       for (final s in startups)
-        if (s.firestoreId != null && s.firestoreId!.isNotEmpty) s.firestoreId!: s,
+        if (s.firestoreId != null && s.firestoreId!.isNotEmpty)
+          s.firestoreId!: s,
     };
     final out = <CatalogStartup>[];
     for (final id in ids) {
@@ -130,10 +132,13 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 !snapshot.hasData) {
                               return const Padding(
                                 padding: EdgeInsets.only(top: 48),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               );
                             }
-                            final list = snapshot.data ?? const <CatalogStartup>[];
+                            final list =
+                                snapshot.data ?? const <CatalogStartup>[];
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!context.mounted || list.isEmpty) return;
                               StartupLogoPrecacheService.schedulePreloadForStartupList(
@@ -146,7 +151,7 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 padding: const EdgeInsets.only(top: 36),
                                 child: Text(
                                   'Ainda não há startups na lista de desejos.\n'
-                                  'Abra uma startup em Explorar e use Lista de desejos.',
+                                  'Abra uma startup em Explorar e use Lista de Desejos.',
                                   textAlign: TextAlign.center,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: AppColors.textSecondary,
