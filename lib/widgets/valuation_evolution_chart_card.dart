@@ -8,26 +8,13 @@ import 'package:flutter/material.dart';
 
 import '../catalog/data/startup_detail_mock.dart';
 import '../theme/app_colors.dart';
+import 'chart_date_axis_labels.dart';
+import 'chart_date_axis_ticks.dart';
 import 'chart_scrubbing.dart';
 import 'mescla_chart_reading_card.dart';
 
 /// Raio de canto alinhado ao detalhe da startup (~22 dp).
 const double kValuationChartCardRadius = 22.0;
-
-const _monthLabelsPt = <String>[
-  'jan',
-  'fev',
-  'mar',
-  'abr',
-  'mai',
-  'jun',
-  'jul',
-  'ago',
-  'set',
-  'out',
-  'nov',
-  'dez',
-];
 
 String _defaultYAxisMillion(double millions) {
   if (millions >= 1000) {
@@ -44,99 +31,6 @@ String _defaultTooltipMillion(double millions) {
     return 'R\$ ${(millions / 1000).toStringAsFixed(2)} bi';
   }
   return 'R\$ ${millions.toStringAsFixed(2)} mi';
-}
-
-String _diaMes(DateTime date) =>
-    '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
-
-String _mesCurto(DateTime date) => _monthLabelsPt[date.month - 1];
-
-DateTime _inicioDia(DateTime date) => DateTime(date.year, date.month, date.day);
-
-DateTime _proximaSegunda(DateTime date) {
-  final base = _inicioDia(date);
-  final diasAteSegunda = (DateTime.monday - base.weekday) % 7;
-  return base.add(Duration(days: diasAteSegunda));
-}
-
-class _DateAxisTick {
-  const _DateAxisTick({required this.t, required this.label});
-
-  final double t;
-  final String label;
-}
-
-List<_DateAxisTick> _dateAxisTicks({
-  required ValuationPeriod period,
-  required List<DateTime> times,
-}) {
-  if (period == ValuationPeriod.diario || times.length < 2) {
-    return const [];
-  }
-
-  final sorted = List<DateTime>.from(times)..sort();
-  final start = sorted.first;
-  final end = sorted.last;
-  final startMs = start.millisecondsSinceEpoch;
-  final endMs = end.millisecondsSinceEpoch;
-  if (endMs <= startMs) return const [];
-
-  double pos(DateTime date) =>
-      ((date.millisecondsSinceEpoch - startMs) / (endMs - startMs)).clamp(
-        0.0,
-        1.0,
-      );
-
-  List<_DateAxisTick> fromDates(
-    Iterable<DateTime> dates,
-    String Function(DateTime date) label,
-  ) {
-    final usedLabels = <String>{};
-    final out = <_DateAxisTick>[];
-    for (final date in dates) {
-      if (date.isBefore(start) || date.isAfter(end)) continue;
-      final text = label(date);
-      if (!usedLabels.add(text)) continue;
-      out.add(_DateAxisTick(t: pos(date), label: text));
-    }
-    return out;
-  }
-
-  switch (period) {
-    case ValuationPeriod.diario:
-      return const [];
-    case ValuationPeriod.semanal:
-      return fromDates(sorted, _diaMes);
-    case ValuationPeriod.mensal:
-      final mondays = <DateTime>[];
-      var day = _proximaSegunda(start);
-      while (!day.isAfter(end) && mondays.length < 6) {
-        mondays.add(day);
-        day = day.add(const Duration(days: 7));
-      }
-      if (mondays.length < 2) {
-        return fromDates([start, end], _diaMes);
-      }
-      return fromDates(mondays, _diaMes);
-    case ValuationPeriod.seisMeses:
-    case ValuationPeriod.ytd:
-      final out = <_DateAxisTick>[];
-      final usedLabels = <String>{};
-      var cursor = DateTime(start.year, start.month);
-      final endMonth = DateTime(end.year, end.month);
-      while (!cursor.isAfter(endMonth)) {
-        final nextMonth = DateTime(cursor.year, cursor.month + 1);
-        if (nextMonth.isAfter(start) && !cursor.isAfter(end)) {
-          final visibleDate = cursor.isBefore(start) ? start : cursor;
-          final text = _mesCurto(cursor);
-          if (usedLabels.add(text)) {
-            out.add(_DateAxisTick(t: pos(visibleDate), label: text));
-          }
-        }
-        cursor = DateTime(cursor.year, cursor.month + 1);
-      }
-      return out;
-  }
 }
 
 /// Gráfico de área + scrubbing + chips (§5.4). Valores em [series] são genéricos;
@@ -156,7 +50,11 @@ class ValuationEvolutionChartCard extends StatefulWidget {
     this.touchListenerKey = const ValueKey<String>(
       'startup_valuation_chart_touch',
     ),
+    this.referenceNow,
   });
+
+  /// Âncora da janela dos chips (30 dias, YTD, etc.). Em produção, [DateTime.now].
+  final DateTime? referenceNow;
 
   final ValuationPeriod selected;
   final ValueChanged<ValuationPeriod> onSelect;
@@ -206,10 +104,11 @@ class _ValuationEvolutionChartCardState
     final theme = Theme.of(context);
     final values = widget.series.valuationMillions;
     final times = widget.series.sampleTimes;
-    final dateTicks = _dateAxisTicks(period: widget.selected, times: times);
-    final dateTickWidthFactor = dateTicks.isEmpty
-        ? 0.0
-        : math.min(0.22, 1 / dateTicks.length);
+    final dateTicks = chartDateAxisTicks(
+      period: widget.selected,
+      times: times,
+      now: widget.referenceNow ?? DateTime.now(),
+    );
     final n = values.length;
     final rawMin = values.reduce(math.min);
     final rawMax = values.reduce(math.max);
@@ -265,7 +164,7 @@ class _ValuationEvolutionChartCardState
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: plotHeight + (dateTicks.isEmpty ? 0 : 24),
+              height: plotHeight + (dateTicks.isEmpty ? 0 : 22),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final plotW = math.max(
@@ -303,7 +202,7 @@ class _ValuationEvolutionChartCardState
                       const SizedBox(width: 6),
                       Expanded(
                         child: SizedBox(
-                          height: plotHeight + (dateTicks.isEmpty ? 0 : 24),
+                          height: plotHeight + (dateTicks.isEmpty ? 0 : 22),
                           child: Column(
                             children: [
                               SizedBox(
@@ -365,42 +264,9 @@ class _ValuationEvolutionChartCardState
                                 ),
                               ),
                               if (dateTicks.isNotEmpty)
-                                SizedBox(
-                                  height: 24,
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      for (final tick in dateTicks)
-                                        Align(
-                                          alignment: Alignment(
-                                            tick.t * 2 - 1,
-                                            0,
-                                          ),
-                                          child: FractionallySizedBox(
-                                            widthFactor: dateTickWidthFactor,
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: Text(
-                                                tick.label,
-                                                maxLines: 1,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelSmall
-                                                    ?.copyWith(
-                                                      fontSize: 10,
-                                                      color:
-                                                          AppColors.secondaryLabel(
-                                                            theme,
-                                                          ).withValues(
-                                                            alpha: 0.82,
-                                                          ),
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                ChartDateAxisLabels(
+                                  ticks: dateTicks,
+                                  theme: theme,
                                 ),
                             ],
                           ),
