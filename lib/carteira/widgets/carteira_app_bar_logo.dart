@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Logo Mescla centrado na [AppBar] (ecrãs fundos / PIX).
+// Logo Mescla centrado na [AppBar] (telas fundos / PIX).
 
 import 'package:flutter/material.dart';
 

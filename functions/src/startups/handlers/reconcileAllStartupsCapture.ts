@@ -9,7 +9,7 @@
  * antes do contador automático): assim investimentos passados passam a aparecer
  * nas barras de captação sem precisar de novo aporte.
  *
- * Pedido: utilizador autenticado; corpo vazio {}.
+ * Pedido: usuário autenticado; corpo vazio {}.
  */
 import {getFirestore} from "firebase-admin/firestore";
 import {onCall} from "firebase-functions/https";

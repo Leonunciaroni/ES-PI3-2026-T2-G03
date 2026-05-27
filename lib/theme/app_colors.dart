@@ -156,7 +156,7 @@ abstract final class AppColors {
 
   /// Posição [left] do [MesclaChartReadingCard] sobre o gráfico. Evita
   /// [num.clamp] com mínimo > máximo quando a largura útil é menor que o cartão
-  /// (erro: "Invalid argument(s): 4.0" no ecrã estreito).
+  /// (erro: "Invalid argument(s): 4.0" na tela estreita).
   static double readingCardStackLeft({
     required double plotWidth,
     required double t,

@@ -97,7 +97,7 @@ class OrderBookPanel extends StatelessWidget {
                           startupId: startupId,
                           startupName: startupName,
                           tokenSigla: tokenSigla,
-                          // Só linhas de venda abrem o ecrã de compra P2P.
+                          // Só linhas de venda abrem a tela de compra P2P.
                           linhasTocaveis: true,
                         ),
                       ),
@@ -441,7 +441,7 @@ class _LinhaOrdem extends StatelessWidget {
       );
     }
 
-    // Linha de venda tocável — abre ecrã de compra da oferta.
+    // Linha de venda tocável — abre tela de compra da oferta.
     return Material(
       color: Colors.transparent,
       child: InkWell(

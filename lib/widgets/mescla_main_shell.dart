@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Layout “logado” partilhado: gradiente Mescla, área segura, cinco painéis e
-// [MesclaBottomNavBar]. Evita copiar o mesmo [Scaffold] em cada ecrã.
+// [MesclaBottomNavBar]. Evita copiar o mesmo [Scaffold] em cada tela.
 //
 // ## Porque não usamos só [IndexedStack]?
 // O [IndexedStack] troca o painel **instantaneamente**. Para uma UX próxima das
@@ -17,8 +17,8 @@
 // [AnimatedOpacity] e [AnimatedSlide] são animações **implícitas**: precisam de
 // ticker enquanto animam. Se desativares o ticker na aba que está a sair no
 // mesmo instante em que muda o índice, essa animação **congela** (ex.: opacity
-// fica em 1). O ecrã anterior continua pintado por baixo e, como muitas telas
-// têm fundos semi-transparentes, vês **dois ecrãs ao mesmo tempo** (overlap).
+// fica em 1). A tela anterior continua pintada por baixo e, como muitas telas
+// têm fundos semi-transparentes, você vê **duas telas ao mesmo tempo** (overlap).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

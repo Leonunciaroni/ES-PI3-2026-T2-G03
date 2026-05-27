@@ -37,7 +37,7 @@ class SaqueComprovanteScreen extends StatelessWidget {
     return '$dd/$mm/$yyyy às $hh:$min';
   }
 
-  /// Remove este ecrã e o [SacarValorScreen] por baixo, ficando na Carteira.
+  /// Remove esta tela e o [SacarValorScreen] por baixo, ficando na Carteira.
   void _voltarACarteira(BuildContext context) {
     final nav = Navigator.of(context);
     nav.pop();

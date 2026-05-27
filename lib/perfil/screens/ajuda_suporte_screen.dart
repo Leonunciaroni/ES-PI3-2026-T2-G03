@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Perguntas frequentes e contacto (conteúdo de exemplo para o app).
+// Perguntas frequentes e contato (conteúdo de exemplo para o app).
 
 import 'package:flutter/material.dart';
 
@@ -30,7 +30,7 @@ class AjudaSuporteScreen extends StatelessWidget {
             theme,
             'Como adiciono saldo à minha carteira?',
             'Na tela de Carteira, use o botão de adicionar saldo e siga o '
-            'passo a passo com o valor pretendido. O crédito é simulado na app.',
+            'passo a passo com o valor desejado. O crédito é simulado no app.',
           ),
           const SizedBox(height: 16),
           _ajudaItem(
@@ -44,7 +44,7 @@ class AjudaSuporteScreen extends StatelessWidget {
             theme,
             'Quanto tempo demora um saque simulado?',
             'Neste ambiente, as movimentações são processadas de imediato. Pode '
-            'acompanhar o histórico em Carteira, na secção de movimentações.',
+            'acompanhar o histórico em Carteira, na seção de movimentações.',
           ),
           const SizedBox(height: 16),
           _ajudaItem(
@@ -55,7 +55,7 @@ class AjudaSuporteScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            'Fale connosco',
+            'Fale conosco',
             style: theme.textTheme.titleSmall?.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w700,

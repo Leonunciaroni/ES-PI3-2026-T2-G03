@@ -11,7 +11,7 @@
  * - esta função serve para corrigir divergências ou depois de dados antigos sem contador.
  *
  * Investimento total = soma de amountBrl em trade_buy menos trade_sell,
- * para todos os utilizadores (cada carteira tem o seu ledger).
+ * para todos os usuários (cada carteira tem o seu ledger).
  */
 import {getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";

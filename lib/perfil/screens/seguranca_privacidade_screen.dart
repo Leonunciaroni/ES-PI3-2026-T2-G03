@@ -68,7 +68,7 @@ class _SegurancaPrivacidadeScreenState
   Future<void> _onTwoFactorChanged(bool next) async {
     if (_persisting) return;
 
-    // Se a biometria está activa neste aparelho, exigimos o mesmo desafio antes de mudar 2FA.
+    // Se a biometria está ativa neste aparelho, exigimos o mesmo desafio antes de mudar 2FA.
     final String? uid = _currentUidOrNull();
     if (uid != null) {
       final bool prefBio = await UserFirestoreService.fetchBiometricEnabled();
@@ -119,7 +119,7 @@ class _SegurancaPrivacidadeScreenState
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao gravar. Verifique a ligação.')),
+        const SnackBar(content: Text('Erro ao gravar. Verifique a conexão.')),
       );
     } finally {
       if (mounted) {
@@ -349,14 +349,14 @@ class _SegurancaPrivacidadeScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              e.message ?? 'Não foi possível actualizar a preferência.',
+              e.message ?? 'Não foi possível atualizar a preferência.',
             ),
           ),
         );
       } catch (_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao gravar. Verifique a ligação.')),
+          const SnackBar(content: Text('Erro ao gravar. Verifique a conexão.')),
         );
       } finally {
         if (mounted) setState(() => _persisting = false);
@@ -364,7 +364,7 @@ class _SegurancaPrivacidadeScreenState
       return;
     }
 
-    // Ligar: primeiro o sistema confirma que quem mexe no telemóvel é o dono da biometria.
+    // Ligar: primeiro o sistema confirma que quem mexe no celular é o dono da biometria.
     if (!_plataformaComBiometriaNativa()) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -392,7 +392,7 @@ class _SegurancaPrivacidadeScreenState
 
     final BiometricAuthOutcome prova = await BiometricAuthService.instance
         .authenticate(
-          localizedReason: 'Activar biometria no Mescla Invest.',
+          localizedReason: 'Ativar biometria no Mescla Invest.',
           skipPluginAvailabilityPrecheck: true,
         );
     if (prova != BiometricAuthOutcome.success) {
@@ -425,7 +425,7 @@ class _SegurancaPrivacidadeScreenState
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao gravar. Verifique a ligação.')),
+        const SnackBar(content: Text('Erro ao gravar. Verifique a conexão.')),
       );
     } finally {
       if (mounted) setState(() => _persisting = false);
@@ -446,7 +446,7 @@ class _SegurancaPrivacidadeScreenState
             Padding(
               padding: const EdgeInsets.only(top: 24),
               child: Text(
-                'Inicie sessão para gerir duas etapas, biometria e outros controles de segurança.',
+                'Faça login para gerenciar duas etapas, biometria e outros controles de segurança.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: AppColors.secondaryLabel(theme),
                 ),
@@ -691,7 +691,7 @@ class _SegurancaPrivacidadeScreenState
                                 subtitle: Text(
                                   hw.podeUsar
                                       ? 'Desbloqueio com: ${hw.descricaoHardware}'
-                                      : 'Neste aparelho não há leitor biométrico configurado. Use definições do sistema.',
+                                      : 'Neste aparelho não há leitor biométrico configurado. Use as configurações do sistema.',
                                 ),
                                 value: true,
                                 groupValue: bioActiva,
@@ -727,7 +727,7 @@ class _SegurancaPrivacidadeScreenState
             child: ListTile(
               leading: const Icon(Icons.description_outlined),
               title: const Text('Termos de Uso'),
-              subtitle: const Text('Politica de Privacidade'),
+              subtitle: const Text('Política de Privacidade'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.of(context).push<void>(

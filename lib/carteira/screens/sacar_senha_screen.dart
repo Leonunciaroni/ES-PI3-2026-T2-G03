@@ -55,10 +55,10 @@ class _SacarSenhaScreenState extends State<SacarSenhaScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _actualizarOfertaBiometria());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _atualizarOfertaBiometria());
   }
 
-  Future<void> _actualizarOfertaBiometria() async {
+  Future<void> _atualizarOfertaBiometria() async {
     if (!widget.debitarSaldoReal) {
       if (mounted) setState(() => _oferecerBiometria = false);
       return;

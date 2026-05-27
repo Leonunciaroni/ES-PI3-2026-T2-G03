@@ -3,7 +3,7 @@
 //
 // Pré-descarga das fotos/logos das startups para a cache de bitmaps do Flutter
 // ([PaintingBinding.instance.imageCache]), em paralelo lógico com o pedido inicial
-// do catálogo no [StartupCatalogListCache], para reduzir spinners quando o utilizador
+// do catálogo no [StartupCatalogListCache], para reduzir spinners quando o usuário
 // abre Explorar ou Balcão.
 
 import 'dart:async' show unawaited;
@@ -22,7 +22,7 @@ abstract final class StartupLogoPrecacheService {
   StartupLogoPrecacheService._();
 
   /// Encadeia todos os `logoPath` das [startups], elimina duplicados no widget e delega em
-  /// [preloadStartupLogoBitmaps] (implementação técnica no ficheiro do avatar).
+  /// [preloadStartupLogoBitmaps] (implementação técnica no arquivo do avatar).
   ///
   /// Chamada típica: após [StartupCatalogListCache.fullList], no primeiro quadro há
   /// [mounted] garantido pelo [StatefulWidget].

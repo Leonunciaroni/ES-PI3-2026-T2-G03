@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Guardamos **só** o UID para o qual o utilizador activou o desbloqueio biométrico
+// Guardamos **só** o UID para o qual o usuário ativou o desbloqueio biométrico
 // neste aparelho. Não são credenciais: a chave biométrica real fica no SO (Keystore / Keychain).
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -24,7 +24,7 @@ class BiometricEnrollmentStorage {
     await _storage.write(key: _keyEnrolledUid, value: t);
   }
 
-  /// Apaga a marca local (logout, utilizador desliga biometria nas definições, etc.).
+  /// Apaga a marca local (logout, usuário desliga biometria nas configurações, etc.).
   static Future<void> clearEnrollment() async {
     await _storage.delete(key: _keyEnrolledUid);
   }
@@ -36,7 +36,7 @@ class BiometricEnrollmentStorage {
     return v.trim();
   }
 
-  /// `true` quando o armazenamento contém exactamente o [uid] da sessão actual.
+  /// `true` quando o armazenamento contém exatamente o [uid] da sessão atual.
   static Future<bool> isEnrolledForUser(String uid) async {
     final stored = await readEnrolledUid();
     return stored != null && stored == uid.trim();

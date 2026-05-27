@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
+  /// Quando true, a senha aparece como pontos; o usuário pode alternar.
   bool _obscurePassword = true;
   bool _isSubmitting = false;
 
@@ -48,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    // Libertação de recursos: os controllers mantêm listeners; sem dispose há fugas de memória.
+    // Liberação de recursos: os controllers mantêm listeners; sem dispose há vazamentos de memória.
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -286,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
-                  // Em ecrãs pequenos o teclado empurra o conteúdo; scroll evita overflow.
+                  // Em telas pequenas o teclado empurra o conteúdo; scroll evita overflow.
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 20,

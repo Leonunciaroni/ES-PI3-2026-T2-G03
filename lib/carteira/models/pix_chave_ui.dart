@@ -33,7 +33,7 @@ class PixChaveUi {
   /// Valor persistido: CPF/telefone só dígitos; e-mail em minúsculas; EVP/UUID como texto.
   final String valor;
 
-  /// Nome opcional escolhido pelo utilizador.
+  /// Nome opcional escolhido pelo usuário.
   final String? apelido;
 
   /// Mapa gravado em `users/{uid}` — sem tipos aninhados, só primitivos.

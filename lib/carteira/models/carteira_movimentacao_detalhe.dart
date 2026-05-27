@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Dados para o ecrã [CarteiraMovimentacaoDetalheScreen] — layout **Comprovante**
+// Dados para a tela [CarteiraMovimentacaoDetalheScreen] — layout **Comprovante**
 // (título de estado, subtítulo, valor em destaque roxo, linha opcional tipo
 // “Chave: …”, cartão Informações), alinhado a [SaqueComprovanteScreen].
 

@@ -20,10 +20,10 @@ abstract final class ProfilePhotoStorageService {
   /// Pasta raiz pedida no projeto.
   static const String pastaRaiz = 'profilePhoto';
 
-  /// Subpasta onde ficam os utilizadores.
+  /// Subpasta onde ficam os usuários.
   static const String pastaUsuarios = 'users';
 
-  /// Nome fixo do ficheiro (sempre sobrescrevemos o anterior).
+  /// Nome fixo do arquivo (sempre sobrescrevemos o anterior).
   static const String nomeArquivo = 'avatar.jpg';
 
   /// Monta o caminho completo no Storage para um [uid].
@@ -34,7 +34,7 @@ abstract final class ProfilePhotoStorageService {
     return '$pastaRaiz/$pastaUsuarios/$id/$nomeArquivo';
   }
 
-  /// Referência do Firebase Storage apontando para a foto do utilizador.
+  /// Referência do Firebase Storage apontando para a foto do usuário.
   static Reference referenciaDaFoto(String uid) {
     return _storage().ref().child(caminhoCompleto(uid));
   }
@@ -50,7 +50,7 @@ abstract final class ProfilePhotoStorageService {
   }) async {
     final ref = referenciaDaFoto(uid);
 
-    // Metadados ajudam o browser/app a tratar o ficheiro como imagem JPEG.
+    // Metadados ajudam o browser/app a tratar o arquivo como imagem JPEG.
     await ref.putFile(
       arquivoLocal,
       SettableMetadata(contentType: 'image/jpeg'),
@@ -61,7 +61,7 @@ abstract final class ProfilePhotoStorageService {
 
   /// Apaga a foto do Storage (se existir).
   ///
-  /// Se o ficheiro já foi removido antes, ignoramos `object-not-found`.
+  /// Se o arquivo já foi removido antes, ignoramos `object-not-found`.
   static Future<void> removerFoto(String uid) async {
     try {
       await referenciaDaFoto(uid).delete();

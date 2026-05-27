@@ -1,5 +1,5 @@
 // Testes TDD para VerificationCodeScreen.
-// Verifica título, campos de código OTP, countdown e feedback ao utilizador.
+// Verifica título, campos de código OTP, countdown e feedback ao usuário.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

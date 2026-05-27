@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Controla o [ThemeMode] do [MaterialApp] e persiste a escolha com [shared_preferences]
-// para não relembrar o utilizador a cada abertura do app.
+// para não relembrar o usuário a cada abertura do app.
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'theme_preference_keys.dart';
 
 /// Única instância usada em todo o app: importe este identificador onde precisar
-/// de ler ou alterar o tema (ex.: ecrã "Modo de Aparência", sublinha no Perfil).
+/// de ler ou alterar o tema (ex.: tela "Modo de Aparência", sublinha no Perfil).
 final ThemeModeController themeModeController = ThemeModeController();
 
 /// Texto curto em português para mostrar na lista de configurações (Conforme [ThemeMode]).
@@ -56,13 +56,13 @@ String _storageStringFor(ThemeMode mode) {
 
 /// Notifica os ouvintes ([ListenableBuilder]) quando o modo muda; grava em cache.
 class ThemeModeController extends ChangeNotifier {
-  /// Valor actual até [load] completar: [ThemeMode.system] alinha com o SO por defeito.
+  /// Valor atual até [load] completar: [ThemeMode.system] alinha com o SO por padrão.
   ThemeMode _mode = ThemeMode.system;
 
-  /// Modo de tema actualmente em vigor no [MaterialApp].
+  /// Modo de tema atualmente em vigor no [MaterialApp].
   ThemeMode get themeMode => _mode;
 
-  /// Lê o disco na arranque do app; se não houver valor, mantém [ThemeMode.system].
+  /// Lê o disco na inicialização do app; se não houver valor, mantém [ThemeMode.system].
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(ThemePreferenceKeys.storageKey);

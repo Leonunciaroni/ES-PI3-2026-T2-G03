@@ -63,11 +63,11 @@ void main() {
       );
     });
 
-    testWidgets('Exibe seção "Fale connosco"', (tester) async {
+    testWidgets('Exibe seção "Fale conosco"', (tester) async {
       await tester.pumpWidget(_buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.text('Fale connosco'), findsOneWidget);
+      expect(find.text('Fale conosco'), findsOneWidget);
     });
 
     testWidgets('Exibe e-mail de suporte', (tester) async {

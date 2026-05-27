@@ -25,7 +25,7 @@ import 'sacar_senha_screen.dart';
 /// Saldo fictício só para **convidado** (sem sessão), alinhado ao mock da Carteira.
 const double _kSaldoBrlConvidadoDemo = 12450.0;
 
-// --- Ecrã ---------------------------------------------------------------------
+// --- Tela ---------------------------------------------------------------------
 
 /// Formulário de saque: valor + chave; com convidado, [onChavesAlteradas] atualiza a Carteira.
 class SacarValorScreen extends StatefulWidget {
@@ -63,7 +63,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
   /// Quando `true`, o montante em BRL não aparece na UI (privacidade).
   bool _ocultarSaldo = false;
 
-  /// Convidado, teste VM, ou utilizador sem UID: chaves não vão ao Firestore.
+  /// Convidado, teste VM, ou usuário sem UID: chaves não vão ao Firestore.
   bool get _modoChavesSoMemoria =>
       !widget.usarFirebaseParaSessao ||
       FirebaseAuth.instance.currentUser == null;
@@ -193,7 +193,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
                     }
                     Navigator.pop(ctx, true);
                   },
-                  child: const Text('Guardar'),
+                  child: const Text('Salvar'),
                 ),
               ],
             );
@@ -243,7 +243,7 @@ class _SacarValorScreenState extends State<SacarValorScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível guardar a chave: $e')),
+        SnackBar(content: Text('Não foi possível salvar a chave: $e')),
       );
     }
   }

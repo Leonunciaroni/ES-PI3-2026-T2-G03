@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Passo de **confirmação** no fluxo do Balcão: pode ser **biometria local** (se o
-// utilizador activou em Segurança) ou **senha** com reautenticação no [FirebaseAuth]
+// usuário ativou em Segurança) ou **senha** com reautenticação no [FirebaseAuth]
 // (a senha não fica guardada na app).
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,7 +23,7 @@ import '../models/balcao_operacao_tipo.dart';
 import '../models/balcao_transacao.dart';
 import 'balcao_transacao_detalhe_screen.dart';
 
-/// Ecrã onde o utilizador confirma a identidade antes de concluir a operação.
+/// Tela onde o usuário confirma a identidade antes de concluir a operação.
 class BalcaoCompraSenhaScreen extends StatefulWidget {
   const BalcaoCompraSenhaScreen({
     super.key,
@@ -52,7 +52,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   String? _erro;
   bool _enviando = false;
 
-  /// Se `true`, bloco biométrico + prompt automático (como o ecrã de desbloqueio).
+  /// Se `true`, bloco biométrico + prompt automático (como a tela de desbloqueio).
   bool _oferecerBiometria = false;
 
   /// Evita abrir o diálogo do SO duas vezes ao mesmo tempo.
@@ -63,19 +63,18 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _actualizarOfertaBiometria());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _atualizarOfertaBiometria());
   }
 
   /// Só Firestore + armazenamento seguro (igual [AuthGateScreen]), sem pre-check do plugin.
-  Future<void> _actualizarOfertaBiometria() async {
+  Future<void> _atualizarOfertaBiometria() async {
     final bool ok =
         await BiometricShortcutAvailability.userWantsBiometricShortcut();
     if (!mounted) return;
     setState(() => _oferecerBiometria = ok);
     if (!ok || _disparouPromptBiometriaInicial) return;
     _disparouPromptBiometriaInicial = true;
-    // Pequena pausa: o ecrã desenha-se primeiro; depois abrimos o diálogo do SO (como no login).
+    // Pequena pausa: a tela desenha primeiro; depois abrimos o diálogo do SO (como no login).
     await Future<void>.delayed(const Duration(milliseconds: 450));
     if (!mounted || !_oferecerBiometria) return;
     await _onConfirmarComBiometria();
@@ -137,7 +136,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
     await _executarNegocioAposIdentidadeVerificada(user);
   }
 
-  /// Executa cotação, validações e `simulateWallet` depois de saber que o utilizador
+  /// Executa cotação, validações e `simulateWallet` depois de saber que o usuário
   /// se identificou (senha ou biometria local).
   Future<void> _executarNegocioAposIdentidadeVerificada(User user) async {
     try {
@@ -191,7 +190,7 @@ class _BalcaoCompraSenhaScreenState extends State<BalcaoCompraSenhaScreen> {
           if (widget.valorReaisOperacao > brlDisponivel + balcaoEpsilonBrl) {
             setState(() {
               _erro =
-                  'Saldo actualizado: o disponível não cobre mais este total. Volte ao passo anterior.';
+                  'Saldo atualizado: o disponível não cobre mais este total. Volte ao passo anterior.';
               _enviando = false;
             });
             return;

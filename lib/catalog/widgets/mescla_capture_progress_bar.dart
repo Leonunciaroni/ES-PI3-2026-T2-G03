@@ -32,7 +32,7 @@ class MesclaCaptureProgressBar extends StatelessWidget {
   /// Espessura da barra (altura).
   final double height;
 
-  /// Texto para leitores de ecrã; se null, gera um rótulo com o percentual arredondado.
+  /// Texto para leitores de tela; se null, gera um rótulo com o percentual arredondado.
   final String? semanticsLabel;
 
   @override

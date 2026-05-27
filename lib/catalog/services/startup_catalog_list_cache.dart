@@ -5,9 +5,9 @@
 // pré-carga ao abrir o dashboard — evita várias chamadas paralelas e listas vazias
 // durante segundos ao mudar de aba.
 //
-// Depois dos dados regressarem com sucesso, um ecrã com [BuildContext] montado
+// Depois dos dados regressarem com sucesso, uma tela com [BuildContext] montada
 // (ex.: o dashboard inicial) pode chamar [StartupLogoPrecacheService.schedulePreloadForStartupList]
-// para descarregar os bitmaps dos logos antes do utilizador abrir Explorar/Balcão.
+// para baixar os bitmaps dos logos antes do usuário abrir Explorar/Balcão.
 
 import '../models/catalog_startup.dart';
 import 'startup_catalog_functions_service.dart';
@@ -23,7 +23,7 @@ class StartupCatalogListCache {
   /// Última lista bem-sucedida (útil para diagnóstico); pode ser null antes do 1.º pedido.
   List<CatalogStartup>? get snapshotIfReady => _snapshot;
 
-  /// Partilha o mesmo [Future] entre todos os ecrãs até completar; depois devolve cópia instantânea.
+  /// Compartilha o mesmo [Future] entre todas as telas até completar; depois devolve cópia instantânea.
   Future<List<CatalogStartup>> fullList(StartupCatalogFunctionsService service) {
     final List<CatalogStartup>? snap = _snapshot;
     if (snap != null) {

@@ -127,7 +127,7 @@ DateTime? carteiraUltimoInstanteNegocioStartup(
 ///
 /// Antes do último trade da startup na série, o preço segue o último negócio até esse
 /// instante (replay). **No último trade e depois**, usa [fallbackPriceBrl] (cotação do
-/// catálogo), alinhando o mini-gráfico ao «Valor atual» quando o mercado simulado move
+/// catálogo), alinhando o mini-gráfico ao "Valor atual" quando o mercado simulado move
 /// o preço sem novo negócio no ledger.
 double carteiraSingleStartupMarketValueBrl(
   List<CarteiraLedgerTradeRow> tradesAsc,
@@ -140,7 +140,7 @@ double carteiraSingleStartupMarketValueBrl(
       ? tokensHeldIfLedgerEmpty
       : carteiraTokensHeldForStartupAt(tradesAsc, startupId, deadline);
 
-  // Depois do último negócio da startup, usar cotação atual do catálogo (como «Valor atual»).
+  // Depois do último negócio da startup, usar cotação atual do catálogo (como "Valor atual").
   final ultimoNegocio =
       carteiraUltimoInstanteNegocioStartup(tradesAsc, startupId);
   final double px;

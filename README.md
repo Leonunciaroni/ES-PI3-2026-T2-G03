@@ -29,7 +29,7 @@ Este projeto atende aos requisitos arquiteturais obrigatórios da disciplina:
 
 - **Testes com autenticação:** evite chamadas reais ao Firebase Auth em testes automatizados; use mocks/fakes para CI estável e sem rede. A implementação centraliza mensagens em `lib/auth/services/auth_service.dart` (`AuthService`); testes unitários puros podem importar isso sem `Firebase.initializeApp` se apenas exercitarem `messageForError` / mapeamento de códigos.
 
-- **Configuração no repositório:** ficheiros como `android/app/google-services.json` e `lib/firebase_options.dart` são a configuração padrão de app cliente. Não substituem segredos de backend; a política de segurança no console (regras do Firestore, chaves, **App Check** em produção, etc.) é o que protege dados e API.
+- **Configuração no repositório:** arquivos como `android/app/google-services.json` e `lib/firebase_options.dart` são a configuração padrão de app cliente. Não substituem segredos de backend; a política de segurança no console (regras do Firestore, chaves, **App Check** em produção, etc.) é o que protege dados e API.
 
 - **Emulador local (Firebase Functions + app):** no diretório `functions/`, após `npm install`, rode `npm run build`, depois `cd ..` realizar o comando `firebase emulators:start`. No Flutter, em debug, use `flutter run --dart-define=USE_FUNCTIONS_EMULATOR=true` para o app chamar a callable no host correto (Android Emulator: `10.0.2.2:5001`; iOS/desktop: `localhost:5001`). As callables do projeto usam a região **`us-central1`** (igual a `FirebaseFunctions.instanceFor(region: 'us-central1')`).
 

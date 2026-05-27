@@ -14,12 +14,12 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-/// Indica se o SMS serve para validar o segundo passo do login ou para ligar o número ao utilizador.
+/// Indica se o SMS serve para validar o segundo passo do login ou para ligar o número ao usuário.
 enum PhoneSmsIntent {
   /// Depois do e-mail/senha: prova posse do telefone sem alterar o UID da sessão.
   loginSecondFactor,
 
-  /// Nas definições / primeiro login: associa o número ao [User] atual no Firebase Auth.
+  /// Nas configurações / primeiro login: associa o número ao [User] atual no Firebase Auth.
   enrollLinkPhone,
 }
 
@@ -44,7 +44,7 @@ class PhoneMfaService {
   /// Momento do último pedido bem-sucedido de SMS (cooldown entre envios no cliente).
   DateTime? _lastSendUtc;
 
-  /// Intervalo mínimo entre pedidos de novo SMS no mesmo ecrã (complementa quotas do Firebase).
+  /// Intervalo mínimo entre pedidos de novo SMS na mesma tela (complementa quotas do Firebase).
   static const int cooldownSeconds = 60;
 
   /// Devolve `true` se já passou o [cooldownSeconds] desde o último envio.
@@ -112,7 +112,7 @@ class PhoneMfaService {
         case 'credential-already-in-use':
           return 'Este número já está associado a outra conta.';
         case 'provider-already-linked':
-          return 'Este utilizador já tem um telefone associado.';
+          return 'Este usuário já tem um telefone associado.';
         case 'invalid-verification-code':
           return 'Código SMS incorreto.';
         case 'session-expired':
@@ -221,7 +221,7 @@ class PhoneMfaService {
     await completer.future;
   }
 
-  /// Confirma o código de 6 dígitos digitado pelo utilizador (fluxo manual).
+  /// Confirma o código de 6 dígitos digitado pelo usuário (fluxo manual).
   Future<void> submitSmsCode({
     required String smsCode,
     required PhoneSmsIntent intent,

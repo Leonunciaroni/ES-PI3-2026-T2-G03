@@ -296,7 +296,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
     _syncMesaMarketRefreshTimer();
   }
 
-  /// Mantém um timer que força novo [fetchStartupMarketStats] enquanto o utilizador
+  /// Mantém um timer que força novo [fetchStartupMarketStats] enquanto o usuário
   /// está na mesa (preço simulado no servidor evolui a cada ~20 min).
   void _syncMesaMarketRefreshTimer() {
     final mesa = _mesaStartup;
@@ -423,7 +423,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
     _jumpBodyScrollTop();
   }
 
-  /// Abre o ecrã onde o utilizador define a **quantidade**; o modal e a senha
+  /// Abre a tela onde o usuário define a **quantidade**; o modal e a senha
   /// vêm a seguir nessa mesma cadeia de rotas.
   Future<void> _iniciarFluxoOperacao(BalcaoOperacaoTipo operacao) async {
     final startup = _mesaStartup;
@@ -1192,7 +1192,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
   }
 
   /// TabBar da mesa: aba 0 = Compra Rápida; aba 1 = Order Book.
-  /// [tabCompraRapida] rola internamente; Order Book ocupa o restante do ecrã.
+  /// [tabCompraRapida] rola internamente; Order Book ocupa o restante da tela.
   Widget _balcaoMesaComAbas({
     required ThemeData theme,
     required ColorScheme scheme,

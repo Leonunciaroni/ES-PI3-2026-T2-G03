@@ -69,7 +69,7 @@ Future<String> _memoDownloadUrl(String trimmed) {
 /// assim `[Image]` lê sempre a entrada criada pelo preload em vez de refazer redes parcialmente diferentes.
 ///
 /// Corre em paralelo por blocos para não ficar sempre sequencial atrás das primeiras
-/// startups enquanto o utilizador já está na lista.
+/// startups enquanto o usuário já está na lista.
 ///
 /// Deve usar [context] com [MediaQuery] ([mounted] válido antes e entre lotes).
 Future<void> preloadStartupLogoBitmaps(

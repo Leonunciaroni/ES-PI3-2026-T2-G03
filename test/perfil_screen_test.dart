@@ -66,7 +66,7 @@ void main() {
     // Sem sessão: não há interruptores; texto alinhado a [SegurancaPrivacidadeScreen].
     expect(
       find.text(
-        'Inicie sessão para gerir duas etapas, biometria e outros controles de segurança.',
+        'Faça login para gerenciar duas etapas, biometria e outros controles de segurança.',
       ),
       findsOneWidget,
     );

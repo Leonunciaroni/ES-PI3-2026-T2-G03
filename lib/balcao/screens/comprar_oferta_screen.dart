@@ -17,7 +17,7 @@ import '../models/ordem_model.dart';
 import '../services/balcao_order_service.dart';
 import 'balcao_transacao_detalhe_screen.dart';
 
-/// Compra P2P: o utilizador aceita o preço fixo de uma oferta de venda listada.
+/// Compra P2P: o usuário aceita o preço fixo de uma oferta de venda listada.
 class ComprarOfertaScreen extends StatefulWidget {
   const ComprarOfertaScreen({
     super.key,
@@ -104,7 +104,7 @@ class _ComprarOfertaScreenState extends State<ComprarOfertaScreen> {
       if (!mounted) return;
 
       if (resultado.matched) {
-        // Comprovante — mesmo ecrã do fluxo Compra Rápida.
+        // Comprovante — mesma tela do fluxo Compra Rápida.
         final detalhe = BalcaoTransacaoDetalhe(
           operacao: BalcaoOperacaoTipo.compra,
           nomeToken: widget.tokenSigla.isNotEmpty

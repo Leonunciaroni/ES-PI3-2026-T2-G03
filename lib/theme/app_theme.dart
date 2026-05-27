@@ -12,7 +12,7 @@ import 'app_colors.dart';
 ///
 /// O SDK nem sempre expõe [FadeThroughPageTransitionsBuilder] (depende da versão
 /// do Flutter); este builder é estável, curto (~300 ms) e próximo do que muitas
-/// apps usam: novo ecrã surge com opacidade e um ligeiro movimento vertical.
+/// apps usam: nova tela surge com opacidade e um ligeiro movimento vertical.
 class MesclaFadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
   const MesclaFadeSlidePageTransitionsBuilder();
 
@@ -42,7 +42,7 @@ class MesclaFadeSlidePageTransitionsBuilder extends PageTransitionsBuilder {
   }
 }
 
-/// Transição entre ecrãs empilhados ([Navigator.push] com [MaterialPageRoute]).
+/// Transição entre telas empilhadas ([Navigator.push] com [MaterialPageRoute]).
 PageTransitionsTheme get mesclaPageTransitionsTheme {
   return PageTransitionsTheme(
     builders: <TargetPlatform, PageTransitionsBuilder>{

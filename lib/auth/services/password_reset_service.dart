@@ -73,7 +73,7 @@ class PasswordResetService {
 
       // Mensagens genéricas da infraestrutura (ex.: "NOT_FOUND" quando a function
       // não existe em produção ou o emulador não está rodando) são descartadas
-      // para não confundir o utilizador com texto técnico.
+      // para não confundir o usuário com texto técnico.
       const httpStatusMessages = {
         'NOT_FOUND', 'INTERNAL', 'UNAVAILABLE', 'UNKNOWN',
         'PERMISSION_DENIED', 'UNAUTHENTICATED',

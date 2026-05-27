@@ -43,7 +43,7 @@ class BiometricAuthService {
     }
   }
 
-  /// Texto amigável para mostrar nas definições (tipo de leitor disponível).
+  /// Texto amigável para mostrar nas configurações (tipo de leitor disponível).
   Future<String> describeHardwareForUi() async {
     try {
       final types = await _local.getAvailableBiometrics();
@@ -65,16 +65,16 @@ class BiometricAuthService {
     } catch (_) {
       // Em testes unitários ou plugin indisponível, caímos no texto genérico.
     }
-    return 'Biometria (configurada no telemóvel)';
+    return 'Biometria (configurada no celular)';
   }
 
   /// No **Android**, `biometricOnly: true` restringe a biometria "forte" e muitas vezes
   /// **bloqueia só rosto** (caso típico Samsung). No **iOS** mantemos `true` para Face ID
   /// alinhado à API. Com `false` no Android o SO pode oferecer rosto e, se precisar, PIN/padrão.
   ///
-  /// [skipPluginAvailabilityPrecheck]: no desbloqueio e nas operações sensíveis o utilizador
-  /// já activou a biometria nas definições; nalguns aparelhos `deviceCanUseBiometrics` mente
-  /// e escondia o fluxo. Com `true` vamos directo ao `authenticate` do SO.
+  /// [skipPluginAvailabilityPrecheck]: no desbloqueio e nas operações sensíveis o usuário
+  /// já ativou a biometria nas configurações; em alguns aparelhos `deviceCanUseBiometrics` pode falhar
+  /// e esconder o fluxo. Com `true` vamos direto ao `authenticate` do SO.
   Future<BiometricAuthOutcome> authenticate({
     required String localizedReason,
     bool skipPluginAvailabilityPrecheck = false,
@@ -127,7 +127,7 @@ class BiometricAuthService {
       case BiometricAuthOutcome.cancelledByUser:
         return 'Autenticação cancelada.';
       case BiometricAuthOutcome.notAvailable:
-        return 'Biometria indisponível neste dispositivo ou desligada nas definições do sistema.';
+        return 'Biometria indisponível neste dispositivo ou desligada nas configurações do sistema.';
       case BiometricAuthOutcome.lockedOut:
         return 'Biometria bloqueada por várias tentativas falhadas. Desbloqueie no sistema ou use a senha.';
       case BiometricAuthOutcome.error:

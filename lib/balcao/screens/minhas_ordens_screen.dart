@@ -1,6 +1,6 @@
 // Autor: Leonardo Miranda Nunciaroni
 // RA: 25002726
-// Descrição: Lista ordens abertas do utilizador com opção de editar e cancelar.
+// Descrição: Lista ordens abertas do usuário com opção de editar e cancelar.
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

@@ -23,7 +23,7 @@ class _NavBarHarness extends StatefulWidget {
 }
 
 class _NavBarHarnessState extends State<_NavBarHarness> {
-  /// Índice do separador selecionado (mesma ideia do ecrã real).
+  /// Índice do separador selecionado (mesma ideia da tela real).
   int index = 0;
 
   @override

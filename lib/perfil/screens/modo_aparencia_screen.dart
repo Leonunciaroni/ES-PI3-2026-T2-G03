@@ -65,7 +65,7 @@ class ModoAparenciaScreen extends StatelessWidget {
   }
 }
 
-/// Uma fila: texto + visto se for a opção activa (sem [RadioListTile] depreciado no SDK actual).
+/// Uma fila: texto + visto se for a opção ativa (sem [RadioListTile] depreciado no SDK atual).
 class _TemaOpTile extends StatelessWidget {
   const _TemaOpTile({
     required this.titulo,

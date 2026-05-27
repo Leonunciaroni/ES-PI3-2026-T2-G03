@@ -2,15 +2,15 @@
 // RA: 25005592
 // Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Carteira real via Firestore e gráfico de saldo.
 //
-// Tela **Carteira** — protótipo visual alinhado ao Figma (património, evolução,
-// startups investidas, movimentações). Com utilizador autenticado, saldo BRL,
+// Tela **Carteira** — protótipo visual alinhado ao Figma (patrimônio, evolução,
+// startups investidas, movimentações). Com usuário autenticado, saldo BRL,
 // posições e extrato vêm do Firestore (`sim_wallet`); convidado mantém mocks.
 // Inclui **Minhas Chaves PIX** (Firestore em `users/{uid}` se logado; memória
 // se convidado) e atalho **Sacar** (fluxo visual).
 //
 // Pré-carga: ao mudar para este separador no dashboard, [MesclaNavigationPrefetch]
 // dispara leituras em paralelo (ver `lib/navigation/mescla_navigation.dart`) para
-// aquecer a cache antes dos [StreamBuilder]s — melhora a perceção de velocidade.
+// aquecer a cache antes dos [StreamBuilder]s — melhora a percepção de velocidade.
 //
 // [wrapWithSafeArea]: quando um pai (ex.: [MesclaMainShell]) já aplicou
 // [SafeArea], passa `false` para não duplicar insets no topo.
@@ -45,9 +45,9 @@ import 'adicionar_fundos_screen.dart';
 import 'carteira_movimentacao_detalhe_screen.dart';
 import 'sacar_valor_screen.dart';
 
-// --- Série “Evolução do património” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
+// --- Série “Evolução do patrimônio” (R$) — alinhada ao [ValuationEvolutionChartCard] ----
 //
-// Regras de produto aqui: (1) o gráfico da carteira é **património total** (saldo BRL
+// Regras de produto aqui: (1) o gráfico da carteira é **patrimônio total** (saldo BRL
 // disponível + valor de mercado das posições em tokens); (2) os chips de período
 // usam janelas **deslizantes** (7 / 30 / 180 dias), **hoje** e **YTD**, ver
 // [_carteiraInicioPeriodo].
@@ -189,7 +189,7 @@ ValuationChartSeries saldoBrlEvolucaoSeries({
   );
 }
 
-/// Evolução do **património total** (BRL disponível + valor de mercado das posições)
+/// Evolução do **patrimônio total** (BRL disponível + valor de mercado das posições)
 /// nos mesmos instantes que [saldoBrlEvolucaoSeries].
 ValuationChartSeries carteiraPatrimonioEvolucaoSeries({
   required ValuationChartSeries serieSaldoBrl,
@@ -259,7 +259,7 @@ class _MovimentacaoMock {
 String _carteiraFmtDataPortugues(DateTime dt) =>
     '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
 
-/// Curva fictícia do convidado: evolução do custo até ao valor de mercado atual.
+/// Curva fictícia do convidado: evolução do custo até o valor de mercado atual.
 List<double> _carteiraGuestSparkline(double custoBrl, double valorAtualMercadoBrl) {
   if (!(custoBrl > 0) || !custoBrl.isFinite) {
     return List<double>.filled(7, valorAtualMercadoBrl);
@@ -324,18 +324,18 @@ CatalogStartup? _catalogMatchParaPosicaoDoc(
 
 // --- Tela pública --------------------------------------------------------------
 
-/// Ecrã **Carteira** com scroll vertical: resumo, gráfico, startups e extrato.
+/// Tela **Carteira** com scroll vertical: resumo, gráfico, startups e extrato.
 ///
-/// O estado local gere o **período do gráfico** ([ValuationPeriod]) e se os
+/// O estado local gerencia o **período do gráfico** ([ValuationPeriod]) e se os
 /// valores sensíveis estão **ocultos** (ícone de olho ao lado do título).
 class CarteiraScreen extends StatefulWidget {
   const CarteiraScreen({
     super.key,
     this.wrapWithSafeArea = true,
     this.onCompraVendaTokens,
-    /// Incrementado pelo [DashboardScreen] ao pedir scroll até «Minhas Startups Investidas».
+    /// Incrementado pelo [DashboardScreen] ao pedir scroll até "Minhas Startups Investidas".
     this.scrollStartupsSectionTick,
-    /// Quando `false`, o ecrã assume **convidado** sem ler [FirebaseAuth] —
+    /// Quando `false`, a tela assume **convidado** sem ler [FirebaseAuth] —
     /// útil em [flutter test] no VM (sem canais nativos do Firebase).
     this.usarFirebaseParaSessao = true,
   });
@@ -348,7 +348,7 @@ class CarteiraScreen extends StatefulWidget {
   /// de Tokens” no card de saldo deixa o “em breve” e abre o separador Balcão.
   final VoidCallback? onCompraVendaTokens;
 
-  /// Pulso externo (ex.: botão «Ver todas» no Início) para descer até à lista investida.
+  /// Pulso externo (ex.: botão "Ver todas" no Início) para descer até a lista investida.
   final ValueNotifier<int>? scrollStartupsSectionTick;
 
   /// Se `false`, não acede a [FirebaseAuth] (testes de widget no desktop).
@@ -359,7 +359,7 @@ class CarteiraScreen extends StatefulWidget {
 }
 
 class _CarteiraScreenState extends State<CarteiraScreen> {
-  /// Id do utilizador ou `null` (convidado). Respeita [CarteiraScreen.usarFirebaseParaSessao].
+  /// Id do usuário ou `null` (convidado). Respeita [CarteiraScreen.usarFirebaseParaSessao].
   String? get _uidSessao =>
       widget.usarFirebaseParaSessao
           ? FirebaseAuth.instance.currentUser?.uid
@@ -372,7 +372,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
   /// (privacidade em demo, igual à ideia do dashboard com o ícone de olho).
   bool _hideValues = false;
 
-  /// Ancora a secção “Minhas Startups Investidas” para o botão do card roxo a
+  /// Ancora a seção “Minhas Startups Investidas” para o botão do card roxo a
   /// fazer scroll até aqui com [Scrollable.ensureVisible].
   final GlobalKey _startupsSecaoKey = GlobalKey();
 
@@ -525,7 +525,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  // --- Secção “Minhas Chaves PIX” (Firestore ou memória) -----------------------
+  // --- Seção “Minhas Chaves PIX” (Firestore ou memória) -----------------------
 
   /// Formulário no [AlertDialog]; persiste via [persistLista] (Firestore ou RAM).
   Future<void> _dialogCadastrarOuEditarChave({
@@ -607,7 +607,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
                     }
                     Navigator.pop(ctx, true);
                   },
-                  child: const Text('Guardar'),
+                  child: const Text('Salvar'),
                 ),
               ],
             );
@@ -655,7 +655,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Não foi possível guardar as chaves: $e')),
+        SnackBar(content: Text('Não foi possível salvar as chaves: $e')),
       );
     }
   }
@@ -875,10 +875,10 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  /// Desce o scroll até à lista de startups (botão “Ver Startups Investidas”).
+  /// Desce o scroll até a lista de startups (botão “Ver Startups Investidas”).
   ///
   /// [WidgetsBinding.addPostFrameCallback] garante que o [BuildContext] da
-  /// chave já está ligado ao ecrã antes de pedirmos o scroll.
+  /// chave já está ligado à tela antes de pedirmos o scroll.
   void _scrollParaStartupsInvestidas() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = _startupsSecaoKey.currentContext;
@@ -897,7 +897,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     setState(() => _hideValues = !_hideValues);
   }
 
-  /// Gráfico de convidado: mesma forma que o mock de saldo, escala para [património total].
+  /// Gráfico de convidado: mesma forma que o mock de saldo, escala para [patrimônio total].
   ValuationChartSeries _seriePatrimonioConvidadoMock() {
     final base = carteiraSaldoSeries(_periodo);
     final meta = _patrimonioTotalConvidado();
@@ -911,7 +911,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  /// Gráfico: mock património (convidado) ou evolução do património total (logado).
+  /// Gráfico: mock patrimônio (convidado) ou evolução do patrimônio total (logado).
   Widget _evolucaoSaldoBlock({
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -998,7 +998,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
       );
     }
 
-    // Sessão autenticada: **património total** (saldo BRL + valor de mercado das posições).
+    // Sessão autenticada: **patrimônio total** (saldo BRL + valor de mercado das posições).
     return StreamBuilder<double>(
       stream: SimulatedWalletService.watchBrlBalance(uid),
       builder: (context, balSnap) {
@@ -1139,7 +1139,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
     );
   }
 
-  /// Secção após o gráfico: saldo **em reais** (BRL), distinto do valor em tokens.
+  /// Seção após o gráfico: saldo **em reais** (BRL), distinto do valor em tokens.
   Widget _secaoSaldoEmReais({
     required ThemeData theme,
     required ColorScheme colorScheme,
@@ -1618,7 +1618,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
-                  'Sem posições registadas — credite saldo pelo PIX e '
+                  'Sem posições registradas — credite saldo pelo PIX e '
                   'compre tokens no Balcão.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -1943,7 +1943,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  'Sem movimentações registadas nesta conta.',
+                  'Sem movimentações registradas nesta conta.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppColors.secondaryLabel(theme),
@@ -2007,7 +2007,7 @@ class _CarteiraScreenState extends State<CarteiraScreen> {
         children: [
           const MesclaHeaderRow(),
           const SizedBox(height: 20),
-          // Título + olho: o utilizador alterna privacidade sem sair da Carteira.
+          // Título + olho: o usuário alterna privacidade sem sair da Carteira.
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -2304,7 +2304,7 @@ class _MovimentacaoCard extends StatelessWidget {
   final _MovimentacaoMock mov;
   final Color primary;
 
-  /// Valor em reais já formatado ou mascarado pelo ecrã pai.
+  /// Valor em reais já formatado ou mascarado pela tela pai.
   final String valorExibicao;
 
   final VoidCallback onVerDetalhes;

@@ -25,7 +25,7 @@ import {assertStartupId} from "./shared/orderValidation.js";
 import {removeUserOpenOrderIndex} from "./shared/userOrderIndex.js";
 
 /**
- * Cancela ordem aberta do utilizador autenticado.
+ * Cancela ordem aberta do usuário autenticado.
  *
  * 1. Valida dono e status `open`
  * 2. Marca como `cancelled`

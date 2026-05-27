@@ -26,7 +26,7 @@ class UserFirestoreService {
   /// Se `true`, o login exige o passo de OTP (2FA). Persistido em `users/{uid}`.
   static const String fieldTwoFactorEnabled = 'twoFactorEnabled';
 
-  /// `true` = novo registo ainda não concluiu a verificação inicial de e-mail + telefone.
+  /// `true` = novo registro ainda não concluiu a verificação inicial de e-mail + telefone.
   /// Após o primeiro onboarding, deve ficar `false`. Documentos antigos sem este campo
   /// tratam-se como já concluídos ([isFirstAccessPending] é false).
   static const String fieldFirstAccess = 'firstAccess';
@@ -47,13 +47,13 @@ class UserFirestoreService {
   /// Lista de chaves PIX (`tipo`, `valor`, `apelido`, `id`) em `users/{uid}`.
   static const String fieldChavesPix = 'chavesPix';
 
-  /// Preferência: utilizador quer desbloquear o app com biometria (Face ID / digital).
+  /// Preferência: usuário quer desbloquear o app com biometria (Face ID / digital).
   static const String fieldBiometricEnabled = 'biometricEnabled';
 
   /// Última vez que entrou com biometria (metadado; auditoria simples).
   static const String fieldLastBiometricLoginAt = 'lastBiometricLoginAt';
 
-  /// Marca o aparelho como confiável quando o utilizador activa a biometria aqui.
+  /// Marca o aparelho como confiável quando o usuário ativa a biometria aqui.
   static const String fieldTrustedDevice = 'trustedDevice';
 
   /// Remove o campo legado `password` do documento `users/{uid}`.
@@ -64,7 +64,7 @@ class UserFirestoreService {
   /// (acesso só a `users/{uid}` quando `request.auth.uid == uid`), essa query
   /// gerava `PERMISSION_DENIED` nos logs. O erro era um [FirebaseException],
   /// não [FirebaseAuthException], pelo que o [AuthService.messageForError] na
-  /// [LoginScreen] mostrava apenas *«Não foi possível concluir a operação agora.»*
+  /// [LoginScreen] mostrava apenas *"Não foi possível concluir a operação agora."*
   /// mesmo com sessão Auth válida.
   ///
   /// **Correção:** usar só leitura/escrita em `users/{uid}` após autenticação e
@@ -142,7 +142,7 @@ class UserFirestoreService {
     }
   }
 
-  /// Indica se o utilizador autenticado ainda deve passar pelo ecrã de primeiro acesso
+  /// Indica se o usuário autenticado ainda deve passar pela tela de primeiro acesso
   /// (validar e-mail no Auth e telefone com SMS).
   static Future<bool> isFirstAccessPending() async {
     final uid = _auth.currentUser?.uid;
@@ -189,7 +189,7 @@ class UserFirestoreService {
       email: normalizedEmail,
       password: password,
     );
-    // Limpeza legado só no doc do utilizador (evita query à coleção — ver doc de
+    // Limpeza legado só no doc do usuário (evita query à coleção — ver doc de
     // [_removeLegacyPasswordFieldForUid]).
     final uid = _auth.currentUser?.uid;
     if (uid != null) {
@@ -233,7 +233,7 @@ class UserFirestoreService {
     return true;
   }
 
-  /// Atualiza preferência de 2FA do utilizador autenticado em `users/{uid}`.
+  /// Atualiza preferência de 2FA do usuário autenticado em `users/{uid}`.
   static Future<void> setTwoFactorLoginEnabled(bool enabled) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
@@ -294,7 +294,7 @@ class UserFirestoreService {
     });
   }
 
-  /// Grava a preferência de biometria e, se activa, marca dispositivo confiável.
+  /// Grava a preferência de biometria e, se ativa, marca dispositivo confiável.
   static Future<void> setBiometricEnabled(bool enabled) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
@@ -309,7 +309,7 @@ class UserFirestoreService {
     }, SetOptions(merge: true));
   }
 
-  /// Actualiza só o horário do último login por biometria (servidor).
+  /// Atualiza só o horário do último login por biometria (servidor).
   static Future<void> recordLastBiometricLoginNow() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
@@ -416,7 +416,7 @@ class UserFirestoreService {
         return n.trim();
       }
     } catch (_) {
-      // Sem Firebase ou falha de rede: o ecrã Perfil usa fallback.
+      // Sem Firebase ou falha de rede: a tela Perfil usa fallback.
     }
     return null;
   }
@@ -474,7 +474,7 @@ class UserFirestoreService {
   return null;
 }
 
-  /// IDs Firestore das startups favoritas do utilizador autenticado.
+  /// IDs Firestore das startups favoritas do usuário autenticado.
   static Future<List<String>> fetchFavoriteStartupIds() async {
     final auth = _tryAuth();
     final uid = auth?.currentUser?.uid;
@@ -532,7 +532,7 @@ class UserFirestoreService {
     return ids.contains(id);
   }
 
-  /// Adiciona/remove favorito no documento do utilizador.
+  /// Adiciona/remove favorito no documento do usuário.
   static Future<void> setStartupFavorite({
     required String startupId,
     required bool favorite,
@@ -574,7 +574,7 @@ class UserFirestoreService {
     return out;
   }
 
-  /// Emite a lista atual de chaves PIX do utilizador autenticado.
+  /// Emite a lista atual de chaves PIX do usuário autenticado.
   static Stream<List<PixChaveUi>> watchChavesPix() {
     final auth = _tryAuth();
     final uid = auth?.currentUser?.uid;

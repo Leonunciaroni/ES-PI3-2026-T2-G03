@@ -11,9 +11,9 @@ import '../services/user_firestore_service.dart';
 import 'biometric_unlock_screen.dart';
 import 'login_screen.dart';
 
-/// Primeira rota após o splash: no arranque a frio, por omissão fecha a sessão Firebase
+/// Primeira rota após o splash: na inicialização a frio, por padrão fecha a sessão Firebase
 /// para voltar ao login. Se a biometria estiver activa, a sessão de 24h ainda válida
-/// e o aparelho inscrito, mantemos o utilizador autenticado e mostramos o desbloqueio
+/// e o aparelho inscrito, mantemos o usuário autenticado e mostramos o desbloqueio
 /// biométrico.
 class AuthGateScreen extends StatefulWidget {
   const AuthGateScreen({super.key});
@@ -85,7 +85,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           try {
             await UserFirestoreService.setBiometricEnabled(false);
           } catch (_) {
-            // Ignorado: utilizador seguirá para login; próximo arranque pode reconciliar.
+            // Ignorado: usuário seguirá para login; na próxima inicialização pode reconciliar.
           }
         }
 

@@ -9,7 +9,7 @@ abstract final class ThemePreferenceKeys {
   /// Chave única no [SharedPreferences] — não alterar após publicar (perde-se a preferência antiga).
   static const String storageKey = 'mescla_theme_mode';
 
-  /// Valor guardado quando o utilizador escolhe tema claro (Material [Brightness.light]).
+  /// Valor guardado quando o usuário escolhe tema claro (Material [Brightness.light]).
   static const String valueLight = 'light';
 
   /// Valor guardado para tema escuro ([Brightness.dark]).

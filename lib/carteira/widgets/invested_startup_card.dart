@@ -14,7 +14,7 @@ import 'carteira_invested_sparkline.dart';
 
 /// Dados vindos da posição (`sim_wallet/.../positions`) + opcionalmente do catálogo.
 /// Mantém apenas o necessário ao layout visual do cartão — demais valores (custos etc.)
-/// são tratados no ecrã que monta a lista (`CarteiraScreen`, `DashboardScreen`).
+/// são tratados na tela que monta a lista (`CarteiraScreen`, `DashboardScreen`).
 class InvestedStartupRowUi {
   const InvestedStartupRowUi({
     required this.nome,

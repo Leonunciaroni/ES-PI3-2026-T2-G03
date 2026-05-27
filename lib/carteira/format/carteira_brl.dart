@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Formatação BR partilhada pelos ecrãs da Carteira (saldo, adicionar fundos, PIX).
+// Formatação BR compartilhada pelas telas da Carteira (saldo, adicionar fundos, PIX).
 
 /// Formata um valor em reais no estilo brasileiro: `R$ 12.450,00`.
 ///

@@ -3,7 +3,7 @@
 //
 // Barra de navegação inferior (Figma): cápsula branca, 5 itens, pílula roxa
 // no selecionado. Comentários abaixo são didáticos — explicam o “porquê” do
-// layout, como se estivéssemos a rever o código na aula.
+// layout, como se estivéssemos revendo o código na aula.
 
 import 'package:flutter/material.dart';
 
@@ -13,8 +13,8 @@ import '../theme/app_colors.dart';
 
 /// Barra de baixo com 5 abas (Início, Carteira, Balcão, Catálogo, Perfil).
 ///
-/// O [DashboardScreen] (ou outro ecrã) guarda um `int` com o índice da aba
-/// ativa e passa aqui em [selectedIndex]. Quando o utilizador toca num item,
+/// O [DashboardScreen] (ou outra tela) guarda um `int` com o índice da aba
+/// ativa e passa aqui em [selectedIndex]. Quando o usuário toca num item,
 /// o Flutter chama [onItemTap] com o índice novo — normalmente fazes
 /// `setState` lá no pai e o [IndexedStack] muda a tela.
 class MesclaBottomNavBar extends StatelessWidget {
@@ -47,9 +47,9 @@ class MesclaBottomNavBar extends StatelessWidget {
     'PERFIL',
   ];
 
-  // Altura fixa (em dp = unidade lógica que o Flutter escala por ecrã) da faixa
+  // Altura fixa (em dp = unidade lógica que o Flutter escala por tela) da faixa
   // dos cinco itens, como no Figma. Assim a pílula ativa fica alinhada; sem
-  // isso, o layout escolhia alturas sozinho e o destaque saía do sítio.
+  // isso, o layout escolhia alturas sozinho e o destaque saía do lugar.
   static const double _faixaItensAltura = 56;
 
   // “Respiro” em cima e embaixo do chip roxo, dentro desta faixa. É o ar
@@ -70,7 +70,7 @@ class MesclaBottomNavBar extends StatelessWidget {
         ? Colors.black.withValues(alpha: 0.24)
         : primary.withValues(alpha: 0.2);
 
-    // Padding fora: afasta a barra das laterais do telemóvel e deixa espaço
+    // Padding fora: afasta a barra das laterais do celular e deixa espaço
     // embaixo (senão a cápsula colava na borda da tela).
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -188,7 +188,7 @@ class _NavItem extends StatelessWidget {
 
     // Material + InkWell: o Material em transparente deixa passar a cor do pai,
     // mas o InkWell precisa dele para desenhar o efeito de toque (ripple).
-    // Se não tivéssemos InkWell, o onTap funcionava, mas o utilizador não via
+    // Se não tivéssemos InkWell, o onTap funcionava, mas o usuário não via
     // feedback visual ao tocar.
     return Material(
       color: Colors.transparent,

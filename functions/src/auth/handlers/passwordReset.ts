@@ -6,7 +6,7 @@
 //
 // Escopo (PI3):
 // - Enviar um código de verificação por e-mail
-// - Validar o código informado pelo utilizador
+// - Validar o código informado pelo usuário
 // - Permitir criar uma nova senha após validação
 //
 // Observação: o fluxo padrão do Firebase Auth (`sendPasswordResetEmail`) envia um
@@ -80,7 +80,7 @@ async function handleSend(email?: string): Promise<SendResponse> {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  // Não revelar se utilizador existe: só omitimos envio em `auth/user-not-found`.
+  // Não revelar se usuário existe: só omitimos envio em `auth/user-not-found`.
   // Outros erros do Admin (rede, permissões) propagam para não mascarar falhas.
   try {
     await getAuth().getUserByEmail(normalizedEmail);
@@ -100,7 +100,7 @@ async function handleSend(email?: string): Promise<SendResponse> {
     });
     throw new HttpsError(
       "internal",
-      "Nao foi possivel validar o e-mail agora. Tente novamente em instantes."
+      "Não foi possível validar o e-mail agora. Tente novamente em instantes."
     );
   }
 
@@ -109,7 +109,7 @@ async function handleSend(email?: string): Promise<SendResponse> {
   await saveResetCode(normalizedEmail, code);
   await sendVerificationEmail(normalizedEmail, code, "password_reset");
 
-  logger.info("Codigo de reset enviado.", {email: normalizedEmail});
+  logger.info("Código de reset enviado.", {email: normalizedEmail});
   return {sent: true};
 }
 
@@ -118,10 +118,10 @@ async function handleVerify(
   code?: string
 ): Promise<VerifyResponse> {
   if (!email || !isEmailPlausible(email)) {
-    throw new HttpsError("invalid-argument", "Informe um e-mail valido.");
+    throw new HttpsError("invalid-argument", "Informe um e-mail válido.");
   }
   if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-    throw new HttpsError("invalid-argument", "Informe um codigo de 6 digitos.");
+    throw new HttpsError("invalid-argument", "Informe um código de 6 dígitos.");
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -133,24 +133,24 @@ async function handleVerify(
     return {verified: true, sessionToken: result.sessionToken};
   }
 
-  logger.warn("Falha na verificacao de reset.", {email: normalizedEmail, reason: result.reason});
+  logger.warn("Falha na verificação de reset.", {email: normalizedEmail, reason: result.reason});
 
   switch (result.reason) {
     case "not_found":
     case "expired":
       throw new HttpsError(
         "not-found",
-        "Codigo expirado ou inexistente. Solicite um novo codigo."
+        "Código expirado ou inexistente. Solicite um novo código."
       );
     case "max_attempts":
       throw new HttpsError(
         "resource-exhausted",
-        "Numero maximo de tentativas atingido. Solicite um novo codigo."
+        "Número máximo de tentativas atingido. Solicite um novo código."
       );
     case "invalid":
-      throw new HttpsError("invalid-argument", "Codigo incorreto.");
+      throw new HttpsError("invalid-argument", "Código incorreto.");
     default:
-      throw new HttpsError("internal", "Falha inesperada na verificacao.");
+      throw new HttpsError("internal", "Falha inesperada na verificação.");
   }
 }
 
@@ -159,15 +159,15 @@ async function handleConfirm(
   newPassword?: string
 ): Promise<ConfirmResponse> {
   if (!sessionToken || sessionToken.length < 32) {
-    throw new HttpsError("invalid-argument", "Sessao invalida. Verifique o codigo novamente.");
+    throw new HttpsError("invalid-argument", "Sessão inválida. Verifique o código novamente.");
   }
   if (!newPassword || newPassword.length < 8) {
-    throw new HttpsError("invalid-argument", "Informe uma nova senha valida.");
+    throw new HttpsError("invalid-argument", "Informe uma nova senha válida.");
   }
 
   const session = await consumeResetSession(sessionToken);
   if (!session.ok) {
-    throw new HttpsError("not-found", "Sessao expirada. Solicite um novo codigo.");
+    throw new HttpsError("not-found", "Sessão expirada. Solicite um novo código.");
   }
 
   let uid: string;
@@ -176,7 +176,7 @@ async function handleConfirm(
     uid = user.uid;
   } catch {
     // Mantém mensagem genérica
-    throw new HttpsError("internal", "Nao foi possivel atualizar a senha agora.");
+    throw new HttpsError("internal", "Não foi possível atualizar a senha agora.");
   }
 
   // Atualiza senha no Firebase Auth (Admin SDK). A validação forte de senha fica no app.

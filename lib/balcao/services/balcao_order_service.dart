@@ -79,7 +79,7 @@ abstract final class BalcaoOrderService {
     });
   }
 
-  /// Stream das ordens **abertas** do utilizador.
+  /// Stream das ordens **abertas** do usuário.
   ///
   /// Lê o espelho em `users/{uid}/balcao_ordens_abertas` (escrito pelas Functions).
   static Stream<List<OrdemModel>> watchMinhasOrdens(String uid) {

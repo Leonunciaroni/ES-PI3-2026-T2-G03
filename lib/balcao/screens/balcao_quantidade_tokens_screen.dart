@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Compra e venda à mercado: o utilizador informa **quantidade inteira de tokens**,
+// Compra e venda à mercado: o usuário informa **quantidade inteira de tokens**,
 // confirma no diálogo e segue para a senha. Montantes em BRL alinham-se ao
 // `EPSILON_BRL` ([balcao_format]).
 

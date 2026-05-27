@@ -19,7 +19,7 @@ import {
 
 /**
  * Repopula `users/{uid}/balcao_ordens_abertas` a partir das ordens abertas
- * do utilizador autenticado e remove entradas que não lhe pertencem.
+ * do usuário autenticado e remove entradas que não lhe pertencem.
  */
 export const backfillMyOpenOrders = onCall({region: REGION}, async (request) => {
   if (!request.auth?.uid) {

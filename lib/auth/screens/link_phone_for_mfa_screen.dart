@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Associa o número de telefone ao utilizador atual no Firebase Auth através de
+// Associa o número de telefone ao usuário atual no Firebase Auth através de
 // SMS ([PhoneSmsIntent.enrollLinkPhone]). Opcionalmente, após associar, abre o
 // segundo passo de MFA por SMS no login quando [continueToLoginOtp] é true.
 
@@ -17,7 +17,7 @@ import '../services/phone_mfa_service.dart';
 import '../services/user_firestore_service.dart';
 import 'phone_sms_verification_screen.dart';
 
-/// Primeiro pede o número mascarado; depois abre o ecrã de código SMS.
+/// Primeiro pede o número mascarado; depois abre a tela de código SMS.
 class LinkPhoneForMfaScreen extends StatefulWidget {
   const LinkPhoneForMfaScreen({
     super.key,
@@ -28,7 +28,7 @@ class LinkPhoneForMfaScreen extends StatefulWidget {
   /// Se true, após ligar o telefone envia novo SMS para completar o MFA do login atual.
   final bool continueToLoginOtp;
 
-  /// Fluxo de cadastro: após validar o SMS mostra «Redirecionando para Dashboard…» antes de fechar.
+  /// Fluxo de cadastro: após validar o SMS mostra "Redirecionando para Dashboard…" antes de fechar.
   final bool showDashboardRedirectAfterSmsVerify;
 
   @override
@@ -242,7 +242,7 @@ class _LinkPhoneForMfaScreenState extends State<LinkPhoneForMfaScreen> {
                     child: IconButton(
                       onPressed: () async {
                         // Só encerra a sessão ao cancelar durante o MFA do login;
-                        // em perfil / primeiro acesso o utilizador volta sem perder a conta.
+                        // em perfil / primeiro acesso o usuário volta sem perder a conta.
                         if (widget.continueToLoginOtp) {
                           await UserFirestoreService.signOut();
                         }

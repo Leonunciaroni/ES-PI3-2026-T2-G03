@@ -86,13 +86,12 @@ void main() {
       expect(find.textContaining('enda'), findsWidgets);
     });
 
-    testWidgets('Exibe segmento de seleção de unidade (reais / tokens)',
-        (tester) async {
+    testWidgets('Exibe campo de quantidade de tokens na venda', (tester) async {
       await tester.pumpWidget(_buildVenda());
       await tester.pumpAndSettle();
 
-      // A venda tem SegmentedButton para escolher entre R$ e tokens
-      expect(find.byType(SegmentedButton<dynamic>), findsOneWidget);
+      expect(find.byType(TextField), findsWidgets);
+      expect(find.textContaining('Quantidade de tokens'), findsOneWidget);
     });
   });
 }

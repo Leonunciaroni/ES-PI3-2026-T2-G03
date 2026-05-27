@@ -47,7 +47,7 @@ void main() {
     expect(find.text('Quanto deseja investir?'), findsOneWidget);
   });
 
-  testWidgets('Sacar abre ecrã do fluxo de saque', (tester) async {
+  testWidgets('Sacar abre tela do fluxo de saque', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(

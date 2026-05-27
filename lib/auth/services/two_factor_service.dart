@@ -16,7 +16,7 @@ class TwoFactorService {
   FirebaseFunctions get _instance =>
       _functions ?? FirebaseFunctions.instanceFor(region: 'us-central1');
 
-  /// Solicita o envio do código OTP para o e-mail do utilizador autenticado.
+  /// Solicita o envio do código OTP para o e-mail do usuário autenticado.
   ///
   /// Lança [FirebaseFunctionsException] em caso de erro no backend.
   Future<void> sendCode() async {
@@ -25,7 +25,7 @@ class TwoFactorService {
         .call<void>(<String, dynamic>{'action': 'send'});
   }
 
-  /// Verifica o [code] de 6 dígitos informado pelo utilizador.
+  /// Verifica o [code] de 6 dígitos informado pelo usuário.
   ///
   /// Retorna `true` se o código for válido.
   /// Lança [FirebaseFunctionsException] em caso de erro (expirado, inválido, etc.).
@@ -39,7 +39,7 @@ class TwoFactorService {
     return result.data['verified'] == true;
   }
 
-  /// Texto legível ao utilizador para erros comuns de 2FA.
+  /// Texto legível ao usuário para erros comuns de 2FA.
   static String messageForError(Object error) {
     if (error is FirebaseFunctionsException) {
       final code = error.code.toLowerCase().replaceAll('_', '-');

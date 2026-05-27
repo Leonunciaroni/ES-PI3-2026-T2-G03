@@ -394,7 +394,7 @@ class StartupPublicQa {
   final String answer;
 }
 
-/// Uma linha da secção "Métricas de performance" (referência visual Figma).
+/// Uma linha da seção "Métricas de performance" (referência visual Figma).
 class StartupPerformanceMetric {
   const StartupPerformanceMetric({
     required this.labelCaps,
@@ -484,7 +484,7 @@ class StartupDetailViewData {
   /// Perguntas privadas (visíveis apenas para investidores).
   final List<StartupPublicQa> investorQa;
 
-  /// Quando `true`, o utilizador pode escolher entre pergunta pública e privada.
+  /// Quando `true`, o usuário pode escolher entre pergunta pública e privada.
   final bool canSelectQuestionVisibility;
 
   /// Quando `true`, a UI mostra as perguntas privadas de investidores.

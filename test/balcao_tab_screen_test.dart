@@ -104,7 +104,13 @@ void main() {
       await tester.tap(find.text('Comprar mercado'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Valor do investimento'), findsOneWidget);
+      // Ao tocar em "Comprar mercado", abre o bottom sheet de opções de compra.
+      expect(find.text('Como deseja comprar?'), findsOneWidget);
+      await tester.tap(find.text('Da plataforma (preço oficial)'));
+      await tester.pumpAndSettle();
+
+      // Fluxo "plataforma" cai na tela de quantidade.
+      expect(find.textContaining('Quantidade de tokens'), findsOneWidget);
       expect(find.text('Continuar'), findsOneWidget);
 
       await tester.tap(find.text('Continuar'));

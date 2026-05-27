@@ -40,7 +40,7 @@ class StartupCatalogService {
               a.name.toLowerCase().compareTo(b.name.toLowerCase()),
         );
         // Pré-aquece o cache de URLs do Storage para todos os logos da lista.
-        // Quando o utilizador navegar para Balcão, Detalhes, etc.,
+        // Quando o usuário navegar para Balcão, Detalhes, etc.,
         // o Future já está resolvido e o logo aparece imediatamente.
         prewarmLogoUrlCache(out.map((s) => s.logoPath));
         return out;

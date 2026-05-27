@@ -288,7 +288,7 @@ class PixChaveValorTextField extends StatelessWidget {
   }
 }
 
-/// CPF/telefone com máscara para listas; importe este ficheiro para usar o getter.
+/// CPF/telefone com máscara para listas; importe este arquivo para usar o getter.
 extension PixChaveUiFormatacao on PixChaveUi {
   String get valorParaListagem => pixChaveValorExibicao(tipoLabel, valor);
 }

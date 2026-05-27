@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Confirmação do código SMS do Firebase Phone Auth para MFA (login) ou para
-// associar o telefone ao utilizador ([PhoneSmsIntent]). Reutiliza o layout dos
+// associar o telefone ao usuário ([PhoneSmsIntent]). Reutiliza o layout dos
 // 6 dígitos semelhante ao OTP por e-mail.
 
 import 'dart:async';
@@ -67,7 +67,7 @@ class PhoneSmsVerificationScreen extends StatefulWidget {
   /// Define se o código confirma login ou associa telefone ao perfil Auth.
   final PhoneSmsIntent intent;
 
-  /// Quando true, o primeiro SMS já foi pedido antes deste ecrã (ex.: login).
+  /// Quando true, o primeiro SMS já foi pedido antes desta tela (ex.: login).
   final bool smsAlreadyRequested;
 
   /// Igual ao fluxo e-mail: após sucesso substitui a pilha pelo dashboard.
@@ -79,7 +79,7 @@ class PhoneSmsVerificationScreen extends StatefulWidget {
   /// Se não null, após OTP válido mostra cartão de sucesso com este texto antes de concluir.
   final String? postSuccessStatusLine;
 
-  /// Título do cartão intermédio (omissão: «Telefone confirmado!»).
+  /// Título do cartão intermédio (omissão: "Telefone confirmado!").
   final String? postSuccessTitle;
 
   /// Tempo de exibição do cartão antes de fechar ou ir ao dashboard.
@@ -138,7 +138,7 @@ class _PhoneSmsVerificationScreenState extends State<PhoneSmsVerificationScreen>
     super.dispose();
   }
 
-  /// Primeiro envio quando este ecrã é responsável por disparar o SMS.
+  /// Primeiro envio quando esta tela é responsável por disparar o SMS.
   Future<void> _sendInitialSms() async {
     try {
       await _svc.requestSmsCode(

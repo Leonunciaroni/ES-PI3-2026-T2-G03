@@ -428,7 +428,7 @@ class StartupCatalogFunctionsService {
 
     if (kDebugMode && out.isEmpty) {
       debugPrint(
-        '[listStartups] 0 itens no ecrã (count do servidor: ${backendCount ?? "desconhecido"}). '
+        '[listStartups] 0 itens na tela (count do servidor: ${backendCount ?? "desconhecido"}). '
         'Verifique: coleção `startups` no Firestore, campos `nome_startup` ou `name`, '
         'deploy de `listStartups` (us-central1) e login.',
       );

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_colors.dart';
 
-/// Canal pelo qual o utilizador recebe o código de verificação.
+/// Canal pelo qual o usuário recebe o código de verificação.
 enum OtpDeliveryChannel {
   sms,
   email,

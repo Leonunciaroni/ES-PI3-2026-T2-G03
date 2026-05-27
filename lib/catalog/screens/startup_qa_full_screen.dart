@@ -2,7 +2,7 @@
 // RA: 25005592
 // Autor da lógica das perguntas e respostas: Miguel Costacurta - 25003110
 // Lista completa de perguntas e respostas da startup. Investidores podem filtrar
-// Todas / Públicas / Privadas; demais utilizadores veem apenas as públicas.
+// Todas / Públicas / Privadas; demais usuários veem apenas as públicas.
 
 import 'package:flutter/material.dart';
 
@@ -28,7 +28,7 @@ class StartupQaFullScreen extends StatefulWidget {
   final List<StartupPublicQa> publicQa;
   final List<StartupPublicQa> investorQa;
 
-  /// `true` quando o utilizador é investidor — mostra [SegmentedButton] de filtro.
+  /// `true` quando o usuário é investidor — mostra [SegmentedButton] de filtro.
   final bool canUseInvestorFilter;
 
   @override

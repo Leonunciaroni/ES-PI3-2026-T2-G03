@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Entrada de **valores em reais** nos ecrãs da Carteira e Balcão: máscara tipo
+// Entrada de **valores em reais** nas telas da Carteira e Balcão: máscara tipo
 // “centavos por dígitos” e função para ler o texto do campo como [double].
 // Extraído de [AdicionarFundosScreen] para reutilização (ex.: fluxo de saque).
 
@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 
 import 'carteira_brl.dart';
 
-// --- Máscara enquanto o utilizador digita (só dígitos → pt-BR) ----------------
+// --- Máscara enquanto o usuário digita (só dígitos → pt-BR) ----------------
 
 /// Formata o campo enquanto digita: só **dígitos**; os dois últimos são centavos
 /// (ex.: `100000` → `1.000,00`). O [parseValorReaisInput] aceita também texto já formatado.

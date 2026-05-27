@@ -31,7 +31,7 @@ Widget _wrapSocioDetail() {
 
 void main() {
   group('SocioDetailScreen', () {
-    testWidgets('mostra nome do sócio e secção de apresentação', (tester) async {
+    testWidgets('mostra nome do sócio e seção de apresentação', (tester) async {
       await tester.pumpWidget(_wrapSocioDetail());
       await tester.pumpAndSettle();
 

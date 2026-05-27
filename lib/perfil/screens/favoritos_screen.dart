@@ -21,7 +21,7 @@ import '../../theme/app_colors.dart';
 class FavoritosScreen extends StatefulWidget {
   const FavoritosScreen({super.key, this.onInvestir});
 
-  /// Igual ao Explorar: após «Investir Agora» no detalhe, abre o Balcão na startup certa.
+  /// Igual ao Explorar: após "Investir Agora" no detalhe, abre o Balcão na startup certa.
   final void Function(CatalogStartup)? onInvestir;
 
   @override

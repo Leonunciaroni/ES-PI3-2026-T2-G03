@@ -72,7 +72,7 @@ Alterar estes valores **exige novo deploy** das Cloud Functions para produção.
 ## Relação com outras functions do módulo wallet
 
 - **`simulateWallet`**: continua a ler `preco_token` **no momento** da operação; quando o scheduler atualiza o campo, o próximo trade usa automaticamente o novo preço.
-- **`getWalletTokenPerformance`**: analisa o **ledger** do utilizador (compras/vendas); não depende do scheduler, mas o utilizador beneficia de preços diferentes ao longo do tempo nas operações.
+- **`getWalletTokenPerformance`**: analisa o **ledger** do usuário (compras/vendas); não depende do scheduler, mas o usuário beneficia de preços diferentes ao longo do tempo nas operações.
 - **`getStartupMarketStats`**: voltado ao **mercado** (gráfico + min/máx); passa a preferir `historico_cotacao_sim` quando disponível.
 
 ## Testes

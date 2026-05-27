@@ -1,6 +1,6 @@
 // Autor: Leonardo Miranda Nunciaroni
 // RA: 25002726
-// Descrição: Espelho das ordens abertas do utilizador para listagem no app (sem collection group).
+// Descrição: Espelho das ordens abertas do usuário para listagem no app (sem collection group).
 
 import {FieldValue, getFirestore, type DocumentReference, type Timestamp} from "firebase-admin/firestore";
 
@@ -79,7 +79,7 @@ export async function removeUserOpenOrderIndex(
   await userOpenOrderRef(ownerUid, tipo, orderId).delete();
 }
 
-/** Remove documentos espelho que não pertencem ao utilizador (dados legados). */
+/** Remove documentos espelho que não pertencem ao usuário (dados legados). */
 export async function purgeForeignOpenOrderIndex(uid: string): Promise<number> {
   const db = getFirestore();
   const snap = await db

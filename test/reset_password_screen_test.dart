@@ -1,5 +1,5 @@
 // Testes TDD para ResetPasswordScreen.
-// Verifica título, campos de senha, checklist de validação e feedback ao utilizador.
+// Verifica título, campos de senha, checklist de validação e feedback ao usuário.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

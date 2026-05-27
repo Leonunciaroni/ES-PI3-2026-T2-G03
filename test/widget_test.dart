@@ -1,14 +1,14 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Smoke test: arranque na tela de login e navegação para recuperação de senha.
+// Smoke test: inicialização na tela de login e navegação para recuperação de senha.
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mescla_invest/main.dart';
 
 void main() {
-  testWidgets('App arranca na tela de login', (WidgetTester tester) async {
+  testWidgets('App inicia na tela de login', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
 

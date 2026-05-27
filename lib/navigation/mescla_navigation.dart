@@ -3,7 +3,7 @@
 //
 // Navegação e pré-carga (Firebase) — complemento ao tema em [app_theme.dart].
 //
-// ## Transições suaves entre ecrãs
+// ## Transições suaves entre telas
 // Quase todas as rotas usam [MaterialPageRoute]. O Flutter aplica então o
 // [PageTransitionsTheme] definido em [buildMesclaLightTheme] /
 // [buildMesclaDarkTheme]: [FadeThroughPageTransitionsBuilder] (Material 3).
@@ -13,8 +13,8 @@
 // ## Pré-carga durante a navegação
 // O truque simples (usado em apps grandes) é: **começar** o pedido à rede ou ao
 // Firestore *antes* ou *em paralelo* com a animação, e reutilizar o mesmo
-// [Future] na tela de destino quando faz sentido. Assim o utilizador vê a
-// transição e, quando o ecrã novo aparece, os dados já estão mais perto de
+// [Future] na tela de destino quando faz sentido. Assim o usuário vê a
+// transição e, quando a nova tela aparece, os dados já estão mais perto de
 // chegar (ou já chegaram).
 //
 // Este módulo só agrupa funções pequenas para não espalhar essa lógica pelo app.
@@ -26,13 +26,13 @@ import '../catalog/data/startup_detail_mock.dart';
 import '../catalog/models/catalog_startup.dart';
 import '../catalog/services/startup_catalog_functions_service.dart';
 
-/// Funções estáticas para “aquecer” dados antes do utilizador precisar deles.
+  /// Funções estáticas para “aquecer” dados antes do usuário precisar deles.
 abstract final class MesclaNavigationPrefetch {
   MesclaNavigationPrefetch._();
 
   /// Dispara leituras Firestore da carteira simulada **sem bloquear** a UI.
   ///
-  /// Chamado tipicamente quando o utilizador muda para o separador Carteira no
+  /// Chamado tipicamente quando o usuário muda para o separador Carteira no
   /// [DashboardScreen]. Usamos [unawaited] implicitamente pelo chamador: basta
   /// não fazer `await` deste método antes do `setState` do índice do separador.
   static void scheduleWalletFirestoreForCarteiraTab(String uid) {
@@ -43,7 +43,7 @@ abstract final class MesclaNavigationPrefetch {
   ///
   /// Devolve `null` se não houver `firestoreId` (a [StartupDetailScreen] usa mock).
   /// O [Future] devolvido deve ser passado a [StartupDetailScreen.prefetchDetailFuture]
-  /// para não haver dois pedidos duplicados ao abrir o ecrã.
+  /// para não haver dois pedidos duplicados ao abrir a tela.
   static Future<StartupDetailViewData?>? startupDetailPrefetchIfNeeded({
     required StartupCatalogFunctionsService service,
     required CatalogStartup startup,

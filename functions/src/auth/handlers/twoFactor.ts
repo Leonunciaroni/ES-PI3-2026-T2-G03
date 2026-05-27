@@ -40,7 +40,7 @@ async function handleSend(user: AuthenticatedUser): Promise<{sent: boolean}> {
   if (!user.email) {
     throw new HttpsError(
       "failed-precondition",
-      "Conta sem e-mail associado nao pode usar 2FA por e-mail."
+      "Conta sem e-mail associado não pode usar 2FA por e-mail."
     );
   }
 
@@ -48,7 +48,7 @@ async function handleSend(user: AuthenticatedUser): Promise<{sent: boolean}> {
   await saveCode(user.uid, code);
   await sendVerificationEmail(user.email, code, "two_factor");
 
-  logger.info("Codigo 2FA enviado.", {uid: user.uid});
+  logger.info("Código 2FA enviado.", {uid: user.uid});
   return {sent: true};
 }
 
@@ -57,7 +57,7 @@ async function handleVerify(
   code: string | undefined
 ): Promise<{verified: boolean}> {
   if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
-    throw new HttpsError("invalid-argument", "Informe um codigo de 6 digitos.");
+    throw new HttpsError("invalid-argument", "Informe um código de 6 dígitos.");
   }
 
   const result = await verifyCode(uid, code);
@@ -67,24 +67,24 @@ async function handleVerify(
     return {verified: true};
   }
 
-  logger.warn("Falha na verificacao 2FA.", {uid, reason: result.reason});
+  logger.warn("Falha na verificação 2FA.", {uid, reason: result.reason});
 
   switch (result.reason) {
     case "not_found":
     case "expired":
       throw new HttpsError(
         "not-found",
-        "Codigo expirado ou inexistente. Solicite um novo codigo."
+        "Código expirado ou inexistente. Solicite um novo código."
       );
     case "max_attempts":
       throw new HttpsError(
         "resource-exhausted",
-        "Numero maximo de tentativas atingido. Solicite um novo codigo."
+        "Número máximo de tentativas atingido. Solicite um novo código."
       );
     case "invalid":
-      throw new HttpsError("invalid-argument", "Codigo incorreto.");
+      throw new HttpsError("invalid-argument", "Código incorreto.");
     default:
-      throw new HttpsError("internal", "Falha inesperada na verificacao.");
+      throw new HttpsError("internal", "Falha inesperada na verificação.");
   }
 }
 

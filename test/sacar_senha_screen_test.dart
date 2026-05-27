@@ -42,7 +42,13 @@ void main() {
       await tester.pumpWidget(_buildScreen());
       await tester.pumpAndSettle();
 
-      expect(find.text('Confirmar saque'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Confirmar saque'),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Exibe destino do saque mascarado', (tester) async {

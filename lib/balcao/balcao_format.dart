@@ -7,7 +7,7 @@
 // Formatação de números do Balcão para exibição em **pt-BR** (vírgula decimal),// alinhada ao uso de [formatBrl] na Carteira.
 //
 // Contrato mercado × backend: [`functions/src/wallet/shared/constants.ts`]
-// usa `EPSILON_BRL = 0.06` em `assertAmountMatchesTrade`. Este ficheiro
+// usa `EPSILON_BRL = 0.06` em `assertAmountMatchesTrade`. Este arquivo
 // expõe pares `(amountBrl, tokens)` coerentes com essa tolerância.
 // Tokens são sempre **inteiros** (quantidade informada pelo usuário).
 

@@ -148,8 +148,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   /// e o [initState] seja re-executado com [initialMesaStartup] correto.
   int _balcaoNavCount = 0;
 
-  /// Abas já ativadas pelo utilizador (ou por deeplink) desde que o shell abriu.
-  /// As não ativadas ficam leves para reduzir custo de arranque.
+  /// Abas já ativadas pelo usuário (ou por deeplink) desde que o shell abriu.
+  /// As não ativadas ficam leves para reduzir custo de inicialização.
   final Set<int> _activatedMainTabs = <int>{0};
 
   /// Cache de `getStartupMarketStats` no mesmo intervalo que a Carteira (~2 min).
@@ -172,7 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   static const _horizontalPadding = 20.0;
   static const _sectionGap = 24.0;
 
-  /// Pulso para a [CarteiraScreen] descer até «Minhas Startups Investidas» (botão Ver todas no Início).
+  /// Pulso para a [CarteiraScreen] descer até "Minhas Startups Investidas" (botão Ver todas no Início).
   final ValueNotifier<int> _carteiraScrollStartupsTick = ValueNotifier<int>(0);
 
   @override
@@ -260,7 +260,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   static const _walletIconColor = Color(0xFF92400E);
 
-  /// Chamado pelo [CatalogScreen] quando o utilizador toca "Investir Agora".
+  /// Chamado pelo [CatalogScreen] quando o usuário toca "Investir Agora".
   /// Troca para o Balcão e abre a mesa da [startup] diretamente.
   void _abrirBalcaoParaStartup(CatalogStartup startup) {
     setState(() {
@@ -276,7 +276,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   /// Troca de separador na barra inferior: dispara pré-cargas úteis em paralelo
-  /// com a perceção do utilizador (sem `await` — não bloqueia a animação).
+  /// com a percepção do usuário (sem `await` — não bloqueia a animação).
   void _onMainNavIndexChanged(int i) {
     if (i == _mainNavIndex) {
       return;

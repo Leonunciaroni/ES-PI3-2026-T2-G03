@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Primeiro passo de **Adicionar fundos**: valor em reais (máscara centavos),
-// confirmação em modal e navegação para o ecrã PIX.
+// confirmação em modal e navegação para a tela PIX.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,7 +40,7 @@ class _AdicionarFundosScreenState extends State<AdicionarFundosScreen> {
 
   double? get _valorReais => parseValorReaisInput(_valorController.text);
 
-  /// Quantidade de tokens estimada (mock) para o ecrã seguinte.
+  /// Quantidade de tokens estimada (mock) para a tela seguinte.
   double? get _quantidadeTokens {
     final v = _valorReais;
     if (v == null || v <= 0) return null;

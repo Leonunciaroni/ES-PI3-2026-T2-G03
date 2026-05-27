@@ -25,7 +25,7 @@ import '../../theme/mescla_brand_logo.dart';
 
 /// Qual chip está ativo na barra horizontal (filtro por estágio).
 ///
-/// O underscore no nome do enum deixa claro que é detalhe interno deste ficheiro.
+/// O underscore no nome do enum deixa claro que é detalhe interno deste arquivo.
 enum _ChipFilter {
   todas,
   novas,
@@ -70,7 +70,7 @@ class CatalogScreen extends StatefulWidget {
   /// Injecção opcional da callable (testes / DI).
   final StartupCatalogFunctionsService? catalogFunctionsService;
 
-  /// Chamado quando o utilizador toca "Investir Agora" dentro do detalhe.
+  /// Chamado quando o usuário toca "Investir Agora" dentro do detalhe.
   /// O [DashboardScreen] usa este callback para abrir o Balcão na startup certa.
   final void Function(CatalogStartup)? onInvestir;
 
@@ -125,7 +125,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       });
       _kickLogoPrefetchWhenListReady();
     } catch (_) {
-      // Mantém o catálogo utilizável; pode tentar de novo no próximo arranque.
+      // Mantém o catálogo utilizável; pode tentar de novo na próxima inicialização.
     }
   }
 
@@ -352,7 +352,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    // Scroll vertical: em ecrãs pequenos ou com teclado, tudo continua acessível.
+                    // Scroll vertical: em telas pequenas ou com teclado, tudo continua acessível.
                     padding: const EdgeInsets.fromLTRB(
                       _horizontalPadding,
                       8,
@@ -488,7 +488,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 }
 
-// --- Peças visuais privadas (só usadas neste ficheiro) -----------------------
+// --- Peças visuais privadas (só usadas neste arquivo) -----------------------
 
 /// Faixa superior com o logo Mescla Invest (tema claro/escuro).
 class _CatalogHeader extends StatelessWidget {

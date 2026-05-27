@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Modelos de dados mínimos para a lista "do dia" e para o ecrã de detalhe
+// Modelos de dados mínimos para a lista "do dia" e para a tela de detalhe
 // após validar a senha. São **imutáveis** (`final`) e sem lógica de negócio
 // pesada — adequados ao PI3.
 
@@ -28,7 +28,7 @@ class BalcaoTransacaoDia {
   final DateTime? dataHora;
 }
 
-/// Dados mostrados no ecrã de detalhe após operação bem-sucedida.
+/// Dados mostrados na tela de detalhe após operação bem-sucedida.
 class BalcaoTransacaoDetalhe {
   const BalcaoTransacaoDetalhe({
     required this.operacao,
@@ -41,7 +41,7 @@ class BalcaoTransacaoDetalhe {
 
   final BalcaoOperacaoTipo operacao;
 
-  /// Nome ou sigla exibida ao utilizador (ex.: "GFLO" ou nome da startup).
+  /// Nome ou sigla exibida ao usuário (ex.: "GFLO" ou nome da startup).
   final String nomeToken;
   final int quantidadeTokens;
   final double valorReais;

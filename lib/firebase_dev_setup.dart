@@ -33,7 +33,7 @@ const int kFirebaseFunctionsEmulatorPort = 5001;
 /// `firebase emulators:start` (com Functions). Sem isto, o cliente chama
 /// produção e recebe `not-found` se [simulateWallet] não estiver deployada.
 ///
-/// Para telemóvel Android físico na mesma rede, pode forçar o IP do PC:
+/// Para celular Android físico na mesma rede, pode forçar o IP do PC:
 /// `--dart-define=FUNCTIONS_EMULATOR_HOST=192.168.x.x`
 /// e acrescente esse IP em
 /// `android/app/src/main/res/xml/network_security_config.xml` (domínio com

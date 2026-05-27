@@ -38,7 +38,7 @@ import {
 import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
 
 /**
- * Edita quantidade e preço de uma ordem aberta do utilizador.
+ * Edita quantidade e preço de uma ordem aberta do usuário.
  *
  * 1. Valida dono e status `open`
  * 2. Libera escrow antigo e reserva o novo valor

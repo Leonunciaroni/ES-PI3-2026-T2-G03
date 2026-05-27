@@ -39,7 +39,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _confirmPasswordController = TextEditingController();
   final _passwordResetService = PasswordResetService();
 
-  /// Quando true, a senha aparece como pontos; o utilizador pode alternar.
+  /// Quando true, a senha aparece como pontos; o usuário pode alternar.
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 

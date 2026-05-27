@@ -2,7 +2,7 @@
 // RA: 25005592
 //
 // Vídeo de demonstração embutido (YouTube) na ficha da startup — área compacta 16:9;
-// o utilizador usa o botão play do próprio player. Outros URLs continuam a abrir fora.
+// o usuário usa o botão play do próprio player. Outros URLs continuam abrindo fora.
 
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';

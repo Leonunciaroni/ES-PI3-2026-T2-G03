@@ -45,7 +45,7 @@ class TwoFactorVerificationScreen extends StatefulWidget {
   /// Se null, o banner usa texto genérico (útil em testes sem Firebase).
   final String? codeDestinationEmail;
 
-  /// Título do cartão de sucesso (omissão: «Verificação concluída!»).
+  /// Título do cartão de sucesso (omissão: "Verificação concluída!").
   final String? successTitle;
 
   /// Linha de estado após sucesso. Se omissa: com [replaceStackWithDashboard] mostra

@@ -1,9 +1,9 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Ecrã mostrado no arranque quando ainda há sessão Firebase válida (24h), a preferência
+// Tela mostrada na inicialização quando ainda há sessão Firebase válida (24h), a preferência
 // de biometria está ligada no Firestore e o aparelho foi inscrito localmente.
-// Passo 1: utilizador confirma com Face ID / digital. Passo 2: actualizamos o
+// Passo 1: usuário confirma com Face ID / digital. Passo 2: atualizamos o
 // metadado `lastBiometricLoginAt` e abrimos o dashboard.
 
 import 'package:flutter/material.dart';
@@ -35,11 +35,11 @@ class _BiometricUnlockScreenState extends State<BiometricUnlockScreen> {
 
   Future<void> _fallbackLoginComSenha() async {
     // Mantém Firestore alinhado ao armazenamento local: [signOut] apaga a inscrição;
-    // sem isto, `biometricEnabled` ficaria `true` e o estado das definições mentia.
+    // sem isto, `biometricEnabled` ficaria `true` e o estado das configurações mentia.
     try {
       await UserFirestoreService.setBiometricEnabled(false);
     } catch (_) {
-      // Falha de rede: o [AuthGateScreen] reconcilia no próximo arranque.
+      // Falha de rede: o [AuthGateScreen] reconcilia na próxima inicialização.
     }
     await UserFirestoreService.signOut();
     if (!mounted) return;

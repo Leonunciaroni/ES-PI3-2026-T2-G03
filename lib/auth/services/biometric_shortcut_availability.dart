@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Um único sítio para saber se o utilizador **quer** biometria nestes passos.
+// Um único lugar para saber se o usuário **quer** biometria nestes passos.
 // Igual ao [AuthGateScreen]: Firestore + inscrição local — **sem** `deviceCanUseBiometrics`,
 // porque em vários Samsung/tablets o plugin diz “não há biometria” e depois o diálogo funciona.
 

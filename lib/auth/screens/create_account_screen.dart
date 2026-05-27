@@ -23,7 +23,7 @@ import 'signup_verification_flow_screen.dart';
 
 /// Tela de cadastro integrada ao Firebase Auth e Firestore (Material 3).
 ///
-/// O layout segue o protótipo do PI; o fluxo cria o utilizador no Auth e o
+/// O layout segue o protótipo do PI; o fluxo cria o usuário no Auth e o
 /// documento de perfil em `users/{uid}`.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({super.key});

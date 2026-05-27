@@ -2,12 +2,12 @@
 // RA: 25005592
 //
 // ## Fluxo
-// O utilizador toca em **Saber mais** em [StartupDetailScreen] → esta rota
+// O usuário toca em **Saber mais** em [StartupDetailScreen] → esta rota
 // recebe um [SocioDetailViewData]. Esse objeto é montado em
 // [socioDetailForTeamMember]: ou perfil **rico** (constantes tipo
 // [kSocioMockRicardoSilveira] nos templates de startup) ou perfil **placeholder**
 // com [SocioDetailViewData.isMockPlaceholder] == true, para mostrar **todas**
-// as secções com texto fictício até existir mapeamento Firestore.
+// as seções com texto fictício até existir mapeamento Firestore.
 //
 // ## Layout
 // 1. [MesclaDetailHeader] — voltar + logo (partilhado com a tela da startup).
@@ -15,7 +15,7 @@
 //    são “reais” da lista; o resto é exemplo.
 // 3. [_IdentityCard] — foto/iniciais, nome, cargo, startup, participação.
 // 4. Vários [MesclaPdfSectionCard] — superfície por tema (bio, LinkedIn,
-//    formação, …). Cada `if` no [build] só acrescenta a secção se o campo
+//    formação, …). Cada `if` no [build] só acrescenta a seção se o campo
 //    correspondente tiver conteúdo (lista não vazia ou `String` não nula).
 //
 // Quando integrarem o Firestore, basta preencher [SocioDetailViewData] a partir
@@ -37,7 +37,7 @@ const double _kSectionGap = 14;
 /// Diâmetro lógico do avatar = 2 × este raio (ver [_IdentityCard]).
 const double _kHeroAvatarRadius = 48;
 
-/// Evita desenhar títulos de secção com strings vazias ou só espaços.
+/// Evita desenhar títulos de seção com strings vazias ou só espaços.
 bool _hasText(String? s) => s != null && s.trim().isNotEmpty;
 
 /// Gera iniciais para o círculo quando não há foto ou o download falha.
@@ -55,7 +55,7 @@ String _initialsFromFullName(String fullName) {
   return ('${first[0]}${last[0]}').toUpperCase();
 }
 
-/// Ficha do sócio / mentor — cada secção corresponde a um grupo de campos
+/// Ficha do sócio / mentor — cada seção corresponde a um grupo de campos
 /// do modelo (apresentação, formação, experiência, papel na startup, etc.).
 class SocioDetailScreen extends StatelessWidget {
   const SocioDetailScreen({
@@ -110,7 +110,7 @@ class SocioDetailScreen extends StatelessWidget {
     final initials = _initialsFromFullName(data.fullName);
 
     // Lista linear de widgets: vamos dar `add` / `addSection` para ler de cima
-    // a baixo como aparece no ecrã (facilita manutenção da ordem das secções).
+    // a baixo como aparece na tela (facilita manutenção da ordem das seções).
     final sectionWidgets = <Widget>[
       const MesclaDetailHeader(),
       if (data.isMockPlaceholder) ...[
@@ -126,7 +126,7 @@ class SocioDetailScreen extends StatelessWidget {
       ),
     ];
 
-    /// Encapsula o padrão “espaçamento + cartão branco” das secções do PDF §5.2.
+    /// Encapsula o padrão “espaçamento + cartão branco” das seções do PDF §5.2.
     void addSection(String title, Widget child) {
       sectionWidgets
         ..add(const SizedBox(height: _kSectionGap))
@@ -134,7 +134,7 @@ class SocioDetailScreen extends StatelessWidget {
     }
 
     // Cada bloco abaixo corresponde a um campo (ou grupo) em [SocioDetailViewData].
-    // Na integração Firestore, campos vazios = secção omitida automaticamente.
+    // Na integração Firestore, campos vazios = seção omitida automaticamente.
 
     if (_hasText(data.shortBio)) {
       addSection(
@@ -354,7 +354,7 @@ class _MockDataNoticeBanner extends StatelessWidget {
   }
 }
 
-/// Rótulo pequeno dentro de uma secção (subtópico).
+/// Rótulo pequeno dentro de uma seção (subtópico).
 class _Subheading extends StatelessWidget {
   const _Subheading({required this.label});
 
@@ -378,7 +378,7 @@ class _Subheading extends StatelessWidget {
 }
 
 /// Primeiro cartão de identidade: resume **quem** é a pessoa no contexto da startup.
-/// O LinkedIn fica numa secção à parte para não competir visualmente com o nome.
+/// O LinkedIn fica numa seção à parte para não competir visualmente com o nome.
 class _IdentityCard extends StatelessWidget {
   const _IdentityCard({
     required this.data,

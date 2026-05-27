@@ -1,6 +1,6 @@
 // Testes TDD para SegurancaPrivacidadeScreen.
 // Sem Firebase inicializado, _currentUidOrNull() retorna null (guarded),
-// e a tela exibe a mensagem de "Inicie sessão" no lugar dos controles de segurança.
+// e a tela exibe a mensagem de "Faça login" no lugar dos controles de segurança.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,7 +26,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('Inicie sessão'),
+        find.textContaining('Faça login'),
         findsOneWidget,
       );
     });

@@ -1,7 +1,7 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Tela **Perfil** (Figma): logo, título, cartão com avatar, secção CONTA com
+// Tela **Perfil** (Figma): logo, título, cartão com avatar, seção CONTA com
 // linhas configuráveis, Sair. Os dados vêm de [FirebaseAuth] + opcionalmente
 // Firestore `users/{uid}`. A barra inferior continua a ser a do
 // [MesclaMainShell] — este widget é só o corpo do separador 4.
@@ -70,7 +70,7 @@ Future<_PerfilDados> _carregarPerfil() async {
     if (u == null) {
       // Ex.: testes de widget sem sessão, ou sessão inválida.
       return const _PerfilDados(
-        nomeExibicao: 'Utilizador',
+        nomeExibicao: 'Usuário',
         email: '—',
         iniciais: 'U',
       );
@@ -82,7 +82,7 @@ Future<_PerfilDados> _carregarPerfil() async {
     if (nome == null || nome.isEmpty) {
       nome = u.email?.split('@').first;
     }
-    nome ??= 'Utilizador';
+    nome ??= 'Usuário';
     final email = u.email ?? '—';
     return _PerfilDados(
       nomeExibicao: nome,
@@ -92,14 +92,14 @@ Future<_PerfilDados> _carregarPerfil() async {
   } catch (_) {
     // [Firebase] não inicializado (ex. algum teste) ou outra falha: fallback seguro.
     return const _PerfilDados(
-      nomeExibicao: 'Utilizador',
+      nomeExibicao: 'Usuário',
       email: '—',
       iniciais: 'U',
     );
   }
 }
 
-/// Ecrã do separador **Perfil** (avatar, CONTA, Sair, navegação para sub-rotas).
+/// Tela do separador **Perfil** (avatar, CONTA, Sair, navegação para sub-rotas).
 class PerfilScreen extends StatefulWidget {
   const PerfilScreen({
     super.key,
@@ -111,7 +111,7 @@ class PerfilScreen extends StatefulWidget {
   /// Quando o pai já aplicou [SafeArea] (ex.: [MesclaMainShell]), passa `false`.
   final bool wrapWithSafeArea;
 
-  /// Repassado a [FavoritosScreen] — «Investir Agora» abre o Balcão (ex.: [DashboardScreen]).
+  /// Repassado a [FavoritosScreen] — "Investir Agora" abre o Balcão (ex.: [DashboardScreen]).
   final void Function(CatalogStartup)? onInvestir;
 
   /// Permite injetar a lista de desejos em testes sem depender de Firebase.
@@ -122,7 +122,7 @@ class PerfilScreen extends StatefulWidget {
 }
 
 class _PerfilScreenState extends State<PerfilScreen> {
-  /// Ficheiro escolhido na câmara/galeria — mostramos na hora, antes do upload terminar.
+  /// Arquivo escolhido na câmera/galeria — mostramos na hora, antes do upload terminar.
   File? _imagemAvatar;
 
   /// URL HTTPS gravada no Firestore (download URL do Firebase Storage).
@@ -133,7 +133,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   final ImagePicker _picker = ImagePicker();
 
-  /// Uma instância por ecrã: evita relançar o [Future] a cada [build].
+  /// Uma instância por tela: evita relançar o [Future] a cada [build].
   late final Future<_PerfilDados> _carga = _carregarPerfil();
 
   @override
@@ -471,7 +471,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     });
 
     try {
-      // Apaga o ficheiro no Storage (ignora se já não existir).
+      // Apaga o arquivo no Storage (ignora se já não existir).
       await ProfilePhotoStorageService.removerFoto(uid);
 
       // Remove o campo `photoUrl` do Firestore.
@@ -634,7 +634,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     _PerfilConfigRow(
                       icon: Icons.support_agent_outlined,
                       titulo: 'Ajuda e Suporte',
-                      subtitulo: 'FAQ, contacto',
+                      subtitulo: 'FAQ, contato',
                       onTap: () {
                         Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
@@ -736,7 +736,7 @@ class _PerfilUserCard extends StatelessWidget {
           width: 72,
           height: 72,
           fit: BoxFit.cover,
-          // Se a URL falhar (rede, ficheiro apagado), voltamos às iniciais.
+          // Se a URL falhar (rede, arquivo apagado), voltamos às iniciais.
           errorBuilder: (context, error, stackTrace) => Text(
             iniciais,
             style: theme.textTheme.headlineSmall?.copyWith(
