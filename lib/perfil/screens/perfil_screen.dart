@@ -102,6 +102,7 @@ class PerfilScreen extends StatefulWidget {
     super.key,
     this.wrapWithSafeArea = true,
     this.onInvestir,
+    this.favoriteStartupIdsStream,
   });
 
   /// Quando o pai já aplicou [SafeArea] (ex.: [MesclaMainShell]), passa `false`.
@@ -109,6 +110,9 @@ class PerfilScreen extends StatefulWidget {
 
   /// Repassado a [FavoritosScreen] — «Investir Agora» abre o Balcão (ex.: [DashboardScreen]).
   final void Function(CatalogStartup)? onInvestir;
+
+  /// Permite injetar a lista de desejos em testes sem depender de Firebase.
+  final Stream<List<String>>? favoriteStartupIdsStream;
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -256,21 +260,13 @@ class _PerfilScreenState extends State<PerfilScreen> {
         final iniciais = dados?.iniciais ?? '…';
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            _paddingH,
-            8,
-            _paddingH,
-            32,
-          ),
+          padding: const EdgeInsets.fromLTRB(_paddingH, 8, _paddingH, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  MesclaBrandLogo(
-                    boxHeight: _logoHeight,
-                    boxWidth: 200,
-                  ),
+                  MesclaBrandLogo(boxHeight: _logoHeight, boxWidth: 200),
                 ],
               ),
               const SizedBox(height: 20),
@@ -308,12 +304,13 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 child: Column(
                   children: [
                     StreamBuilder<List<String>>(
-                      stream: UserFirestoreService.watchFavoriteStartupIds(),
+                      stream:
+                          widget.favoriteStartupIdsStream ??
+                          UserFirestoreService.watchFavoriteStartupIds(),
                       builder: (context, favSnap) {
                         final qtd = favSnap.data?.length ?? 0;
-                        final subtitulo = qtd == 0
-                            ? 'Ver lista de desejos'
-                            : '$qtd ${qtd == 1 ? "startup" : "startups"} na lista de desejos';
+                        final subtitulo =
+                            '$qtd ${qtd == 1 ? "startup" : "startups"} na lista de desejos';
                         return _PerfilConfigRow(
                           icon: Icons.favorite_border_rounded,
                           titulo: 'Lista de Desejos',
@@ -450,10 +447,7 @@ class _PerfilUserCard extends StatelessWidget {
               width: 72,
               height: 72,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: primary,
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
               child: Text(
                 iniciais,
                 style: theme.textTheme.headlineSmall?.copyWith(
@@ -547,11 +541,7 @@ class _PerfilConfigRow extends StatelessWidget {
                   color: iconCircle,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  icon,
-                  color: AppColors.textSecondary,
-                  size: 22,
-                ),
+                child: Icon(icon, color: AppColors.textSecondary, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -575,10 +565,7 @@ class _PerfilConfigRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                color: AppColors.textSecondary,
-              ),
+              Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),
