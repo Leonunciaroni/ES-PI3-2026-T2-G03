@@ -359,41 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Expanded(
-                                      child: Text('SENHA', style: labelStyle),
-                                    ),
-                                    TextButton(
-                                      onPressed: _isSubmitting
-                                          ? null
-                                          : () {
-                                              Navigator.push<void>(
-                                                context,
-                                                MaterialPageRoute<void>(
-                                                  builder: (context) =>
-                                                      const RecoverPasswordScreen(),
-                                                ),
-                                              );
-                                            },
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      child: Text(
-                                        'Esqueci minha senha',
-                                        style: theme.textTheme.labelLarge
-                                            ?.copyWith(
-                                              color: colorScheme.primary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                Text('SENHA', style: labelStyle),
                                 const SizedBox(height: 8),
                                 TextField(
                                   controller: _passwordController,
@@ -433,6 +399,40 @@ class _LoginScreenState extends State<LoginScreen> {
                                       colorScheme.primary,
                                     ),
                                     border: _stadiumBorder(fieldStroke),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : () {
+                                            Navigator.push<void>(
+                                              context,
+                                              MaterialPageRoute<void>(
+                                                builder: (context) =>
+                                                    const RecoverPasswordScreen(),
+                                              ),
+                                            );
+                                          },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 6,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'Esqueci minha senha',
+                                      style: theme.textTheme.labelLarge
+                                          ?.copyWith(
+                                            color: colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: 28),

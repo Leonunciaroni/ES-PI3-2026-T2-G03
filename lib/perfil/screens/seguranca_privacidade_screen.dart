@@ -536,30 +536,28 @@ class _SegurancaPrivacidadeScreenState
                                       ),
                                     ),
                                     RadioListTile<String>(
+                                      enabled: !_persisting,
                                       title: const Text('E-mail'),
                                       value:
                                           UserFirestoreService.mfaDeliveryEmail,
                                       groupValue: method,
-                                      onChanged: _persisting
-                                          ? null
-                                          : (v) {
-                                              if (v != null) {
-                                                _onMfaDeliveryChanged(v);
-                                              }
-                                            },
+                                      onChanged: (v) {
+                                        if (!_persisting && v != null) {
+                                          _onMfaDeliveryChanged(v);
+                                        }
+                                      },
                                     ),
                                     RadioListTile<String>(
+                                      enabled: !_persisting,
                                       title: const Text('SMS'),
                                       value:
                                           UserFirestoreService.mfaDeliverySms,
                                       groupValue: method,
-                                      onChanged: _persisting
-                                          ? null
-                                          : (v) {
-                                              if (v != null) {
-                                                _onMfaDeliveryChanged(v);
-                                              }
-                                            },
+                                      onChanged: (v) {
+                                        if (!_persisting && v != null) {
+                                          _onMfaDeliveryChanged(v);
+                                        }
+                                      },
                                     ),
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(
