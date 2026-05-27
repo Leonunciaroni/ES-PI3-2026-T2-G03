@@ -30,6 +30,17 @@ Widget _themedApp(Widget home) {
 
 void main() {
   group('ValuationEvolutionChartCard - eixo de datas', () {
+    int _countTextsMatching(WidgetTester tester, RegExp pattern) {
+      final texts = tester.widgetList<Text>(find.byType(Text));
+      var count = 0;
+      for (final t in texts) {
+        final s = t.data;
+        if (s == null) continue;
+        if (pattern.hasMatch(s)) count++;
+      }
+      return count;
+    }
+
     testWidgets('mensal mostra segundas-feiras e diario nao mostra datas', (
       tester,
     ) async {
@@ -44,6 +55,8 @@ void main() {
         ],
       );
 
+      final ref = DateTime(2026, 3, 31, 12);
+
       await tester.pumpWidget(
         _themedApp(
           ValuationEvolutionChartCard(
@@ -52,6 +65,7 @@ void main() {
             series: monthlySeries,
             primary: AppColors.seedPurple,
             footnote: '',
+            referenceNow: ref,
           ),
         ),
       );
@@ -70,6 +84,7 @@ void main() {
             series: monthlySeries,
             primary: AppColors.seedPurple,
             footnote: '',
+            referenceNow: ref,
           ),
         ),
       );
@@ -78,16 +93,51 @@ void main() {
       expect(find.text('09/03'), findsNothing);
     });
 
-    testWidgets('seis meses mostra nomes dos meses', (tester) async {
+    testWidgets('semanal limita a densidade de datas no eixo', (tester) async {
+      // 14 amostras em dias diferentes: o eixo deve limitar a quantidade de rótulos
+      // para não poluir o layout.
+      final times = List<DateTime>.generate(
+        14,
+        (i) => DateTime(2026, 3, 1 + i),
+      );
       final series = ValuationChartSeries(
-        valuationMillions: const [10, 11, 12, 13, 14, 15],
+        valuationMillions: List<double>.generate(14, (i) => 10 + i.toDouble()),
+        sampleTimes: times,
+      );
+
+      await tester.pumpWidget(
+        _themedApp(
+          ValuationEvolutionChartCard(
+            selected: ValuationPeriod.semanal,
+            onSelect: (_) {},
+            series: series,
+            primary: AppColors.seedPurple,
+            footnote: '',
+          ),
+        ),
+      );
+
+      // dd/mm
+      final ddmm = RegExp(r'^\d{2}/\d{2}$');
+      final tickCount = _countTextsMatching(tester, ddmm);
+      expect(tickCount, lessThanOrEqualTo(6));
+      expect(tickCount, greaterThanOrEqualTo(2));
+    });
+
+    testWidgets('seis meses mostra ultimos 6 meses civis sem sobrepor rotulos', (
+      tester,
+    ) async {
+      final ref = DateTime(2026, 5, 10, 12);
+      final series = ValuationChartSeries(
+        valuationMillions: List<double>.generate(7, (i) => 10 + i.toDouble()),
         sampleTimes: [
-          DateTime(2026, 1, 5),
-          DateTime(2026, 2, 5),
-          DateTime(2026, 3, 5),
-          DateTime(2026, 4, 5),
-          DateTime(2026, 5, 5),
-          DateTime(2026, 6, 5),
+          DateTime(2025, 11, 20),
+          DateTime(2025, 12, 10),
+          DateTime(2026, 1, 10),
+          DateTime(2026, 2, 10),
+          DateTime(2026, 3, 10),
+          DateTime(2026, 4, 10),
+          ref,
         ],
       );
 
@@ -99,6 +149,40 @@ void main() {
             series: series,
             primary: AppColors.seedPurple,
             footnote: '',
+            referenceNow: ref,
+          ),
+        ),
+      );
+
+      expect(find.text('nov'), findsNothing);
+      expect(find.text('dez'), findsOneWidget);
+      expect(find.text('jan'), findsOneWidget);
+      expect(find.text('mai'), findsOneWidget);
+    });
+
+    testWidgets('seis meses mostra nomes dos meses', (tester) async {
+      final ref = DateTime(2026, 6, 5, 12);
+      final series = ValuationChartSeries(
+        valuationMillions: const [10, 11, 12, 13, 14, 15],
+        sampleTimes: [
+          DateTime(2026, 1, 5),
+          DateTime(2026, 2, 5),
+          DateTime(2026, 3, 5),
+          DateTime(2026, 4, 5),
+          DateTime(2026, 5, 5),
+          ref,
+        ],
+      );
+
+      await tester.pumpWidget(
+        _themedApp(
+          ValuationEvolutionChartCard(
+            selected: ValuationPeriod.seisMeses,
+            onSelect: (_) {},
+            series: series,
+            primary: AppColors.seedPurple,
+            footnote: '',
+            referenceNow: ref,
           ),
         ),
       );
@@ -109,6 +193,41 @@ void main() {
       expect(find.text('abr'), findsOneWidget);
       expect(find.text('mai'), findsOneWidget);
       expect(find.text('jun'), findsOneWidget);
+    });
+
+    testWidgets('ytd mostra meses ate o momento (sem meses futuros)', (tester) async {
+      final ref = DateTime(2026, 5, 5, 12);
+      final series = ValuationChartSeries(
+        valuationMillions: const [10, 11, 12, 13, 14],
+        sampleTimes: [
+          DateTime(2026, 1, 5),
+          DateTime(2026, 2, 5),
+          DateTime(2026, 3, 5),
+          DateTime(2026, 4, 5),
+          ref,
+        ],
+      );
+
+      await tester.pumpWidget(
+        _themedApp(
+          ValuationEvolutionChartCard(
+            selected: ValuationPeriod.ytd,
+            onSelect: (_) {},
+            series: series,
+            primary: AppColors.seedPurple,
+            footnote: '',
+            referenceNow: ref,
+          ),
+        ),
+      );
+
+      expect(find.text('jan'), findsOneWidget);
+      expect(find.text('fev'), findsOneWidget);
+      expect(find.text('mar'), findsOneWidget);
+      expect(find.text('abr'), findsOneWidget);
+      expect(find.text('mai'), findsOneWidget);
+      expect(find.text('jun'), findsNothing);
+      expect(find.text('dez'), findsNothing);
     });
   });
 
