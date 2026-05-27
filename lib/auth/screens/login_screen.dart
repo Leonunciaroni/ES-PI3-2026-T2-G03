@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Integração Firebase Auth e fluxo pós-login.
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';

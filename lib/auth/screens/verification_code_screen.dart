@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Tela de código OTP (2FA e recuperação de senha).
 
 import 'dart:async';
 import 'dart:math' show min;

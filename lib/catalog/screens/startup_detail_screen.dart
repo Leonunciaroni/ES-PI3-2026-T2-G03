@@ -1,6 +1,6 @@
 ﻿// Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
-//
+//Autor secundário conforme pr #174 - Miguel Costacurta - 25003110
 // Tela de detalhes da startup (MesclaInvest) — layout inspirado no Figma.
 // Conteúdo institucional mínimo do documento §5.2; filtros de gráfico conforme §5.4.
 // Esta rota não inclui a bottom navigation bar (empilhada com [MesclaMaterialRoute]).

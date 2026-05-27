@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Lazy load das abas e abertura no Início após login.
 //
 // Dashboard — Início com dados reais (`sim_wallet`, catálogo,
 // `getStartupMarketStats`). Barras mensais refletem **saldo BRL disponível**

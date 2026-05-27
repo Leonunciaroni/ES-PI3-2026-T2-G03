@@ -1,4 +1,6 @@
-﻿part of 'startup_detail_screen.dart';
+﻿// Autor principal: Miguel Costacurta - 25003110
+
+part of 'startup_detail_screen.dart';
 
 class _MainInfoCard extends StatelessWidget {
   const _MainInfoCard({

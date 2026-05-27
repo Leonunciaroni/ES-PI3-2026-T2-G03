@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Recuperação de senha com OTP via Functions.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

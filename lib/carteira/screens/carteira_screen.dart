@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Carteira real via Firestore e gráfico de saldo.
 //
 // Tela **Carteira** — protótipo visual alinhado ao Figma (património, evolução,
 // startups investidas, movimentações). Com utilizador autenticado, saldo BRL,

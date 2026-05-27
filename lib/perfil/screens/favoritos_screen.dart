@@ -1,3 +1,7 @@
+// Autor principal: Miguel Costacurta - 25003110
+
+
+
 // Lista de startups marcadas como favoritas — mesmo gradiente/cores do Explorar,
 // cabeçalho [MesclaDetailHeader] como na tela de detalhes da startup, cards iguais ao catálogo.
 

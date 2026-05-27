@@ -1,3 +1,4 @@
+// Autor principal: Miguel Costacurta - 25003110
 import 'dart:math' show min;
 
 import 'package:flutter/gestures.dart';

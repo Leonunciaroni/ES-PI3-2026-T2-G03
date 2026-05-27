@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Debounce na busca do balcão.
 //
 // Aba **Balcão** (índice 2 do [MesclaMainShell]): lista de startups pela callable
 // `listStartups` (como o Explorar), depois mesa com saldo e histórico reais quando

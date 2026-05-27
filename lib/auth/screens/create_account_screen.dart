@@ -1,4 +1,4 @@
-//Miguel Fernandes Costacurta - 25003110
+// Autor principal:  Miguel Costacurta - 25003110
 // Refatoração feita por do layout - Pedro Henrique Contardi Soler - 25005592
 // Importa File para guardar temporariamente a imagem escolhida pelo usuário.
 import 'dart:io';

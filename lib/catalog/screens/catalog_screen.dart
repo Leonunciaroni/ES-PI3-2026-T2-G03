@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Debounce na busca do catálogo.
 //
 // Tela Explorar (catálogo de startups) — protótipo visual alinhado ao Figma.
 // A lista vem da callable `listStartups` via [StartupCatalogFunctionsService];

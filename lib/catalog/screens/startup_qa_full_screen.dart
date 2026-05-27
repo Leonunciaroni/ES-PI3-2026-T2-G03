@@ -1,6 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
-//
+// Autor da lógica das perguntas e respostas: Miguel Costacurta - 25003110
 // Lista completa de perguntas e respostas da startup. Investidores podem filtrar
 // Todas / Públicas / Privadas; demais utilizadores veem apenas as públicas.
 

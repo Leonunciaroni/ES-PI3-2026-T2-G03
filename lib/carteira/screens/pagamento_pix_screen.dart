@@ -1,5 +1,6 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Timer PIX e crédito automático na carteira.
 //
 // Ecrã de pagamento **PIX** (protótipo): QR mock, instruções e contador para pagar.
 // O temporizador dá tempo ao utilizador de abrir o app do banco e concluir o PIX.
