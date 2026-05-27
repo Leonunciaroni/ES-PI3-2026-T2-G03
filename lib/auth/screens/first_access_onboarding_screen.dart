@@ -9,8 +9,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../onboarding/screens/app_tutorial_screen.dart';
 import '../../catalog/services/startup_catalog_list_cache.dart';
-import '../../dashboard/screens/dashboard_screen.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import '../services/phone_mfa_service.dart';
@@ -155,7 +155,7 @@ class _FirstAccessOnboardingScreenState extends State<FirstAccessOnboardingScree
       }
       await Navigator.of(context).pushAndRemoveUntil<void>(
         MaterialPageRoute<void>(
-          builder: (_) => const DashboardScreen(),
+          builder: (_) => const AppTutorialScreen(),
         ),
         (route) => false,
       );
