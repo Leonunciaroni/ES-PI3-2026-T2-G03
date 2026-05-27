@@ -1,12 +1,11 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Associa o número de telefone ao usuário atual no Firebase Auth através de
+// Associa o número de telefone ao usuário atual no Firebase Auth via
 // SMS ([PhoneSmsIntent.enrollLinkPhone]). Opcionalmente, após associar, abre o
 // segundo passo de MFA por SMS no login quando [continueToLoginOtp] é true.
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
@@ -25,7 +24,7 @@ class LinkPhoneForMfaScreen extends StatefulWidget {
     this.showDashboardRedirectAfterSmsVerify = false,
   });
 
-  /// Se true, após ligar o telefone envia novo SMS para completar o MFA do login atual.
+  /// Se true, após associar o telefone, envia novo SMS para completar o MFA do login atual.
   final bool continueToLoginOtp;
 
   /// Fluxo de cadastro: após validar o SMS mostra "Redirecionando para Dashboard…" antes de fechar.
