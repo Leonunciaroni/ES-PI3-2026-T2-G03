@@ -74,6 +74,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isLastPage = _currentPage == _pages.length - 1;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
       body: SafeArea(
@@ -120,8 +122,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
                   height: 8,
                   decoration: BoxDecoration(
                     color: _currentPage == index
-                        ? Colors.deepPurple
-                        : Colors.grey.shade400,
+                        ? colorScheme.primary
+                        : colorScheme.outlineVariant,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),

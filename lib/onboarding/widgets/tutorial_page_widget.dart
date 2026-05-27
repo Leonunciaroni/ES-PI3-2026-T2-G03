@@ -17,6 +17,7 @@ class TutorialPageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -26,7 +27,7 @@ class TutorialPageWidget extends StatelessWidget {
             Icon(
               icon,
               size: 120,
-              color: Colors.deepPurple,
+              color: colorScheme.primary,
             ),
             const SizedBox(height: 32),
 
