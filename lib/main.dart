@@ -84,7 +84,6 @@ class MyApp extends StatelessWidget {
           title: 'Mescla Invest',
           debugShowCheckedModeBanner: false,
           scrollBehavior: const AppScrollBehavior(),
-          locale: const Locale('pt', 'BR'),
           supportedLocales: const [Locale('pt', 'BR'), Locale('en', 'US')],
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
