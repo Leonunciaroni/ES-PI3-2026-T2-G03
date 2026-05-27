@@ -597,8 +597,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
       builder: (context, snapshot) {
         final StartupDetailViewData detail =
             snapshot.hasData && snapshot.data != null
-                ? snapshot.data!
-                : startupDetailFor(mesaStartup);
+            ? snapshot.data!
+            : startupDetailFor(mesaStartup);
         return coluna(detail);
       },
     );
@@ -770,57 +770,63 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
       ),
     );
 
-    final mesaBody = Padding(
-      padding: const EdgeInsets.fromLTRB(
-        _horizontalPadding,
-        8,
-        _horizontalPadding,
-        8,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _BalcaoMesaTopRow(onBack: _limparMesa),
-          const SizedBox(height: 12),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: MesclaMaterialRoute.kTransitionDuration,
-              reverseDuration: MesclaMaterialRoute.kReverseTransitionDuration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                final curved = CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                );
-                return FadeTransition(
-                  opacity: curved,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.035),
-                      end: Offset.zero,
-                    ).animate(curved),
-                    child: child,
-                  ),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey<String>(_balcaoPainelKey),
-                child: !_mesaFirebaseAppsProntos()
-                    ? _balcaoMesaSemFirebaseAoVivo(
-                        theme: theme,
-                        scheme: scheme,
-                        onSurface: onSurface,
-                      )
-                    : StreamBuilder<User?>(
-                        stream: FirebaseAuth.instance.authStateChanges(),
-                        builder: (context, authSnap) {
-                          final mesaStartup = _mesaStartup!;
-                          final fid = mesaStartup.firestoreId?.trim();
-                          final user = authSnap.data;
-                          final carteiraAoVivo =
-                              user != null && fid != null && fid.isNotEmpty;
+    Widget mesaBody() {
+      if (_mesaStartup == null) {
+        // Proteção: evita construir a árvore da mesa (que assume `_mesaStartup!`)
+        // quando ainda estamos no modo lista (ex.: em testes).
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          _horizontalPadding,
+          8,
+          _horizontalPadding,
+          8,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _BalcaoMesaTopRow(onBack: _limparMesa),
+            const SizedBox(height: 12),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: MesclaMaterialRoute.kTransitionDuration,
+                reverseDuration: MesclaMaterialRoute.kReverseTransitionDuration,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  final curved = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  );
+                  return FadeTransition(
+                    opacity: curved,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, 0.035),
+                        end: Offset.zero,
+                      ).animate(curved),
+                      child: child,
+                    ),
+                  );
+                },
+                child: KeyedSubtree(
+                  key: ValueKey<String>(_balcaoPainelKey),
+                  child: !_mesaFirebaseAppsProntos()
+                      ? _balcaoMesaSemFirebaseAoVivo(
+                          theme: theme,
+                          scheme: scheme,
+                          onSurface: onSurface,
+                        )
+                      : StreamBuilder<User?>(
+                          stream: FirebaseAuth.instance.authStateChanges(),
+                          builder: (context, authSnap) {
+                            final mesaStartup = _mesaStartup!;
+                            final fid = mesaStartup.firestoreId?.trim();
+                            final user = authSnap.data;
+                            final carteiraAoVivo =
+                                user != null && fid != null && fid.isNotEmpty;
 
                           Widget montarPainelCarteiraStreams({
                             required StartupDetailViewData detail,
@@ -834,11 +840,11 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                             final totalPosicaoFmt = !carteiraAoVivo
                                 ? '—'
                                 : !precoConhecido
-                                    ? '—'
-                                    : balcaoBrlDisponivel(
-                                        saldoTokensEmCarteira * precoMercadoBrl,
-                                        true,
-                                      );
+                                ? '—'
+                                : balcaoBrlDisponivel(
+                                    saldoTokensEmCarteira * precoMercadoBrl,
+                                    true,
+                                  );
 
                             if (!carteiraAoVivo) {
                               return _balcaoMesaComAbas(
@@ -860,8 +866,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                         startup: mesaStartup,
                                         comprarPlataforma: () =>
                                             _iniciarFluxoOperacao(
-                                          BalcaoOperacaoTipo.compra,
-                                        ),
+                                              BalcaoOperacaoTipo.compra,
+                                            ),
                                       ),
                                       vender: () => _iniciarFluxoOperacao(
                                         BalcaoOperacaoTipo.venda,
@@ -896,9 +902,9 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                 QuerySnapshot<Map<String, dynamic>>>(
                               stream:
                                   SimulatedWalletService.watchLedgerRecentForChart(
-                                user.uid,
-                                limit: 500,
-                              ),
+                                    user.uid,
+                                    limit: 500,
+                                  ),
                               builder: (context, ledgerShot) {
                                 final txs = ledgerShot.hasData
                                     ? _filtrarTradesLedgerPorStartupEIntervalo(
@@ -933,8 +939,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                           startup: mesaStartup,
                                           comprarPlataforma: () =>
                                               _iniciarFluxoOperacao(
-                                            BalcaoOperacaoTipo.compra,
-                                          ),
+                                                BalcaoOperacaoTipo.compra,
+                                              ),
                                         ),
                                         vender: () => _iniciarFluxoOperacao(
                                           BalcaoOperacaoTipo.venda,
@@ -1007,10 +1013,10 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                           'Nenhuma compra ou venda neste par no período.',
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                            color: AppColors.secondaryLabel(
-                                              theme,
-                                            ),
-                                          ),
+                                                color: AppColors.secondaryLabel(
+                                                  theme,
+                                                ),
+                                              ),
                                         )
                                       else
                                         Column(
@@ -1096,8 +1102,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
 
                               final semSnapshot =
                                   statsSnap.connectionState ==
-                                          ConnectionState.waiting &&
-                                      !statsSnap.hasData;
+                                      ConnectionState.waiting &&
+                                  !statsSnap.hasData;
 
                               final double precoMercado;
                               if (oficial != null && oficial > 1e-9) {
@@ -1142,8 +1148,8 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                                 builder: (context, snapshot) {
                                   final StartupDetailViewData detail =
                                       snapshot.hasData && snapshot.data != null
-                                          ? snapshot.data!
-                                          : startupDetailFor(mesaStartup);
+                                      ? snapshot.data!
+                                      : startupDetailFor(mesaStartup);
                                   return tradingComCarteiraAoVivo(
                                     detail,
                                     precoMercadoBrl: precoMercado,
@@ -1153,14 +1159,15 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                               );
                             },
                           );
-                        },
-                      ),
+                          },
+                        ),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: AppColors.shellOverlayStyle(theme.brightness),
@@ -1177,7 +1184,7 @@ class _BalcaoTabScreenState extends State<BalcaoTabScreen>
                 colors: AppColors.shellGradientColors(theme.brightness),
               ),
             ),
-            child: _mesaStartup == null ? listaScroll : mesaBody,
+            child: _mesaStartup == null ? listaScroll : mesaBody(),
           ),
         ),
       ),

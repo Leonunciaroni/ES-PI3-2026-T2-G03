@@ -2,6 +2,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'auth/screens/auth_gate_screen.dart';
 import 'firebase_dev_setup.dart';
@@ -83,6 +84,12 @@ class MyApp extends StatelessWidget {
           title: 'Mescla Invest',
           debugShowCheckedModeBanner: false,
           scrollBehavior: const AppScrollBehavior(),
+          supportedLocales: const [Locale('pt', 'BR'), Locale('en', 'US')],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
           theme: buildMesclaLightTheme(),
           darkTheme: buildMesclaDarkTheme(),
           themeMode: themeModeController.themeMode,

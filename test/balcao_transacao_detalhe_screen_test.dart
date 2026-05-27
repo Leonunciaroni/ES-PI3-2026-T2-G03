@@ -10,7 +10,7 @@ import 'package:mescla_invest/balcao/screens/balcao_transacao_detalhe_screen.dar
 final _kDetalhCompra = BalcaoTransacaoDetalhe(
   operacao: BalcaoOperacaoTipo.compra,
   nomeToken: 'GFLO',
-  quantidadeTokens: 5.0,
+  quantidadeTokens: 5,
   valorReais: 76.50,
   dataHora: DateTime(2026, 4, 20, 14, 30),
   status: 'Concluída',
@@ -19,7 +19,7 @@ final _kDetalhCompra = BalcaoTransacaoDetalhe(
 final _kDetalhVenda = BalcaoTransacaoDetalhe(
   operacao: BalcaoOperacaoTipo.venda,
   nomeToken: 'WHOP',
-  quantidadeTokens: 2.5,
+  quantidadeTokens: 2,
   valorReais: 38.75,
   dataHora: DateTime(2026, 5, 1, 10, 0),
   status: 'Concluída',

@@ -42,26 +42,9 @@ class BalcaoMarketPricePoint {
   final double priceBrl;
 }
 
-/// Início (inclusivo) da janela de cada chip, **alinhada à Carteira** (dias civis
-/// e janelas deslizantes 7 / 30 / 180, YTD). Não usa [chartWindowStartForPeriodIndex]
-/// do detalhe do catálogo (24h/42d/…).
-DateTime balcaoPeriodWindowStart(ValuationPeriod p, DateTime now) {
-  DateTime inicioDiaCivil(DateTime n) => DateTime(n.year, n.month, n.day);
-  DateTime janelaDeslizanteDias(DateTime n, int dias) =>
-      inicioDiaCivil(n).subtract(Duration(days: dias));
-  switch (p) {
-    case ValuationPeriod.diario:
-      return inicioDiaCivil(now);
-    case ValuationPeriod.semanal:
-      return janelaDeslizanteDias(now, 7);
-    case ValuationPeriod.mensal:
-      return janelaDeslizanteDias(now, 30);
-    case ValuationPeriod.seisMeses:
-      return janelaDeslizanteDias(now, 180);
-    case ValuationPeriod.ytd:
-      return DateTime(now.year, 1, 1);
-  }
-}
+/// Início (inclusivo) da janela de cada chip — delega a [chartPeriodWindowStart].
+DateTime balcaoPeriodWindowStart(ValuationPeriod p, DateTime now) =>
+    chartPeriodWindowStart(p, now);
 
 List<double> _scaleToAnchor(List<double> values, double anchorBrl) {
   if (values.isEmpty) return const [];

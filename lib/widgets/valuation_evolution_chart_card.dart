@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 
 import '../catalog/data/startup_detail_mock.dart';
 import '../theme/app_colors.dart';
+import 'chart_date_axis_labels.dart';
+import 'chart_date_axis_ticks.dart';
 import 'chart_scrubbing.dart';
 import 'mescla_chart_reading_card.dart';
 
@@ -41,11 +43,18 @@ class ValuationEvolutionChartCard extends StatefulWidget {
     required this.series,
     required this.primary,
     this.title = 'Evolução de Valuation',
-    this.footnote = 'Mantenha o dedo sobre o gráfico para ver data, horário e valuation.',
+    this.footnote =
+        'Mantenha o dedo sobre o gráfico para ver data, horário e valuation.',
     this.formatYAxis,
     this.formatTooltip,
-    this.touchListenerKey = const ValueKey<String>('startup_valuation_chart_touch'),
+    this.touchListenerKey = const ValueKey<String>(
+      'startup_valuation_chart_touch',
+    ),
+    this.referenceNow,
   });
+
+  /// Âncora da janela dos chips (30 dias, YTD, etc.). Em produção, [DateTime.now].
+  final DateTime? referenceNow;
 
   final ValuationPeriod selected;
   final ValueChanged<ValuationPeriod> onSelect;
@@ -62,7 +71,8 @@ class ValuationEvolutionChartCard extends StatefulWidget {
       _ValuationEvolutionChartCardState();
 }
 
-class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCard> {
+class _ValuationEvolutionChartCardState
+    extends State<ValuationEvolutionChartCard> {
   double _t = 0.5;
   bool _fingerOnChart = false;
 
@@ -94,6 +104,11 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
     final theme = Theme.of(context);
     final values = widget.series.valuationMillions;
     final times = widget.series.sampleTimes;
+    final dateTicks = chartDateAxisTicks(
+      period: widget.selected,
+      times: times,
+      now: widget.referenceNow ?? DateTime.now(),
+    );
     final n = values.length;
     final rawMin = values.reduce(math.min);
     final rawMax = values.reduce(math.max);
@@ -149,7 +164,7 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: plotHeight + 28,
+              height: plotHeight + (dateTicks.isEmpty ? 0 : 22),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final plotW = math.max(
@@ -175,8 +190,9 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
                                 maxLines: 1,
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   fontSize: 9,
-                                  color: AppColors.secondaryLabel(theme)
-                                      .withValues(alpha: 0.9),
+                                  color: AppColors.secondaryLabel(
+                                    theme,
+                                  ).withValues(alpha: 0.9),
                                 ),
                               ),
                             );
@@ -186,55 +202,73 @@ class _ValuationEvolutionChartCardState extends State<ValuationEvolutionChartCar
                       const SizedBox(width: 6),
                       Expanded(
                         child: SizedBox(
-                          height: plotHeight,
-                          child: Listener(
-                            key: widget.touchListenerKey,
-                            behavior: HitTestBehavior.opaque,
-                            onPointerDown: (e) =>
-                                _atualizaComDx(e.localPosition.dx, plotW),
-                            onPointerMove: (e) {
-                              if (!_fingerOnChart) return;
-                              _atualizaComDx(e.localPosition.dx, plotW);
-                            },
-                            onPointerUp: (_) => _soltaDedo(),
-                            onPointerCancel: (_) => _soltaDedo(),
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                CustomPaint(
-                                  size: Size(plotW, plotHeight),
-                                  painter: _ValuationAreaChartPainter(
-                                    values: values,
-                                    vmin: vmin,
-                                    vmax: vmax,
-                                    highlightT: _fingerOnChart ? _t : null,
-                                    lineColor: const Color(0xFF4F6AF0),
-                                    gridColor: AppColors.cardDivider(theme),
-                                    highlightFill: theme.colorScheme.surface,
+                          height: plotHeight + (dateTicks.isEmpty ? 0 : 22),
+                          child: Column(
+                            children: [
+                              SizedBox(
+                                height: plotHeight,
+                                child: Listener(
+                                  key: widget.touchListenerKey,
+                                  behavior: HitTestBehavior.opaque,
+                                  onPointerDown: (e) =>
+                                      _atualizaComDx(e.localPosition.dx, plotW),
+                                  onPointerMove: (e) {
+                                    if (!_fingerOnChart) return;
+                                    _atualizaComDx(e.localPosition.dx, plotW);
+                                  },
+                                  onPointerUp: (_) => _soltaDedo(),
+                                  onPointerCancel: (_) => _soltaDedo(),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      CustomPaint(
+                                        size: Size(plotW, plotHeight),
+                                        painter: _ValuationAreaChartPainter(
+                                          values: values,
+                                          vmin: vmin,
+                                          vmax: vmax,
+                                          highlightT: _fingerOnChart
+                                              ? _t
+                                              : null,
+                                          lineColor: const Color(0xFF4F6AF0),
+                                          gridColor: AppColors.cardDivider(
+                                            theme,
+                                          ),
+                                          highlightFill:
+                                              theme.colorScheme.surface,
+                                        ),
+                                      ),
+                                      if (_fingerOnChart &&
+                                          n > 0 &&
+                                          times.length == n)
+                                        Positioned(
+                                          left: AppColors.readingCardStackLeft(
+                                            plotWidth: plotW,
+                                            t: _t,
+                                            minLeft: 0,
+                                          ),
+                                          top: 4,
+                                          child: MesclaChartReadingCard(
+                                            dateTimeLine:
+                                                formatChartSampleDateTime(
+                                                  dateTimeAtT(_t, times),
+                                                ),
+                                            valueLine: fT(
+                                              scalarAtT(_t, values),
+                                            ),
+                                            minWidth: 145,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                                if (_fingerOnChart &&
-                                    n > 0 &&
-                                    times.length == n)
-                                  Positioned(
-                                    left: AppColors.readingCardStackLeft(
-                                      plotWidth: plotW,
-                                      t: _t,
-                                      minLeft: 0,
-                                    ),
-                                    top: 4,
-                                    child: MesclaChartReadingCard(
-                                      dateTimeLine: formatChartSampleDateTime(
-                                        dateTimeAtT(_t, times),
-                                      ),
-                                      valueLine: fT(
-                                        scalarAtT(_t, values),
-                                      ),
-                                      minWidth: 145,
-                                    ),
-                                  ),
-                              ],
-                            ),
+                              ),
+                              if (dateTicks.isNotEmpty)
+                                ChartDateAxisLabels(
+                                  ticks: dateTicks,
+                                  theme: theme,
+                                ),
+                            ],
                           ),
                         ),
                       ),
