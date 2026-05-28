@@ -1,3 +1,14 @@
+// Principal: Miguel Fernandes Costacurta - 25003110
+// RA: 25003110
+//
+// Firebase Function (Callable) para **criar uma pergunta em uma startup**.
+//
+// Escopo (PI3):
+// - Criar uma pergunta em uma startup
+// - Validar a visibilidade da pergunta
+// - Validar a quantidade de perguntas enviadas pelo usuário
+// - Validar a quantidade de perguntas enviadas pelo usuário
+
 import {FieldValue} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import {
