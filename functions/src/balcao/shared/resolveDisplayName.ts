@@ -2,9 +2,8 @@
 // RA: 25002726
 // Descrição: Resolve nome de exibição do investidor para o Order Book.
 
-import {getFirestore} from "firebase-admin/firestore";
-
 import {USERS_COLLECTION} from "./constants.js";
+import {db} from "./firebase.js";
 
 /**
  * Obtém o nome para exibir no livro de ordens.
@@ -15,7 +14,6 @@ export async function resolveDisplayName(
   uid: string,
   email?: string
 ): Promise<string> {
-  const db = getFirestore();
   const userSnap = await db.collection(USERS_COLLECTION).doc(uid).get();
   const nameRaw = userSnap.data()?.name;
   if (typeof nameRaw === "string") {

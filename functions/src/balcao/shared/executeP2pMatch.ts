@@ -2,11 +2,11 @@
 // RA: 25002726
 // Descrição: Executa um match P2P entre ordem de venda e compra dentro de runTransaction.
 
-import {FieldValue, getFirestore, Timestamp} from "firebase-admin/firestore";
+import {FieldValue, Timestamp} from "firebase-admin/firestore";
 import {HttpsError} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, TipoOrdem, type OrdemMatchCandidate} from "../models/ordem.js";
+import {syncOpenOrderIndexFromRef} from "../repositories/userOrderIndex.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -19,21 +19,23 @@ import {
   WALLET_FIELD_BRL_LOCKED,
   WALLET_ROOT,
 } from "./constants.js";
-import {syncOpenOrderIndexFromRef} from "./userOrderIndex.js";
 import {
   readBrlBalance,
   readBrlLocked,
   readTokensHeld,
   readTokensLocked,
 } from "./escrowMath.js";
+import {db} from "./firebase.js";
+import {
+  StatusOrdem,
+  TipoOrdem,
+  type ExecuteP2pMatchResult,
+  type OrdemMatchCandidate,
+} from "../types/index.js";
 import {
   computeSellPositionUpdate,
   mergeBuyPosition,
 } from "../../wallet/shared/positionTradeMath.js";
-
-export type ExecuteP2pMatchResult =
-  | {matched: true}
-  | {matched: false; reason: string};
 
 /**
  * Executa negócio P2P entre uma ordem de venda e uma de compra.
@@ -53,8 +55,6 @@ export async function executeP2pMatch(
   if (sell.pricePerToken > buy.pricePerToken + 1e-12) {
     return {matched: false, reason: "price_no_cross"};
   }
-
-  const db = getFirestore();
 
   try {
     await db.runTransaction(async (trx) => {

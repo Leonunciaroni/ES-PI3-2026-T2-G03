@@ -2,14 +2,9 @@
 // RA: 25002726
 // Descrição: Helpers de matching — execução directa e motor seguro (sem derrubar callables).
 
-import {
-  getFirestore,
-  type DocumentSnapshot,
-} from "firebase-admin/firestore";
+import {type DocumentSnapshot} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 
-import {runMatchEngine} from "../matchEngine.js";
-import {StatusOrdem, type OrdemMatchCandidate} from "../models/ordem.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -20,6 +15,9 @@ import {
   ORDERS_COLLECTION,
 } from "./constants.js";
 import {executeP2pMatch} from "./executeP2pMatch.js";
+import {runMatchEngine} from "./matchEngine.js";
+import {db} from "./firebase.js";
+import {StatusOrdem, type OrdemMatchCandidate} from "../types/index.js";
 
 /** Converte documento de ordem em candidato para [executeP2pMatch]. */
 export function orderDocToMatchCandidate(
@@ -62,7 +60,6 @@ export async function matchBuyWithSellOrder(
   sellOrderId: string,
   buyOrderId: string
 ): Promise<{matched: boolean; reason?: string}> {
-  const db = getFirestore();
   const orderRoot = db.collection(ORDERS_COLLECTION).doc(startupId);
 
   const sellSnap = await orderRoot.collection(ORDER_SUBCOL_SELL).doc(sellOrderId).get();
@@ -103,7 +100,6 @@ export async function readOpenSellOrderForBuy(
   buyerUid: string,
   quantity: number
 ): Promise<{pricePerToken: number; sellerUid: string}> {
-  const db = getFirestore();
   const sellSnap = await db
     .collection(ORDERS_COLLECTION)
     .doc(startupId)

@@ -2,9 +2,8 @@
 // RA: 25002726
 // Descrição: Espelho das ordens abertas do usuário para listagem no app (sem collection group).
 
-import {FieldValue, getFirestore, type DocumentReference, type Timestamp} from "firebase-admin/firestore";
+import {FieldValue, type DocumentReference} from "firebase-admin/firestore";
 
-import {StatusOrdem, TipoOrdem} from "../models/ordem.js";
 import {
   ORDER_FIELD_CREATED_AT,
   ORDER_FIELD_DISPLAY_NAME,
@@ -16,7 +15,9 @@ import {
   ORDER_FIELD_TOKEN_SIGLA,
   ORDER_FIELD_UID,
   USERS_COLLECTION,
-} from "./constants.js";
+} from "../shared/constants.js";
+import {db} from "../shared/firebase.js";
+import {StatusOrdem, TipoOrdem} from "../types/index.js";
 
 /** Subcoleção em `users/{uid}` — só ordens abertas do dono. */
 export const USER_OPEN_ORDERS_SUBCOL = "balcao_ordens_abertas";
@@ -24,7 +25,6 @@ export const USER_OPEN_ORDERS_SUBCOL = "balcao_ordens_abertas";
 type OrderSide = TipoOrdem.Compra | TipoOrdem.Venda;
 
 function userOpenOrderRef(ownerUid: string, tipo: OrderSide, orderId: string) {
-  const db = getFirestore();
   const docId = `${tipo}_${orderId}`;
   return db
     .collection(USERS_COLLECTION)
@@ -81,7 +81,6 @@ export async function removeUserOpenOrderIndex(
 
 /** Remove documentos espelho que não pertencem ao usuário (dados legados). */
 export async function purgeForeignOpenOrderIndex(uid: string): Promise<number> {
-  const db = getFirestore();
   const snap = await db
     .collection(USERS_COLLECTION)
     .doc(uid)
@@ -118,20 +117,6 @@ export async function patchUserOpenOrderQuantity(
     {merge: true}
   );
 }
-
-export type UserOpenOrderIndexDoc = {
-  orderId: string;
-  tipo: string;
-  uid: string;
-  displayName: string;
-  startupId: string;
-  startupName: string;
-  tokenSigla: string;
-  quantity: number;
-  pricePerToken: number;
-  status: string;
-  createdAt?: Timestamp;
-};
 
 /** Sincroniza espelho a partir do documento canónico da ordem. */
 export async function syncOpenOrderIndexFromRef(

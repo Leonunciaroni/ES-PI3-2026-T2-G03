@@ -3,25 +3,20 @@
 // Descrição: Lê metadados da startup para gravar nas ordens.
 
 import type {DocumentData} from "firebase-admin/firestore";
-import {getFirestore} from "firebase-admin/firestore";
 import {HttpsError} from "firebase-functions/https";
 
 import {
   STARTUP_FIELD_NAME,
   STARTUP_FIELD_SIGLA,
   STARTUPS_COLLECTION,
-} from "./constants.js";
-
-export type StartupOrderMeta = {
-  startupName: string;
-  tokenSigla: string;
-};
+} from "../shared/constants.js";
+import {db} from "../shared/firebase.js";
+import {StartupOrderMeta} from "../types/index.js";
 
 /** Busca nome e sigla da startup para denormalizar na ordem. */
 export async function readStartupOrderMeta(
   startupId: string
 ): Promise<StartupOrderMeta> {
-  const db = getFirestore();
   const snap = await db.collection(STARTUPS_COLLECTION).doc(startupId).get();
   if (!snap.exists) {
     throw new HttpsError("not-found", "Startup não encontrada no catálogo.");

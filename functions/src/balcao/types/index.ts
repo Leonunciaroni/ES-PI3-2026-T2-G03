@@ -44,3 +44,36 @@ export type OrdemMatchCandidate = {
   startupName: string;
   tokenSigla: string;
 };
+
+/** Metadados da startup denormalizados na ordem. */
+export type StartupOrderMeta = {
+  startupName: string;
+  tokenSigla: string;
+};
+
+/** Documento espelho em `users/{uid}/balcao_ordens_abertas/{tipo_orderId}`. */
+export type UserOpenOrderIndexDoc = {
+  orderId: string;
+  tipo: string;
+  uid: string;
+  displayName: string;
+  startupId: string;
+  startupName: string;
+  tokenSigla: string;
+  quantity: number;
+  pricePerToken: number;
+  status: string;
+  createdAt?: Timestamp;
+};
+
+export type ExecuteP2pMatchResult =
+  | {matched: true}
+  | {matched: false; reason: string};
+
+export type DirectP2pBuyResult = {
+  quantity: number;
+  amountBrl: number;
+  pricePerToken: number;
+  startupName: string;
+  tokenSigla: string;
+};

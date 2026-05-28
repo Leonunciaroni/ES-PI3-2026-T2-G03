@@ -2,11 +2,13 @@
 // RA: 25002726
 // Descrição: Callable para publicar ordem de venda no Order Book P2P.
 
-import {FieldValue, getFirestore} from "firebase-admin/firestore";
+import {FieldValue} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, TipoOrdem} from "./models/ordem.js";
+import {readStartupOrderMeta} from "../repositories/startupOrderMeta.js";
+import {syncOpenOrderIndexFromRef} from "../repositories/userOrderIndex.js";
+import {requireAuthenticatedUser} from "../shared/auth.js";
 import {
   ORDER_FIELD_CREATED_AT,
   ORDER_FIELD_DISPLAY_NAME,
@@ -23,18 +25,18 @@ import {
   POSITION_FIELD_TOKENS_LOCKED,
   REGION,
   WALLET_ROOT,
-} from "./shared/constants.js";
-import {readAvailableTokens, readTokensLocked} from "./shared/escrowMath.js";
+} from "../shared/constants.js";
+import {readAvailableTokens, readTokensLocked} from "../shared/escrowMath.js";
+import {tryRunMatchEngine} from "../shared/matchHelpers.js";
 import {
   assertOrderTotalWithinLimits,
   assertPositiveIntegerQuantity,
   assertPositivePrice,
   assertStartupId,
-} from "./shared/orderValidation.js";
-import {resolveDisplayName} from "./shared/resolveDisplayName.js";
-import {readStartupOrderMeta} from "./shared/startupOrderMeta.js";
-import {tryRunMatchEngine} from "./shared/matchHelpers.js";
-import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
+} from "../shared/orderValidation.js";
+import {resolveDisplayName} from "../shared/resolveDisplayName.js";
+import {db} from "../shared/firebase.js";
+import {StatusOrdem, TipoOrdem} from "../types/index.js";
 
 /**
  * Publica ordem de venda com escrow de tokens.
@@ -46,10 +48,8 @@ import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
  * 5. Dispara match engine
  */
 export const addSellOrder = onCall({region: REGION}, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Precisa iniciar sessão.");
-  }
-  const uid = request.auth.uid;
+  const user = requireAuthenticatedUser(request);
+  const uid = user.uid;
 
   const startupId = assertStartupId(request.data?.startupId);
   const quantity = assertPositiveIntegerQuantity(request.data?.quantity);
@@ -57,9 +57,8 @@ export const addSellOrder = onCall({region: REGION}, async (request) => {
   const totalValue = quantity * pricePerToken;
   assertOrderTotalWithinLimits(totalValue);
 
-  const db = getFirestore();
   const meta = await readStartupOrderMeta(startupId);
-  const displayName = await resolveDisplayName(uid, request.auth.token.email as string | undefined);
+  const displayName = await resolveDisplayName(uid, user.email);
 
   const walletRef = db.collection(WALLET_ROOT).doc(uid);
   const positionRef = walletRef.collection("positions").doc(startupId);

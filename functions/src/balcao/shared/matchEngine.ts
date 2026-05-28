@@ -2,10 +2,9 @@
 // RA: 25002726
 // Descrição: Motor de matching — cruza ordens abertas de venda e compra.
 
-import {getFirestore, type QueryDocumentSnapshot} from "firebase-admin/firestore";
+import {type QueryDocumentSnapshot} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, type OrdemMatchCandidate} from "./models/ordem.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -14,8 +13,10 @@ import {
   ORDER_SUBCOL_BUY,
   ORDER_SUBCOL_SELL,
   ORDERS_COLLECTION,
-} from "./shared/constants.js";
-import {executeP2pMatch} from "./shared/executeP2pMatch.js";
+} from "./constants.js";
+import {executeP2pMatch} from "./executeP2pMatch.js";
+import {db} from "./firebase.js";
+import {StatusOrdem, type OrdemMatchCandidate} from "../types/index.js";
 
 const MAX_MATCH_ITERATIONS = 50;
 
@@ -29,7 +30,6 @@ const MAX_MATCH_ITERATIONS = 50;
  * 5. Repete
  */
 export async function runMatchEngine(startupId: string): Promise<void> {
-  const db = getFirestore();
   const orderRoot = db.collection(ORDERS_COLLECTION).doc(startupId);
 
   for (let i = 0; i < MAX_MATCH_ITERATIONS; i++) {
@@ -121,4 +121,3 @@ function mapBuyCandidate(
 ): OrdemMatchCandidate {
   return mapSellCandidate(doc);
 }
-

@@ -2,12 +2,11 @@
 // RA: 25002726
 // Descrição: Callable para editar ordem aberta (quantidade e preço) e ajustar escrow.
 
-import {getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, TipoOrdem} from "./models/ordem.js";
-import {tryRunMatchEngine} from "./shared/matchHelpers.js";
+import {syncOpenOrderIndexFromRef} from "../repositories/userOrderIndex.js";
+import {requireAuthenticatedUser} from "../shared/auth.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -21,21 +20,23 @@ import {
   REGION,
   WALLET_FIELD_BRL_LOCKED,
   WALLET_ROOT,
-} from "./shared/constants.js";
+} from "../shared/constants.js";
 import {
   orderBuyLockBrl,
   readAvailableBrl,
   readAvailableTokens,
   readBrlLocked,
   readTokensLocked,
-} from "./shared/escrowMath.js";
+} from "../shared/escrowMath.js";
+import {tryRunMatchEngine} from "../shared/matchHelpers.js";
 import {
   assertOrderTotalWithinLimits,
   assertPositiveIntegerQuantity,
   assertPositivePrice,
   assertStartupId,
-} from "./shared/orderValidation.js";
-import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
+} from "../shared/orderValidation.js";
+import {db} from "../shared/firebase.js";
+import {StatusOrdem, TipoOrdem} from "../types/index.js";
 
 /**
  * Edita quantidade e preço de uma ordem aberta do usuário.
@@ -46,10 +47,8 @@ import {syncOpenOrderIndexFromRef} from "./shared/userOrderIndex.js";
  * 4. Dispara match engine
  */
 export const editOrder = onCall({region: REGION}, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Precisa iniciar sessão.");
-  }
-  const uid = request.auth.uid;
+  const user = requireAuthenticatedUser(request);
+  const uid = user.uid;
 
   const startupId = assertStartupId(request.data?.startupId);
   const orderId =
@@ -74,7 +73,6 @@ export const editOrder = onCall({region: REGION}, async (request) => {
     throw new HttpsError("invalid-argument", "tipo deve ser buy ou sell.");
   }
 
-  const db = getFirestore();
   const orderRef = db
     .collection(ORDERS_COLLECTION)
     .doc(startupId)

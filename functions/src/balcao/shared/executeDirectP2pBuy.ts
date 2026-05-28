@@ -2,11 +2,11 @@
 // RA: 25002726
 // Descrição: Compra P2P directa de uma oferta de venda — uma transação atómica.
 
-import {FieldValue, getFirestore} from "firebase-admin/firestore";
+import {FieldValue} from "firebase-admin/firestore";
 import {HttpsError} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, TipoOrdem} from "../models/ordem.js";
+import {syncOpenOrderIndexFromRef} from "../repositories/userOrderIndex.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -28,19 +28,16 @@ import {
   readTokensHeld,
   readTokensLocked,
 } from "./escrowMath.js";
-import {syncOpenOrderIndexFromRef} from "./userOrderIndex.js";
+import {db} from "./firebase.js";
+import {
+  StatusOrdem,
+  TipoOrdem,
+  type DirectP2pBuyResult,
+} from "../types/index.js";
 import {
   computeSellPositionUpdate,
   mergeBuyPosition,
 } from "../../wallet/shared/positionTradeMath.js";
-
-export type DirectP2pBuyResult = {
-  quantity: number;
-  amountBrl: number;
-  pricePerToken: number;
-  startupName: string;
-  tokenSigla: string;
-};
 
 /**
  * Compra tokens de uma ordem de venda aberta numa única transação.
@@ -54,7 +51,6 @@ export async function executeDirectP2pBuy(params: {
   quantity: number;
 }): Promise<DirectP2pBuyResult> {
   const {startupId, sellOrderId, buyerUid, quantity} = params;
-  const db = getFirestore();
 
   const sellRef = db
     .collection(ORDERS_COLLECTION)

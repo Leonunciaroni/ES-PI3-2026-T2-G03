@@ -2,11 +2,11 @@
 // RA: 25002726
 // Descrição: Callable para cancelar ordem aberta e liberar escrow.
 
-import {getFirestore} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, TipoOrdem} from "./models/ordem.js";
+import {removeUserOpenOrderIndex} from "../repositories/userOrderIndex.js";
+import {requireAuthenticatedUser} from "../shared/auth.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -19,10 +19,11 @@ import {
   REGION,
   WALLET_FIELD_BRL_LOCKED,
   WALLET_ROOT,
-} from "./shared/constants.js";
-import {orderBuyLockBrl, readBrlLocked, readTokensLocked} from "./shared/escrowMath.js";
-import {assertStartupId} from "./shared/orderValidation.js";
-import {removeUserOpenOrderIndex} from "./shared/userOrderIndex.js";
+} from "../shared/constants.js";
+import {orderBuyLockBrl, readBrlLocked, readTokensLocked} from "../shared/escrowMath.js";
+import {assertStartupId} from "../shared/orderValidation.js";
+import {db} from "../shared/firebase.js";
+import {StatusOrdem, TipoOrdem} from "../types/index.js";
 
 /**
  * Cancela ordem aberta do usuário autenticado.
@@ -32,10 +33,8 @@ import {removeUserOpenOrderIndex} from "./shared/userOrderIndex.js";
  * 3. Libera escrow (BRL ou tokens)
  */
 export const cancelOrder = onCall({region: REGION}, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Precisa iniciar sessão.");
-  }
-  const uid = request.auth.uid;
+  const user = requireAuthenticatedUser(request);
+  const uid = user.uid;
 
   const startupId = assertStartupId(request.data?.startupId);
   const orderId =
@@ -56,7 +55,6 @@ export const cancelOrder = onCall({region: REGION}, async (request) => {
     throw new HttpsError("invalid-argument", "tipo deve ser buy ou sell.");
   }
 
-  const db = getFirestore();
   const orderRef = db
     .collection(ORDERS_COLLECTION)
     .doc(startupId)

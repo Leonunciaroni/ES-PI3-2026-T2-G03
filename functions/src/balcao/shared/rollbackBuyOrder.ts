@@ -2,9 +2,6 @@
 // RA: 25002726
 // Descrição: Liberta escrow BRL de ordem de compra cancelada internamente.
 
-import {getFirestore} from "firebase-admin/firestore";
-
-import {StatusOrdem} from "../models/ordem.js";
 import {
   ORDER_FIELD_PRICE,
   ORDER_FIELD_QUANTITY,
@@ -15,6 +12,8 @@ import {
   WALLET_ROOT,
 } from "./constants.js";
 import {orderBuyLockBrl, readBrlLocked} from "./escrowMath.js";
+import {db} from "./firebase.js";
+import {StatusOrdem} from "../types/index.js";
 
 /**
  * Cancela ordem de compra aberta e devolve BRL bloqueado.
@@ -25,7 +24,6 @@ export async function rollbackOpenBuyOrder(
   startupId: string,
   buyOrderId: string
 ): Promise<void> {
-  const db = getFirestore();
   const orderRef = db
     .collection(ORDERS_COLLECTION)
     .doc(startupId)

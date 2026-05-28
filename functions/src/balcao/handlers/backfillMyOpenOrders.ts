@@ -2,31 +2,29 @@
 // RA: 25002726
 // Descrição: Sincroniza espelho de ordens abertas para ordens já existentes no Firestore.
 
-import {getFirestore} from "firebase-admin/firestore";
-import {HttpsError, onCall} from "firebase-functions/https";
+import {onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 
-import {StatusOrdem, TipoOrdem} from "./models/ordem.js";
+import {
+  purgeForeignOpenOrderIndex,
+  upsertUserOpenOrderIndex,
+} from "../repositories/userOrderIndex.js";
+import {requireAuthenticatedUser} from "../shared/auth.js";
 import {
   ORDER_FIELD_STATUS,
   ORDER_FIELD_UID,
   REGION,
-} from "./shared/constants.js";
-import {
-  purgeForeignOpenOrderIndex,
-  upsertUserOpenOrderIndex,
-} from "./shared/userOrderIndex.js";
+} from "../shared/constants.js";
+import {db} from "../shared/firebase.js";
+import {StatusOrdem, TipoOrdem} from "../types/index.js";
 
 /**
  * Repopula `users/{uid}/balcao_ordens_abertas` a partir das ordens abertas
  * do usuário autenticado e remove entradas que não lhe pertencem.
  */
 export const backfillMyOpenOrders = onCall({region: REGION}, async (request) => {
-  if (!request.auth?.uid) {
-    throw new HttpsError("unauthenticated", "Precisa iniciar sessão.");
-  }
-  const uid = request.auth.uid;
-  const db = getFirestore();
+  const user = requireAuthenticatedUser(request);
+  const uid = user.uid;
 
   const removed = await purgeForeignOpenOrderIndex(uid);
 
