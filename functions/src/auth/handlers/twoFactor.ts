@@ -1,3 +1,14 @@
+// Principal: Miguel Fernandes Costacurta - 25003110
+// RA: 25003110
+//
+// Firebase Function (Callable) para **autenticação em duas etapas** (2FA).
+//
+// Escopo (PI3):
+// - Enviar um código OTP para o e-mail do usuário autenticado
+// - Validar o código informado pelo usuário
+//
+// Ações disponíveis:
+
 import {HttpsError, onCall} from "firebase-functions/https";
 import * as logger from "firebase-functions/logger";
 import {requireAuthenticatedUser} from "../shared/auth.js";
