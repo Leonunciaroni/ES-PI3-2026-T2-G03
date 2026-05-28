@@ -1,3 +1,14 @@
+// Principal: Miguel Fernandes Costacurta - 25003110
+// RA: 25003110
+//
+// Firebase Function (Callable) para **obter os detalhes de uma startup**.
+//
+// Escopo (PI3):
+// - Obter os detalhes de uma startup
+// - Validar o parametro id da startup
+// - Validar o usuario autenticado
+// - Validar o usuario e a startup
+
 import {HttpsError, onCall} from "firebase-functions/https";
 import {requireAuthenticatedUser} from "../shared/auth.js";
 import {normalizeString} from "../shared/validation.js";
