@@ -1,3 +1,14 @@
+// Principal: Miguel Fernandes Costacurta - 25003110
+// RA: 25003110
+//
+// Repositório de código 2FA (Firestore) para **autenticação em duas etapas** (2FA).
+//
+// Escopo (PI3):
+// - Salvar um código OTP para o uid informado
+// - Validar o código informado pelo usuário
+//
+// Ações disponíveis:
+
 import {FieldValue, Timestamp} from "firebase-admin/firestore";
 import crypto from "node:crypto";
 import {db} from "../shared/firebase.js";
