@@ -11,7 +11,7 @@
  *   **imitamos** essa ideia com linhas imutáveis no Firestore (`sim_wallet/.../ledger`),
  *   sem rede blockchain (isso está fora do âmbito no §5.6 do PDF).
  *
- * Modelo pedagógico (simples de explicar na banca):
+ * Modelo pedagógico:
  * 1. Ordenamos compras/vendas por data.
  * 2. Para cada instante da amostra, simulamos “quantos tokens tinhas naquele momento”
  *    (soma das compras − vendas até à data).
