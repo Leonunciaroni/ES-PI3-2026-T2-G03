@@ -5,11 +5,12 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mescla_invest/auth/screens/auth_gate_screen.dart';
 import 'package:mescla_invest/main.dart';
 
 void main() {
   testWidgets('App inicia na tela de login', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const MyApp(home: AuthGateScreen()));
     await tester.pumpAndSettle();
 
     expect(find.text('Bem-vindo de volta'), findsOneWidget);
@@ -19,7 +20,7 @@ void main() {
   testWidgets('Login navega para recuperação de senha', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const MyApp(home: AuthGateScreen()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Esqueci minha senha'));
@@ -31,7 +32,7 @@ void main() {
   testWidgets('Recuperação sem e-mail válido mostra aviso', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const MyApp(home: AuthGateScreen()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Esqueci minha senha'));

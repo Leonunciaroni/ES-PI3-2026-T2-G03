@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'auth/screens/auth_gate_screen.dart';
+import 'splash/screens/splash_screen.dart';
 import 'firebase_dev_setup.dart';
 import 'firebase_options.dart';
 import 'theme/app_scroll_behavior.dart';
@@ -73,7 +73,10 @@ Future<void> _activateFirebaseAppCheck() async {
 
 /// Raiz do app: [ListenableBuilder] reconstrói quando [themeModeController] muda.
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.home});
+
+  /// Permite pular a splash em testes (o vídeo não roda no ambiente de widget test).
+  final Widget? home;
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +96,7 @@ class MyApp extends StatelessWidget {
           theme: buildMesclaLightTheme(),
           darkTheme: buildMesclaDarkTheme(),
           themeMode: themeModeController.themeMode,
-          home: const AuthGateScreen(),
+          home: home ?? const SplashScreen(),
         );
       },
     );
