@@ -3,7 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:video_player/video_player.dart';
 
+import 'splash/intro_video_loader.dart';
 import 'splash/screens/splash_screen.dart';
 import 'firebase_dev_setup.dart';
 import 'firebase_options.dart';
@@ -14,18 +16,25 @@ import 'theme/theme_mode_controller.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (_supportsFirebaseCurrentPlatform()) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await _activateFirebaseAppCheck();
-    configureFirebaseFunctionsEmulatorIfNeeded();
-  }
+  await Future.wait<Object?>(<Future<Object?>>[
+    themeModeController.load(),
+    IntroVideoLoader.prepare(),
+    if (_supportsFirebaseCurrentPlatform()) _initializeFirebase(),
+  ]);
 
-  // Lê o tema guardado no cache (shared_preferences) antes do primeiro frame.
-  await themeModeController.load();
+  runApp(
+    MyApp(
+      splashInitialController: IntroVideoLoader.preparedController,
+    ),
+  );
+}
 
-  runApp(const MyApp());
+Future<void> _initializeFirebase() async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await _activateFirebaseAppCheck();
+  configureFirebaseFunctionsEmulatorIfNeeded();
 }
 
 bool _supportsFirebaseCurrentPlatform() {
@@ -73,10 +82,13 @@ Future<void> _activateFirebaseAppCheck() async {
 
 /// Raiz do app: [ListenableBuilder] reconstrói quando [themeModeController] muda.
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, this.home});
+  const MyApp({super.key, this.home, this.splashInitialController});
 
   /// Permite pular a splash em testes (o vídeo não roda no ambiente de widget test).
   final Widget? home;
+
+  /// Vídeo já decodificado em [main] para o primeiro frame da splash.
+  final VideoPlayerController? splashInitialController;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +108,10 @@ class MyApp extends StatelessWidget {
           theme: buildMesclaLightTheme(),
           darkTheme: buildMesclaDarkTheme(),
           themeMode: themeModeController.themeMode,
-          home: home ?? const SplashScreen(),
+          home: home ??
+              SplashScreen(
+                initialController: splashInitialController,
+              ),
         );
       },
     );
