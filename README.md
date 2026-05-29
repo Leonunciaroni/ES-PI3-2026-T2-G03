@@ -238,6 +238,7 @@ Em debug, o app imprime um token no log. Registre em:
 
 - **Mapa mental (Miro)**: [Abrir board](https://miro.com/app/board/uXjVGxJPQ9s=/?share_link_id=395927260522)
 - **Design (Figma)**: [Abrir no Figma](https://www.figma.com/design/87md8sUiyxiDjXTXjzfBCK/Untitled?node-id=0-1&t=XTSFoILIAGyVh2PE-1)
+- **Wirefram**: [Abrir Wireframe](https://drive.google.com/file/d/17dwm8uan-gd4ooGCne1xnwRt-0EsS7a8/view?usp=sharing)
 
 ## 📄 Observação sobre o Documento de Visão
 
