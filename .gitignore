@@ -44,4 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Firebase Functions
+/node_modules/
+/functions/node_modules/
+/functions/.env
+/functions/.env.*
+!/functions/.env.example
+
 node_modules/

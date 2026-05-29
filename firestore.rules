@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Catálogo: leitura pública (explorar logos/nomes); escrita só Admin / consola.
+    match /startups/{startupId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Perfil em `users/{uid}` — o cliente só acede ao próprio documento (sem queries
+    // à coleção). Escrita no cliente: perfil, chaves PIX, preferências 2FA, etc.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Espelho das ordens abertas (escrito só pelas Cloud Functions).
+      match /balcao_ordens_abertas/{orderId} {
+        allow read: if request.auth != null
+          && request.auth.uid == userId
+          && resource.data.uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // Carteira simulada: leitura só do dono; escritos apenas via Cloud Function
+    // simulateWallet (Admin SDK ignora estas regras).
+    match /sim_wallet/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+
+      match /ledger/{txnId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      match /positions/{startupDocId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+    }
+
+    // Order Book P2P: leitura autenticada; escrita só via Cloud Functions.
+    match /orders/{startupId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+
+      match /sell/{orderId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+
+      match /buy/{orderId} {
+        allow read: if request.auth != null;
+        allow write: if false;
+      }
+    }
+
+    // Collection group queries em `sell` / `buy` (Gerenciar minhas ordens).
+    match /{path=**}/sell/{orderId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    match /{path=**}/buy/{orderId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Outras coleções (ex.: códigos 2FA escritos só por Functions): bloqueado no cliente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
