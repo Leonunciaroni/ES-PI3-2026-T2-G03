@@ -234,6 +234,10 @@ Em debug, o app imprime um token no log. Registre em:
 
 - Firebase Console → App Check → Apps → tokens de debug
 
+## 📱 Baixar o App em Android
+
+- Acesse o link a seguir e siga os passos para a instalação: [**Baixar Aqui**](https://drive.google.com/file/d/1vukUyFKUyt42kfA9Yx8EKswTBFl1Ejk5/view?usp=sharing)
+
 ## 🔗 Materiais de apoio
 
 - **Mapa mental (Miro)**: [Abrir board](https://miro.com/app/board/uXjVGxJPQ9s=/?share_link_id=395927260522)
