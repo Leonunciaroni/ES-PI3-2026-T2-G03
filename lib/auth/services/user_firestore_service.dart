@@ -474,6 +474,13 @@ class UserFirestoreService {
   return null;
 }
 
+  // --- Favoritos (Lista de Desejos) em `users/{uid}.favoriteStartupIds` -------
+  //
+  // [MIGUEL - ESTUDE] Pedro implementou estes métodos; você usa em:
+  //   • startup_detail_screen → setStartupFavorite / isStartupFavorited
+  //   • favoritos_screen → watchFavoriteStartupIds
+  // Só guardamos IDs (strings); dados da startup vêm do catálogo.
+
   /// IDs Firestore das startups favoritas do usuário autenticado.
   static Future<List<String>> fetchFavoriteStartupIds() async {
     final auth = _tryAuth();

@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatório de Autenticação - Mescla Invest</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 16mm 14mm 18mm;
+    }
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #475569;
+      --line: #dbe2ea;
+      --accent: #6d28d9;
+      --accent-soft: #ede9fe;
+      --green: #0f766e;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11.2pt;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body { padding: 0; }
+
+    .page {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px 22px 18px;
+      margin: 0 0 16px;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+      page-break-inside: avoid;
+    }
+
+    .cover {
+      min-height: 245mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding-top: 30px;
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      font-size: 9pt;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.15;
+    }
+
+    h1 {
+      font-size: 26pt;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 16pt;
+      margin: 0 0 10px;
+    }
+
+    h3 {
+      font-size: 12.2pt;
+      margin: 0 0 8px;
+    }
+
+    p { margin: 0 0 10px; }
+
+    .lead {
+      font-size: 12.4pt;
+      color: var(--muted);
+      max-width: 92%;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 16px;
+      margin-top: 18px;
+    }
+
+    .meta div {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: #fcfdff;
+    }
+
+    .meta strong {
+      display: block;
+      font-size: 9.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .small {
+      font-size: 9.8pt;
+      color: var(--muted);
+    }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 12px 14px;
+      border-radius: 12px;
+      margin: 14px 0 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 10.4pt;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 700;
+    }
+
+    td code, p code, li code {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.95em;
+    }
+
+    ul, ol {
+      margin: 8px 0 12px 20px;
+      padding: 0;
+    }
+
+    li { margin: 0 0 6px; }
+
+    .mermaid {
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 10px;
+      margin: 12px 0 14px;
+      overflow: hidden;
+    }
+
+    .section {
+      margin-top: 14px;
+    }
+
+    .page-break {
+      break-before: page;
+      page-break-before: always;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .box {
+      border: 1px solid var(--line);
+      background: #fcfdff;
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .box h3 {
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .footer-note {
+      margin-top: 12px;
+      font-size: 9.6pt;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    window.addEventListener('load', async () => {
+      if (!window.mermaid) return;
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'neutral',
+        securityLevel: 'loose',
+        fontFamily: 'Arial, Helvetica, sans-serif'
+      });
+      await mermaid.run({ querySelector: '.mermaid' });
+    });
+  </script>
+</head>
+<body>
+  <main>
+    <section class="page cover">
+      <div>
+        <p class="eyebrow">Mescla Invest</p>
+        <h1>Relatório da parte de autenticação</h1>
+        <p class="lead">
+          Documento explicando, ponto a ponto, o que foi implementado no fluxo de autenticação do projeto:
+          login, cadastro, primeiro acesso, 2FA, recuperação de senha e desbloqueio biométrico.
+        </p>
+        <div class="callout">
+          <strong>Objetivo do relatório</strong>
+          <p>
+            Mostrar o caminho completo que o app percorre desde a abertura até a entrada no dashboard,
+            destacando a lógica que você integrou no Flutter, nas Services e nas Cloud Functions.
+          </p>
+        </div>
+        <div class="meta">
+          <div>
+            <strong>Base usada</strong>
+            Estado atual do repositório local.
+          </div>
+          <div>
+            <strong>Foco</strong>
+            Autenticação, MFA, reset de senha e biometria.
+          </div>
+          <div>
+            <strong>Arquivos principais</strong>
+            <code>lib/auth/*</code> e <code>functions/src/auth/*</code>.
+          </div>
+          <div>
+            <strong>Resultado</strong>
+            Fluxo integrado do login inicial até o acesso final ao dashboard.
+          </div>
+        </div>
+      </div>
+
+      <div class="small">
+        O relatório foi escrito para ficar legível em PDF e também para servir como explicação oral do que você fez.
+      </div>
+    </section>
+
+    <section class="page">
+      <h2>1. Visão geral do fluxo</h2>
+      <p>
+        A autenticação foi organizada como uma cadeia de decisões. O app não vai direto para a tela principal:
+        primeiro ele verifica se existe uma sessão válida, se a biometria está liberada, se o usuário está no
+        primeiro acesso e se o 2FA precisa ser aplicado.
+      </p>
+
+      <div class="mermaid">
+flowchart TD
+    A[App abre] --> B[AuthGateScreen]
+    B --> C{Firebase tem usuario logado?}
+    C -- nao --> D[LoginScreen]
+    C -- sim --> E{Sessao de 24h valida?}
+    E -- nao --> D
+    E -- sim --> F{Biometria ativa no Firestore?}
+    F -- nao --> D
+    F -- sim --> G{Dispositivo esta inscrito localmente?}
+    G -- nao --> D
+    G -- sim --> H[BiometricUnlockScreen]
+    D --> I[Login com email e senha]
+    I --> J{Primeiro acesso?}
+    J -- sim --> K[SignupVerificationFlowScreen]
+    J -- nao --> L{2FA ativo?}
+    L -- nao --> M[Dashboard]
+    L -- sim --> N{Canal MFA}
+    N -- email --> O[TwoFactorVerificationScreen]
+    N -- sms --> P[PhoneSmsVerificationScreen]
+    O --> M
+    P --> M
+      </div>
+
+      <div class="grid-2">
+        <div class="box">
+          <h3>O que esse desenho mostra</h3>
+          <ul>
+            <li>O app trata autenticação como uma sequência de filtros, não como uma única chamada.</li>
+            <li>Cada condição protege a seguinte: sessão, biometria, primeiro acesso, 2FA.</li>
+            <li>Isso reduz navegação errada e centraliza a decisão em poucos pontos do código.</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h3>Por que isso é importante</h3>
+          <ul>
+            <li>O usuário não entra no dashboard sem passar pelas regras certas.</li>
+            <li>O app consegue retomar estado sem depender de telas soltas.</li>
+            <li>Os dados do Firestore funcionam como fonte de verdade para preferências de segurança.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="page page-break">
+      <h2>2. Porta de entrada: <code>AuthGateScreen</code></h2>
+      <p>
+        Essa foi a tela que você colocou logo após o splash. Ela funciona como porteiro do sistema: decide
+        se o usuário pode usar o atalho biométrico ou se precisa cair no login normal.
+      </p>
+
+      <ol>
+        <li>
+          Ao iniciar, <code>initState()</code> dispara <code>_bootstrap()</code> para fazer a checagem assíncrona sem travar a UI.
+        </li>
+        <li>
+          O código verifica se o Firebase já foi inicializado e se existe um <code>currentUser</code>.
+        </li>
+        <li>
+          Depois lê a validade da sessão local de 24h em <code>SessionPersistenceService</code>.
+        </li>
+        <li>
+          Em seguida consulta <code>biometricEnabled</code> no Firestore e o enrollment local do aparelho.
+        </li>
+        <li>
+          Se tudo bater, o app abre <code>BiometricUnlockScreen</code>.
+        </li>
+        <li>
+          Se qualquer peça falhar, o fluxo faz <code>signOut()</code> e volta para <code>LoginScreen</code>.
+        </li>
+      </ol>
+
+      <div class="callout">
+        <strong>Decisão técnica importante</strong>
+        <p>
+          Você não deixou a autenticação “meio aberta”. Quando o atalho biométrico não é possível,
+          o estado é limpo e o app volta para o login. Isso evita sessão antiga, aparelho trocado ou
+          enrolamento local inconsistente.
+        </p>
+      </div>
+    </section>
+
+    <section class="page">
+      <h2>3. Login com email, senha e 2FA</h2>
+      <p>
+        A <code>LoginScreen</code> ficou responsável por autenticar, validar primeiro acesso e decidir qual
+        caminho seguir depois do login. Ela também passou a controlar o envio do 2FA por e-mail ou SMS.
+      </p>
+
+      <ol>
+        <li>O usuário informa e-mail e senha.</li>
+        <li>O app faz uma validação local simples para não chamar o Firebase com campos vazios.</li>
+        <li>O login real é feito via <code>UserFirestoreService.signInWithEmailAndPassword()</code>.</li>
+        <li>Depois da autenticação, o fluxo verifica se o usuário ainda está no primeiro acesso.</li>
+        <li>Se for primeiro acesso, o app abre a etapa de onboarding/validação.</li>
+        <li>Se não for, lê a flag <code>twoFactorEnabled</code> e decide se o usuário entra direto ou não.</li>
+        <li>Quando 2FA está ativo, o campo <code>mfaDeliveryMethod</code> define se o código vai por e-mail ou por SMS.</li>
+      </ol>
+
+      <div class="mermaid">
+sequenceDiagram
+    participant U as Usuario
+    participant L as LoginScreen
+    participant A as FirebaseAuth
+    participant F as Firestore
+    participant T as TwoFactorService
+    participant P as PhoneMfaService
+    participant D as Dashboard
+
+    U->>L: email e senha
+    L->>A: signInWithEmailAndPassword()
+    A-->>L: sessao autenticada
+    L->>F: verifica firstAccess
+    alt primeiro acesso
+        L-->>U: redireciona onboarding
+    else nao eh primeiro acesso
+        L->>F: le twoFactorEnabled e mfaDeliveryMethod
+        alt 2FA desativado
+            L->>D: abre dashboard e grava sessao de 24h
+        else 2FA ativo
+            alt email
+                L->>T: sendCode()
+                T-->>U: codigo por e-mail
+            else sms
+                L->>P: requestSmsCode()
+                P-->>U: codigo por SMS
+            end
+        end
+    end
+      </div>
+
+      <div class="box">
+        <h3>O que você resolveu nesse ponto</h3>
+        <ul>
+          <li>Separou autenticação de navegação, para o login não virar um bloco confuso.</li>
+          <li>Tratou erros do Firebase com mensagens legíveis para o usuário.</li>
+          <li>Impediu navegação errada com checagem de <code>mounted</code> após chamadas assíncronas.</li>
+          <li>Passou a gravar a sessão local só quando o login realmente foi concluído.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="page page-break">
+      <h2>4. Cadastro em múltiplas etapas</h2>
+      <p>
+        O cadastro foi desenhado como uma jornada completa, e não como um formulário único. Isso melhora
+        a experiência e permite validar cada informação separadamente.
+      </p>
+
+      <p>
+        As etapas que você implementou cobrem: nome, e-mail, telefone, escolha do MFA, CPF, senha,
+        confirmação de senha, aceite de termos e foto de perfil.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Etapa</th>
+            <th>Validação</th>
+            <th>Motivo técnico</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Nome</td>
+            <td>Nome e sobrenome</td>
+            <td>Garante perfil mais completo e avatar com iniciais corretas.</td>
+          </tr>
+          <tr>
+            <td>E-mail</td>
+            <td>Formato plausível</td>
+            <td>Evita erros logo no início do fluxo.</td>
+          </tr>
+          <tr>
+            <td>Telefone</td>
+            <td>Celular BR com DDD e 9 dígitos</td>
+            <td>Necessário para SMS/MFA e link de telefone.</td>
+          </tr>
+          <tr>
+            <td>MFA</td>
+            <td>Email ou SMS</td>
+            <td>Define a estratégia de segundo fator.</td>
+          </tr>
+          <tr>
+            <td>CPF</td>
+            <td>Validador de dígitos verificadores</td>
+            <td>Evita documento inválido persistido no cadastro.</td>
+          </tr>
+          <tr>
+            <td>Senha</td>
+            <td>8+ caracteres, maiúscula, número, símbolo</td>
+            <td>Aumenta a segurança mínima da conta.</td>
+          </tr>
+          <tr>
+            <td>Termos</td>
+            <td>Leitura até o fim + aceite</td>
+            <td>Garante consentimento explícito.</td>
+          </tr>
+          <tr>
+            <td>Foto</td>
+            <td>Opcional</td>
+            <td>Melhora o perfil sem bloquear o cadastro.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        No fim do fluxo, o app chama <code>UserFirestoreService.createUserWithEmailAndPassword()</code>.
+        Essa função cria o usuário no Firebase Auth e grava o documento em <code>users/{uid}</code> no Firestore.
+        Os defaults já nascem prontos: <code>twoFactorEnabled: true</code>, <code>firstAccess: true</code>,
+        <code>biometricEnabled: false</code>, lista vazia de favoritos, lista vazia de chaves PIX e o canal
+        MFA escolhido pelo usuário.
+      </p>
+
+      <div class="callout">
+        <strong>Depois do cadastro</strong>
+        <p>
+          O app não finaliza ali. Ele abre <code>SignupVerificationFlowScreen</code>, que conclui a validação
+          inicial antes de liberar o dashboard.
+        </p>
+      </div>
+    </section>
+
+    <section class="page">
+      <h2>5. Primeiro acesso: e-mail, telefone e liberação do dashboard</h2>
+      <p>
+        O fluxo de primeiro acesso existe para amarrar identidade real do usuário com a conta recém-criada.
+        Ele confirma o e-mail via código, depois confirma o telefone via SMS, e só então marca
+        <code>firstAccess = false</code>.
+      </p>
+
+      <ol>
+        <li><code>SignupVerificationFlowScreen</code> envia o primeiro OTP por e-mail usando <code>TwoFactorService.sendCode()</code>.</li>
+        <li>O usuário valida o código na <code>TwoFactorVerificationScreen</code>.</li>
+        <li>Depois disso, a tela abre <code>LinkPhoneForMfaScreen</code>.</li>
+        <li>O número é pré-preenchido com o telefone salvo no Firestore.</li>
+        <li>O SMS é enviado e validado em <code>PhoneSmsVerificationScreen</code>.</li>
+        <li>Se tudo der certo, o sistema chama <code>markFirstAccessCompleted()</code>.</li>
+        <li>Por fim, grava a sessão quente de 24h e abre o dashboard.</li>
+      </ol>
+
+      <div class="mermaid">
+sequenceDiagram
+    participant S as SignupVerificationFlowScreen
+    participant T as TwoFactorService
+    participant V as TwoFactorVerificationScreen
+    participant P as LinkPhoneForMfaScreen
+    participant S2 as PhoneSmsVerificationScreen
+    participant F as Firestore
+    participant D as Dashboard
+
+    S->>T: sendCode()
+    T-->>S: OTP por e-mail
+    S->>V: validar codigo de 6 digitos
+    V-->>S: sucesso
+    S->>P: abrir associacao de telefone
+    P->>S2: requestSmsCode()
+    S2-->>P: telefone validado por SMS
+    P->>F: markFirstAccessCompleted()
+    P->>D: recordSessionAfterLogin() + dashboard
+      </div>
+
+      <p>
+        Esse trecho é importante porque mostra que você não tratou o cadastro como uma simples criação de conta.
+        Você transformou o cadastro em uma etapa de verificação e preparo do perfil para uso real.
+      </p>
+    </section>
+
+    <section class="page page-break">
+      <h2>6. Recuperação de senha com OTP</h2>
+      <p>
+        A recuperação de senha foi feita em três etapas e não depende do reset padrão do Firebase Auth.
+        Isso foi necessário porque a interface do projeto trabalha com OTP de 6 dígitos, não com link de
+        recuperação por <code>oobCode</code>.
+      </p>
+
+      <div class="mermaid">
+sequenceDiagram
+    participant U as Usuario
+    participant R as RecoverPasswordScreen
+    participant S as PasswordResetService
+    participant C as Cloud Function passwordReset
+    participant DB as Firestore
+    participant M as E-mail/SMTP
+    participant V as VerificationCodeScreen
+    participant N as ResetPasswordScreen
+
+    U->>R: informa email e envia
+    R->>S: sendCode(email)
+    S->>C: action=send
+    C->>DB: saveResetCode()
+    C->>M: sendVerificationEmail()
+    M-->>U: OTP de 6 digitos
+    U->>V: digita codigo
+    V->>S: verifyCode(email, code)
+    S->>C: action=verify
+    C->>DB: verifyResetCode()
+    C-->>V: sessionToken
+    V->>N: abre nova senha
+    N->>S: confirmNewPassword(sessionToken, senha)
+    S->>C: action=confirm
+    C->>DB: consumeResetSession()
+    C-->>N: senha atualizada
+      </div>
+
+      <div class="grid-2">
+        <div class="box">
+          <h3>O papel do app</h3>
+          <ul>
+            <li>Validar e-mail localmente.</li>
+            <li>Chamar a callable <code>passwordReset</code>.</li>
+            <li>Receber e repassar o <code>sessionToken</code> com segurança.</li>
+            <li>Mostrar mensagens claras em caso de erro.</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h3>O papel do servidor</h3>
+          <ul>
+            <li>Gerar OTP.</li>
+            <li>Salvar só hash no Firestore.</li>
+            <li>Controlar tentativas e expiração.</li>
+            <li>Autorizar a troca final de senha via Admin SDK.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>
+        O ponto mais importante aqui é o <code>sessionToken</code>: ele funciona como prova temporária de que
+        o usuário validou o e-mail. Sem isso, a etapa final não consegue trocar a senha.
+      </p>
+    </section>
+
+    <section class="page">
+      <h2>7. 2FA no login e SMS por telefone</h2>
+      <p>
+        Quando a conta pede segundo fator, você fez o app escolher entre e-mail e SMS com base no campo
+        <code>mfaDeliveryMethod</code>. Assim o fluxo ficou flexível e preparado para o cenário real do usuário.
+      </p>
+
+      <div class="grid-2">
+        <div class="box">
+          <h3>2FA por e-mail</h3>
+          <ul>
+            <li><code>LoginScreen</code> chama <code>TwoFactorService.sendCode()</code>.</li>
+            <li>A Cloud Function <code>twoFactor</code> gera e grava o OTP no Firestore.</li>
+            <li><code>TwoFactorVerificationScreen</code> valida os 6 dígitos.</li>
+            <li>Se acertar, o app grava a sessão de 24h e segue para o dashboard.</li>
+          </ul>
+        </div>
+        <div class="box">
+          <h3>2FA por SMS</h3>
+          <ul>
+            <li><code>PhoneMfaService</code> usa o Firebase Phone Auth.</li>
+            <li>Se não houver telefone associado, o app pede a vinculação antes de continuar.</li>
+            <li>A verificação por SMS serve tanto para login quanto para associação do telefone.</li>
+            <li>O mesmo componente de 6 dígitos é reaproveitado nas duas situações.</li>
+          </ul>
+        </div>
+      </div>
+
+      <p>
+        Esse desenho evita duplicação. A UI para OTP por e-mail e por SMS é parecida, mas o backend e a
+        origem do código são diferentes. Você isolou isso em serviços próprios, sem misturar com a tela.
+      </p>
+    </section>
+
+    <section class="page page-break">
+      <h2>8. Camada de dados, segurança e erros</h2>
+      <p>
+        A camada <code>UserFirestoreService</code> foi o centro de persistência do fluxo. Ela concentra leitura
+        e escrita de flags como <code>firstAccess</code>, <code>twoFactorEnabled</code>, <code>mfaDeliveryMethod</code>,
+        <code>biometricEnabled</code> e dados de perfil do usuário.
+      </p>
+
+      <ul>
+        <li><strong>Primeiro acesso:</strong> <code>firstAccess</code> começa como <code>true</code> e só cai para <code>false</code> ao final da validação inicial.</li>
+        <li><strong>2FA:</strong> o campo <code>twoFactorEnabled</code> controla se o login exige OTP.</li>
+        <li><strong>Canal MFA:</strong> <code>mfaDeliveryMethod</code> escolhe entre e-mail e SMS.</li>
+        <li><strong>Biometria:</strong> <code>biometricEnabled</code> e o enrollment local permitem o atalho de desbloqueio.</li>
+        <li><strong>Sessão quente:</strong> <code>SessionPersistenceService</code> registra 24h após login bem sucedido.</li>
+        <li><strong>Erro legível:</strong> <code>AuthService</code> traduz exceções do Firebase para mensagens humanas.</li>
+      </ul>
+
+      <div class="box">
+        <h3>Decisões de segurança que ficaram bem resolvidas</h3>
+        <ul>
+          <li>OTP armazenado em hash, nunca em texto puro.</li>
+          <li>Links e códigos com expiração curta.</li>
+          <li>Respostas neutras quando a função não deve enumerar contas.</li>
+          <li>Limite de tentativas para impedir abuso.</li>
+          <li>Limpeza da sessão ao sair da conta ou ao invalidar o atalho biométrico.</li>
+          <li>Uso de <code>mounted</code> após <code>await</code> para evitar navegação com widget desmontado.</li>
+        </ul>
+      </div>
+
+      <p>
+        Em resumo, a autenticação não ficou só “bonita na tela”. Ela passou a ter regras consistentes,
+        estados persistidos, tratamento de falhas e uma cadeia clara de autorização até o dashboard.
+      </p>
+
+      <div class="footer-note">
+        Arquivos centrais do fluxo: <code>lib/auth/screens/auth_gate_screen.dart</code>,
+        <code>login_screen.dart</code>, <code>create_account_screen.dart</code>,
+        <code>signup_verification_flow_screen.dart</code>, <code>recover_password_screen.dart</code>,
+        <code>verification_code_screen.dart</code>, <code>reset_password_screen.dart</code>,
+        <code>two_factor_verification_screen.dart</code>, <code>link_phone_for_mfa_screen.dart</code>,
+        <code>phone_sms_verification_screen.dart</code>, <code>user_firestore_service.dart</code>,
+        <code>password_reset_service.dart</code>, <code>two_factor_service.dart</code> e
+        <code>functions/src/auth/*</code>.
+      </div>
+    </section>
+  </main>
+</body>
+</html>

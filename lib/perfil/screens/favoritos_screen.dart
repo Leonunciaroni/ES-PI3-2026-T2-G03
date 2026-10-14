@@ -1,9 +1,26 @@
-// Autor principal: Miguel Costacurta - 25003110
-
-
-
-// Lista de startups marcadas como favoritas — mesmo gradiente/cores do Explorar,
-// cabeçalho [MesclaDetailHeader] como na tela de detalhes da startup, cards iguais ao catálogo.
+// ============================================================
+// ARQUIVO: favoritos_screen.dart
+// AUTOR PRINCIPAL: Miguel Costacurta - 25003110
+// ============================================================
+//
+// ┌──────────────────────────────────────────────────────────────────────────┐
+// │ MIGUEL — O QUE VOCÊ FEZ (lista de favoritos / lista de desejos)          │
+// │                                                                          │
+// │ Esta tela mostra as startups que o usuário favoritou.                    │
+// │ Abre a partir do Perfil → "Lista de Desejos".                            │
+// │                                                                          │
+// │ FLUXO RESUMIDO:                                                          │
+// │   1. Firestore emite IDs: users/{uid}.favoriteStartupIds                 │
+// │   2. Busca dados completos das startups (catálogo em cache/Function)     │
+// │   3. Cruza IDs com catálogo → monta lista de CatalogStartup              │
+// │   4. Renderiza cards iguais ao Explorar                                  │
+// │                                                                          │
+// │ CAMINHO DE ESTUDO:                                                       │
+// │   1. Este arquivo (FavoritosScreen)                                      │
+// │   2. startup_detail_screen.dart → _toggleWishlist (marcar/desmarcar)     │
+// │   3. startup_detail_screen_widgets.dart → botão "Lista de Desejos"       │
+// │   4. user_firestore_service.dart → watch/set favoriteStartupIds (Pedro)  │
+// └──────────────────────────────────────────────────────────────────────────┘
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,7 +38,7 @@ import '../../theme/app_colors.dart';
 class FavoritosScreen extends StatefulWidget {
   const FavoritosScreen({super.key, this.onInvestir});
 
-  /// Igual ao Explorar: após "Investir Agora" no detalhe, abre o Balcão na startup certa.
+  /// Callback repassado ao card: ao investir, o Dashboard troca para o Balcão.
   final void Function(CatalogStartup)? onInvestir;
 
   @override
@@ -29,30 +46,46 @@ class FavoritosScreen extends StatefulWidget {
 }
 
 class _FavoritosScreenState extends State<FavoritosScreen> {
+  // Serviço que busca startups via Cloud Function listStartups.
   late final StartupCatalogFunctionsService _functionsService;
+
+  // Stream que combina IDs do Firestore + resolução para objetos completos.
   late final Stream<List<CatalogStartup>> _favoritesStream;
 
   @override
   void initState() {
     super.initState();
     _functionsService = StartupCatalogFunctionsService();
+
+    // watchFavoriteStartupIds() emite sempre que favoriteStartupIds muda no Firestore.
+    // asyncMap chama _resolveFavorites para transformar IDs em CatalogStartup.
     _favoritesStream = UserFirestoreService.watchFavoriteStartupIds().asyncMap(
       _resolveFavorites,
     );
   }
 
+  /// Converte lista de IDs (Firestore) em lista de startups com nome, logo, etc.
+  ///
+  /// Por quê não guardar a startup inteira no Firestore?
+  /// → Só guardamos IDs; os dados vêm do catálogo (fonte única, sempre atualizada).
   Future<List<CatalogStartup>> _resolveFavorites(List<String> ids) async {
     if (ids.isEmpty) {
       return const <CatalogStartup>[];
     }
+
+    // Catálogo completo (cache local ou Cloud Function).
     final startups = await StartupCatalogListCache.instance.fullList(
       _functionsService,
     );
+
+    // Mapa id → startup para lookup O(1).
     final byId = <String, CatalogStartup>{
       for (final s in startups)
         if (s.firestoreId != null && s.firestoreId!.isNotEmpty)
           s.firestoreId!: s,
     };
+
+    // Mantém a ordem dos IDs gravados no Firestore.
     final out = <CatalogStartup>[];
     for (final id in ids) {
       final item = byId[id];
@@ -89,7 +122,6 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    // Mesmo recuo que [StartupDetailScreen._buildDetailScrollView].
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -114,6 +146,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                           ),
                         ),
                         const SizedBox(height: 22),
+
+                        // StreamBuilder reage quando favoritos mudam (add/remove no detalhe).
                         StreamBuilder<List<CatalogStartup>>(
                           stream: _favoritesStream,
                           builder: (context, snapshot) {
@@ -131,6 +165,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 ),
                               );
                             }
+
+                            // Loading na primeira carga.
                             if (snapshot.connectionState ==
                                     ConnectionState.waiting &&
                                 !snapshot.hasData) {
@@ -141,8 +177,11 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 ),
                               );
                             }
+
                             final list =
                                 snapshot.data ?? const <CatalogStartup>[];
+
+                            // Pré-carrega logos fora do frame de build (performance).
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               if (!context.mounted || list.isEmpty) return;
                               StartupLogoPrecacheService.schedulePreloadForStartupList(
@@ -150,6 +189,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 list,
                               );
                             });
+
+                            // Estado vazio — orienta ir ao Explorar.
                             if (list.isEmpty) {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 36),
@@ -164,6 +205,8 @@ class _FavoritosScreenState extends State<FavoritosScreen> {
                                 ),
                               );
                             }
+
+                            // Um CatalogStartupCard por favorito (mesmo widget do Explorar).
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [

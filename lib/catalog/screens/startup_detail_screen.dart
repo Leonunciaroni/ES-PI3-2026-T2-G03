@@ -69,8 +69,11 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
   /// Período ativo no gráfico "Evolução" — rótulos do PDF §5.4.
   ValuationPeriod _valuationPeriod = ValuationPeriod.mensal;
 
+  // [MIGUEL - FAVORITOS] Estado local do botão "Lista de Desejos".
+  // Persistência real: users/{uid}.favoriteStartupIds no Firestore.
   /// Estado de favorito persistido em `users/{uid}.favoriteStartupIds`.
   bool _onWishlist = false;
+  // Evita duplo toque enquanto grava no Firestore.
   bool _wishlistBusy = false;
 
   /// Modo teste: stream fixo injetado.
@@ -109,6 +112,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     _loadWishlistState();
   }
 
+  // [MIGUEL - FAVORITOS] Ao abrir o detalhe, lê se esta startup já está favoritada.
   Future<void> _loadWishlistState() async {
     final startupId = widget.catalog.firestoreId?.trim();
     if (startupId == null || startupId.isEmpty) {
@@ -204,6 +208,8 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
     );
   }
 
+  // [MIGUEL - FAVORITOS] Adiciona ou remove startupId de favoriteStartupIds.
+  // Optimistic UI: atualiza ícone antes; se Firestore falhar, reverte.
   Future<void> _toggleWishlist() async {
     if (_wishlistBusy) return;
     final startupId = widget.catalog.firestoreId?.trim();
@@ -221,6 +227,7 @@ class _StartupDetailScreenState extends State<StartupDetailScreen> {
         startupId: startupId,
         favorite: next,
       );
+      // FavoritosScreen escuta watchFavoriteStartupIds → lista atualiza sozinha.
     } catch (_) {
       if (!mounted) {
         return;

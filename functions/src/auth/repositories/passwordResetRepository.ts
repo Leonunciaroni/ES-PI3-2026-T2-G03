@@ -1,6 +1,17 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
+// ┌──────────────────────────────────────────────────────────────────────────┐
+// │ MIGUEL — ESTUDE ESTE ARQUIVO (cofre OTP + sessão; Pedro escreveu)         │
+// │                                                                          │
+// │ Coleções Firestore:                                                      │
+// │   password_reset_codes/{hashEmail}    → OTP (hash), expira 5 min         │
+// │   password_reset_sessions/{hashToken} → sessionToken após verify         │
+// │                                                                          │
+// │ Compare com twoFactorRepository.ts (login 2FA):                          │
+// │   2FA usa uid; reset usa e-mail + sessionToken extra para confirm        │
+// └──────────────────────────────────────────────────────────────────────────┘
+//
 // Repositório Firestore do fluxo de recuperação de senha via OTP.
 //
 // Por que existe:

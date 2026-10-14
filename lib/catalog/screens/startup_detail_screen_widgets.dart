@@ -1,4 +1,10 @@
-﻿// Autor principal: Miguel Costacurta - 25003110
+﻿// ============================================================
+// ARQUIVO: startup_detail_screen_widgets.dart
+// AUTOR PRINCIPAL: Miguel Costacurta - 25003110
+// ============================================================
+//
+// Widgets do detalhe da startup. O botão "Lista de Desejos" em [_MainInfoCard]
+// dispara onToggleWishlist → _toggleWishlist no startup_detail_screen.dart.
 
 part of 'startup_detail_screen.dart';
 
@@ -96,6 +102,8 @@ class _MainInfoCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
+                // [MIGUEL - FAVORITOS] Botão que marca/desmarca favorito.
+                // onWishlist=true → coração preenchido; false → contorno.
                 Expanded(
                   child: FilledButton.tonal(
                     onPressed: wishlistBusy ? null : onToggleWishlist,

@@ -1,4 +1,31 @@
-// Autor principal: Miguel Costacurta - 25003110
+// ============================================================
+// ARQUIVO: two_factor_verification_screen.dart
+// AUTOR PRINCIPAL: Miguel Costacurta - 25003110
+// ============================================================
+//
+// ┌─────────────────────────────────────────────────────────┐
+// │ MIGUEL, O QUE VOCÊ FEZ AQUI?                            │
+// │                                                         │
+// │ Você criou a tela onde o usuário digita o código OTP    │
+// │ de 6 dígitos para completar o login (2FA).              │
+// │                                                         │
+// │ Fluxo desta tela:                                       │
+// │   Login com e-mail/senha → envia código por e-mail      │
+// │   → esta tela → usuário digita código → verifica via    │
+// │   Cloud Function → sucesso → Dashboard                  │
+// │                                                         │
+// │ PARA ESTUDAR:                                           │
+// │   1. Dart: enum (_TwoFactorStep)                        │
+// │      → O que é um enum? Quando usar?                    │
+// │   2. Dart: late final (inicialização adiada)            │
+// │   3. Flutter: FocusNode — controle de foco entre campos │
+// │   4. Flutter: TextInputFormatter — filtrar/formatar     │
+// │      texto enquanto o usuário digita                    │
+// │   5. Flutter: switch expression (Dart 3) no build()     │
+// │   6. Cloud Functions: como o código chega até o Firebase│
+// │      e volta pro app?                                   │
+// │      → TwoFactorService.verifyCode() chama a Function   │
+// └─────────────────────────────────────────────────────────┘
 import 'dart:math' show min;
 
 import 'package:flutter/gestures.dart';
@@ -59,8 +86,22 @@ class TwoFactorVerificationScreen extends StatefulWidget {
       _TwoFactorVerificationScreenState();
 }
 
+// [MIGUEL - ESTUDE] enum define um tipo com valores fixos.
+// Aqui _TwoFactorStep representa os 3 estados possíveis da tela:
+//   input   → usuário digitando o código
+//   success → código correto, mostrando tela de sucesso
+//   failure → código errado, mostrando tela de erro
+// → ESTUDE: quando usar enum vs bool em Dart?
+//   R: use enum quando há mais de 2 estados possíveis (bool só tem true/false).
 enum _TwoFactorStep { input, success, failure }
 
+// [MIGUEL - ESTUDE] TextInputFormatter permite interceptar e modificar
+// o texto antes de aparecer no campo. Aqui ele detecta quando o usuário
+// cola um código completo (ex.: "123456") em vez de digitar dígito por dígito.
+// → ESTUDE: override em Dart — o que significa sobrescrever um método?
+// → ESTUDE: WidgetsBinding.instance.addPostFrameCallback — por que usamos isso?
+//   R: não podemos chamar setState() durante a construção do widget.
+//   addPostFrameCallback agenda a chamada para depois que o frame atual terminar.
 /// Detecta colagem de vários dígitos antes do limite de 1 caractere por campo.
 class _OtpPasteFormatter extends TextInputFormatter {
   _OtpPasteFormatter(this.onMultiDigit);
@@ -90,6 +131,13 @@ class _TwoFactorVerificationScreenState
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
   static const _errorCircle = Color(0xFFD32F2F);
 
+  // [MIGUEL - ESTUDE] List.generate(6, ...) cria uma lista com 6 elementos.
+  // Cada elemento é um TextEditingController ou FocusNode criado na função.
+  // 6 controllers = 6 campos de dígito, um para cada posição do código OTP.
+  // → ESTUDE: o que é FocusNode? Como ele controla o cursor entre campos?
+  //   R: FocusNode representa o "foco" de um campo. Chamar requestFocus()
+  //   move o cursor para aquele campo, permitindo o preenchimento automático
+  //   (quando o usuário digita um dígito, o foco pula pro próximo campo).
   final List<TextEditingController> _digitControllers = List.generate(
     6,
     (_) => TextEditingController(),
@@ -145,6 +193,22 @@ class _TwoFactorVerificationScreenState
     }
   }
 
+  // [MIGUEL - ESTUDE] _onValidate() é o coração desta tela.
+  // Aqui o código digitado é enviado para a Cloud Function de verificação.
+  //
+  // FLUXO:
+  //   1. Junta os 6 dígitos em uma String (_code)
+  //   2. Chama _twoFactorService.verifyCode(código)
+  //      → Isso chama a Cloud Function "twoFactor" com action: "verify"
+  //      → A Function verifica o código no Firebase e retorna sucesso ou erro
+  //   3. Sucesso → muda estado para _TwoFactorStep.success → após 2.4s navega
+  //   4. Erro → muda estado para _TwoFactorStep.failure
+  //
+  // → ESTUDE: o que é uma Cloud Function? Como o Flutter chama ela?
+  //   R: Cloud Function é um código que roda no servidor do Firebase.
+  //   O Flutter chama via HTTP (FirebaseFunctions.instance.httpsCallable).
+  //   Você não precisa de servidor próprio — o Firebase cuida disso.
+  // → ESTUDE: Future.delayed — o que é? Por que esperamos 2.4s antes de navegar?
   Future<void> _onValidate() async {
     if (_code.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -527,7 +591,12 @@ class _TwoFactorVerificationScreenState
                         const SizedBox(height: 8),
                         const MesclaAuthHeaderLogo(),
                         const SizedBox(height: 28),
-                        switch (_step) {
+        // [MIGUEL - ESTUDE] switch expression (Dart 3) — forma moderna de
+        // escolher qual widget mostrar baseado no estado atual (_step).
+        // É equivalente a um if/else if/else, mas mais legível quando
+        // há múltiplos casos.
+        // → ESTUDE: diferença entre switch statement e switch expression em Dart 3.
+        switch (_step) {
                           _TwoFactorStep.input => _buildInputCard(
                             theme,
                             colorScheme,

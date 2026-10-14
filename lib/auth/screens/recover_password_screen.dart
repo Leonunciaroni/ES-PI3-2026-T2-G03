@@ -1,6 +1,26 @@
-// Autor principal: Pedro Henrique Contardi Soler
-// RA: 25005592
-// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Recuperação de senha com OTP via Functions.
+// ============================================================
+// ARQUIVO: recover_password_screen.dart
+// Autor principal: Pedro Henrique Contardi Soler - 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110
+// ============================================================
+//
+// ┌──────────────────────────────────────────────────────────────────────────┐
+// │ MIGUEL — O QUE VOCÊ FEZ NESTE FLUXO                                      │
+// │                                                                          │
+// │ ETAPA 1/3 do reset de senha (esta tela):                                 │
+// │   • Usuário digita e-mail                                                │
+// │   • Você chama PasswordResetService.sendCode()                           │
+// │   • Navega para VerificationCodeScreen                                   │
+// │                                                                          │
+// │ Pedro fez: layout base, PasswordResetService, servidor (passwordReset.ts)│
+// │                                                                          │
+// │ CAMINHO DE ESTUDO (ordem):                                               │
+// │   1. Este arquivo (_onSendInstructions)                                  │
+// │   2. password_reset_service.dart (ponte app → servidor)                │
+// │   3. functions/.../passwordReset.ts (gera OTP + e-mail)                  │
+// │   4. verification_code_screen.dart (sua outra tela)                      │
+// │   5. reset_password_screen.dart (Pedro — nova senha)                     │
+// └──────────────────────────────────────────────────────────────────────────┘
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,12 +34,10 @@ import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'verification_code_screen.dart';
 
-/// Tela de recuperação de senha com [FirebaseAuth.sendPasswordResetEmail].
+/// Tela 1 do fluxo de recuperação de senha.
 ///
-/// Mensagens de erro passam por [AuthService.messageForPasswordResetError] para
-/// alinhar com o resto do app. O texto de sucesso é neutro (enumeração de e-mails).
-///
-/// [StatefulWidget] para o [TextEditingController] do e-mail e o estado de envio.
+/// O usuário informa o e-mail; o app chama a Cloud Function `passwordReset`
+/// com `action: send` e depois abre [VerificationCodeScreen].
 class RecoverPasswordScreen extends StatefulWidget {
   const RecoverPasswordScreen({super.key});
 
@@ -28,15 +46,19 @@ class RecoverPasswordScreen extends StatefulWidget {
 }
 
 class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
+  // Controller do campo de e-mail — lê o que o usuário digitou.
   final _emailController = TextEditingController();
+
+  // Serviço que chama a Cloud Function passwordReset (Pedro escreveu; você usa).
   final _passwordResetService = PasswordResetService();
+
+  // true enquanto espera resposta do servidor — desabilita o botão.
   bool _isSending = false;
 
   static const _footerTrust = 'PROJETO INTEGRADOR III - GRUPO 3';
 
   @override
   void dispose() {
-    // Liberta o controller; sem isto o Flutter mantém listeners desnecessários.
     _emailController.dispose();
     super.dispose();
   }
@@ -47,13 +69,14 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  /// Verificação simples só para o protótipo (o servidor validaria de forma completa).
+  /// Validação local rápida antes de chamar o servidor.
   bool _isEmailPlausible(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return false;
     return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(trimmed);
   }
 
+  // [MIGUEL - ESTUDE] Coração desta tela: enviar OTP e ir para verificação.
   Future<void> _onSendInstructions() async {
     if (_isSending) return;
 
@@ -65,20 +88,21 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
 
     setState(() => _isSending = true);
     try {
-      // Fluxo próprio via Firebase Functions: envia um OTP de 6 dígitos.
+      // Chama Cloud Function passwordReset com action: "send".
+      // Servidor: verifica se e-mail existe → gera OTP → salva hash → manda e-mail.
+      // Resposta sempre { sent: true } (mesmo se e-mail não existir — segurança).
       await _passwordResetService.sendCode(email.trim().toLowerCase());
 
       if (!mounted) return;
 
-      // Após envio bem-sucedido, redireciona para a tela de verificação de código
-      // onde o usuário irá digitar o código de 6 dígitos recebido no email.
       _showSnack('Código enviado! Verifique seu e-mail.');
-      
-      // Aguarda 1 segundo para o usuário ver a mensagem, depois navega
+
+      // Pequena pausa para o usuário ler o SnackBar antes de trocar de tela.
       await Future.delayed(const Duration(seconds: 1));
-      
+
       if (!mounted) return;
-      
+
+      // push = empilha VerificationCodeScreen; usuário pode voltar com "←".
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (context) => VerificationCodeScreen(
@@ -142,7 +166,6 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
           child: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Evita BoxConstraints com altura mínima negativa quando maxHeight ainda é 0.
                 final minScrollContentHeight = constraints.maxHeight.isFinite
                     ? (constraints.maxHeight - 24).clamp(0.0, double.infinity)
                     : 0.0;
@@ -158,7 +181,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Volta para a tela anterior (normalmente o login).
+                        // Volta para login_screen.
                         Align(
                           alignment: Alignment.centerLeft,
                           child: IconButton(
@@ -243,6 +266,7 @@ class _RecoverPasswordScreenState extends State<RecoverPasswordScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 28),
+                                // Botão dispara _onSendInstructions.
                                 FilledButton(
                                   onPressed: _isSending
                                       ? null

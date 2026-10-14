@@ -1,17 +1,16 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
-// Serviço do app (Flutter) para o fluxo de **recuperação de senha** via OTP.
-//
-// Motivo:
-// - O reset padrão do Firebase Auth envia um link (oobCode) e não um OTP de 6 dígitos.
-// - Como as telas do protótipo foram desenhadas para OTP, chamamos a Function
-//   callable `passwordReset` com 3 ações: send / verify / confirm.
-//
-// Contrato com o backend (Functions):
-// - send   -> { sent: true } (sempre neutro, mesmo se o e-mail não existir)
-// - verify -> { verified: true, sessionToken: string }
-// - confirm-> { updated: true }
+// ┌──────────────────────────────────────────────────────────────────────────┐
+// │ MIGUEL — ESTUDE ESTE ARQUIVO (ponte Flutter → servidor)                  │
+// │                                                                          │
+// │ Pedro escreveu; você CHAMA nas telas recover + verification.             │
+// │                                                                          │
+// │ 3 ações da Cloud Function `passwordReset`:                               │
+// │   send    → envia OTP por e-mail (RecoverPasswordScreen)                 │
+// │   verify  → valida OTP, devolve sessionToken (VerificationCodeScreen)    │
+// │   confirm → troca senha com sessionToken (ResetPasswordScreen — Pedro)   │
+// └──────────────────────────────────────────────────────────────────────────┘
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
@@ -21,21 +20,19 @@ class PasswordResetService {
 
   final FirebaseFunctions? _functions;
 
-  /// As callables deste projeto rodam em `us-central1` (ver `functions/src/auth/...`).
-  /// Usar `instanceFor` aqui evita mismatch de região entre app e emulator.
   FirebaseFunctions get _instance =>
       _functions ?? FirebaseFunctions.instanceFor(region: 'us-central1');
 
+  /// action: "send" — dispara OTP (resposta neutra por segurança).
   Future<void> sendCode(String email) async {
-    // Dispara envio do OTP (não retorna erro se e-mail não existir, por segurança).
     await _instance.httpsCallable('passwordReset').call<void>({
       'action': 'send',
       'email': email,
     });
   }
 
+  /// action: "verify" — confere OTP; retorna sessionToken para etapa confirm.
   Future<String> verifyCode({required String email, required String code}) async {
-    // Valida OTP e devolve um token de sessão temporário para a etapa confirm.
     final result =
         await _instance.httpsCallable('passwordReset').call<Map<Object?, Object?>>({
       'action': 'verify',
@@ -46,11 +43,11 @@ class PasswordResetService {
     return token is String ? token : '';
   }
 
+  /// action: "confirm" — atualiza senha no Firebase Auth (Admin SDK no servidor).
   Future<void> confirmNewPassword({
     required String sessionToken,
     required String newPassword,
   }) async {
-    // Atualiza a senha no backend usando o token de sessão emitido em verify.
     await _instance.httpsCallable('passwordReset').call<void>({
       'action': 'confirm',
       'sessionToken': sessionToken,
@@ -60,8 +57,6 @@ class PasswordResetService {
 
   static String messageForError(Object error) {
     if (error is FirebaseFunctionsException) {
-      // O SDK pode devolver códigos em minúsculas com hífen (`not-found`) ou em
-      // MAIÚSCULAS com underscore (`NOT_FOUND`) dependendo da plataforma/ponte.
       final code = _normalizeFunctionsCode(error.code);
 
       if (kDebugMode) {
@@ -71,9 +66,6 @@ class PasswordResetService {
         );
       }
 
-      // Mensagens genéricas da infraestrutura (ex.: "NOT_FOUND" quando a function
-      // não existe em produção ou o emulador não está rodando) são descartadas
-      // para não confundir o usuário com texto técnico.
       const httpStatusMessages = {
         'NOT_FOUND', 'INTERNAL', 'UNAVAILABLE', 'UNKNOWN',
         'PERMISSION_DENIED', 'UNAUTHENTICATED',
@@ -114,10 +106,8 @@ class PasswordResetService {
     return 'Não foi possível concluir agora. Tente novamente.';
   }
 
-  /// Normaliza [FirebaseFunctionsException.code] para o formato `kebab-case`.
   static String _normalizeFunctionsCode(String? raw) {
     if (raw == null || raw.isEmpty) return '';
     return raw.toLowerCase().replaceAll('_', '-');
   }
 }
-

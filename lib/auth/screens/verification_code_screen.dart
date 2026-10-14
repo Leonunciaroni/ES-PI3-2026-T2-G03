@@ -1,6 +1,26 @@
-// Autor principal: Pedro Henrique Contardi Soler
-// RA: 25005592
-// Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Tela de código OTP (2FA e recuperação de senha).
+// ============================================================
+// ARQUIVO: verification_code_screen.dart
+// Autor principal: Pedro Henrique Contardi Soler - 25005592
+// Contribuição: Miguel Fernandes Costacurta — RA: 25003110
+// ============================================================
+//
+// ┌──────────────────────────────────────────────────────────────────────────┐
+// │ MIGUEL — O QUE VOCÊ FEZ NESTE FLUXO                                      │
+// │                                                                          │
+// │ ETAPA 2/3 do reset de senha (esta tela):                                 │
+// │   • 6 campos para digitar o OTP recebido no e-mail                       │
+// │   • Chama verifyCode → recebe sessionToken                               │
+// │   • Navega para ResetPasswordScreen com esse token                       │
+// │                                                                          │
+// │ sessionToken = prova temporária de que o usuário validou o e-mail.       │
+// │ Sem ele, ninguém pode trocar a senha na etapa 3.                         │
+// │                                                                          │
+// │ CAMINHO DE ESTUDO:                                                       │
+// │   1. _onVerifyCode() e _onResendCode() neste arquivo                     │
+// │   2. password_reset_service.dart → verifyCode()                          │
+// │   3. passwordReset.ts → handleVerify()                                   │
+// │   4. passwordResetRepository.ts → verifyResetCode()                      │
+// └──────────────────────────────────────────────────────────────────────────┘
 
 import 'dart:async';
 import 'dart:math' show min;
@@ -15,7 +35,7 @@ import '../../theme/app_colors.dart';
 import '../../theme/mescla_brand_logo.dart';
 import 'reset_password_screen.dart';
 
-/// Detecta colagem de vários dígitos antes do limite de 1 caractere por campo.
+/// Detecta colagem de vários dígitos (ex.: copiar "482910" de uma vez).
 class _OtpPasteFormatter extends TextInputFormatter {
   _OtpPasteFormatter(this.onMultiDigit);
   final void Function(String digits) onMultiDigit;
@@ -39,17 +59,14 @@ class _OtpPasteFormatter extends TextInputFormatter {
   }
 }
 
-/// Tela de verificação de código no formato 2FA.
-///
-/// O usuário recebe um código de 6 dígitos no e-mail e deve inserir
-/// em campos separados (estilo 2FA). Inclui timer para reenvio do código.
+/// Tela 2 do reset: usuário digita o OTP de 6 dígitos.
 class VerificationCodeScreen extends StatefulWidget {
   const VerificationCodeScreen({
     super.key,
     required this.email,
   });
 
-  /// E-mail para o qual o código foi enviado.
+  /// E-mail informado na RecoverPasswordScreen — usado na verificação no servidor.
   final String email;
 
   @override
@@ -57,7 +74,7 @@ class VerificationCodeScreen extends StatefulWidget {
 }
 
 class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
-  // 6 controllers para os 6 dígitos do código
+  // Um controller e um FocusNode por dígito (6 campos).
   final List<TextEditingController> _digitControllers = List.generate(
     6,
     (_) => TextEditingController(),
@@ -70,7 +87,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
   bool _isResending = false;
   final _passwordResetService = PasswordResetService();
 
-  // Timer para o botão "Solicitar novamente"
+  // Countdown de 60s antes de permitir reenviar o código.
   int _resendCountdown = 60;
   Timer? _resendTimer;
 
@@ -114,7 +131,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
     );
   }
 
-  /// Obtém o código completo dos 6 campos.
+  /// Junta os 6 campos numa String só (ex.: "482910").
   String get _code => _digitControllers.map((c) => c.text).join();
 
   void _applyDigitsFromPaste(String raw) {
@@ -131,19 +148,17 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
   }
 
   void _onDigitChanged(int index, String value) {
-    if (value.length > 1) {
-      return;
-    }
+    if (value.length > 1) return;
     if (value.isNotEmpty && index < 5) {
       _digitFocusNodes[index + 1].requestFocus();
     }
-    // Se preencheu todos os 6 dígitos, tenta verificar automaticamente
+    // Auto-verifica quando completar 6 dígitos.
     if (_code.length == 6) {
       _onVerifyCode();
     }
   }
 
-  /// Valida o código com o Firebase e navega para a tela de definir senha.
+  // [MIGUEL - ESTUDE] Valida OTP e obtém sessionToken para a próxima tela.
   Future<void> _onVerifyCode() async {
     if (_isVerifying) return;
 
@@ -155,6 +170,8 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
 
     setState(() => _isVerifying = true);
     try {
+      // Cloud Function passwordReset action: "verify"
+      // → confere hash no Firestore → devolve sessionToken se OK.
       final sessionToken = await _passwordResetService.verifyCode(
         email: widget.email.trim().toLowerCase(),
         code: code,
@@ -162,7 +179,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
 
       if (!mounted) return;
 
-      // Código válido! Navega para a tela de definir senha
+      // pushReplacement: troca esta tela pela de nova senha (não dá voltar).
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (context) => ResetPasswordScreen(sessionToken: sessionToken),
@@ -179,7 +196,7 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
     }
   }
 
-  /// Solicita um novo código de recuperação.
+  // Reenvia OTP (mesma action "send" da RecoverPasswordScreen).
   Future<void> _onResendCode() async {
     if (_isResending || _resendCountdown > 0) return;
 
@@ -192,7 +209,6 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
       _showSnack('Novo código enviado! Verifique seu e-mail.');
       _startResendTimer();
 
-      // Limpa os campos
       for (final c in _digitControllers) {
         c.clear();
       }
@@ -315,7 +331,6 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Botão de voltar
                         Align(
                           alignment: Alignment.centerLeft,
                           child: IconButton(
@@ -363,10 +378,8 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 28),
-                                // 6 campos individuais para o código (estilo 2FA)
                                 _buildDigitRow(theme, colorScheme),
                                 const SizedBox(height: 28),
-                                // Botão de verificar
                                 FilledButton(
                                   onPressed: _isVerifying ? null : _onVerifyCode,
                                   style: FilledButton.styleFrom(
@@ -399,7 +412,6 @@ class _VerificationCodeScreenState extends State<VerificationCodeScreen> {
                                         ),
                                 ),
                                 const SizedBox(height: 20),
-                                // Botão de reenviar código
                                 if (_resendCountdown > 0)
                                   Text(
                                     'Solicitar novamente em $_resendCountdown segundos',

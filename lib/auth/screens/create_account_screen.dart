@@ -1,5 +1,30 @@
-// Autor principal:  Miguel Costacurta - 25003110
-// Refatoração feita por do layout - Pedro Henrique Contardi Soler - 25005592
+// ============================================================
+// ARQUIVO: create_account_screen.dart
+// AUTOR PRINCIPAL: Miguel Costacurta - 25003110
+// Refatoração de layout: Pedro Henrique Contardi Soler - 25005592
+// ============================================================
+//
+// ┌─────────────────────────────────────────────────────────┐
+// │ MIGUEL, O QUE VOCÊ FEZ AQUI?                            │
+// │                                                         │
+// │ Você criou o fluxo completo de cadastro em 9 etapas.   │
+// │ Cada etapa coleta um dado (nome, e-mail, telefone,      │
+// │ método 2FA, CPF, senha, confirmação, termos, foto).     │
+// │ No final, chama UserFirestoreService para criar o       │
+// │ usuário no Firebase Auth E salvar o perfil no Firestore.│
+// │                                                         │
+// │ PARA ESTUDAR (em ordem sugerida):                       │
+// │   1. Dart básico: variáveis, bool, String, int          │
+// │   2. Dart: getter (get _passwordHasMin8)                │
+// │   3. Dart: async/await e Future                         │
+// │   4. Flutter: StatefulWidget vs StatelessWidget         │
+// │   5. Flutter: setState() e reconstrução da UI           │
+// │   6. Flutter: TextEditingController                     │
+// │   7. Flutter: Navigator.push e pushAndRemoveUntil       │
+// │   8. Firebase Auth: createUserWithEmailAndPassword      │
+// │   9. Firestore: como os dados são salvos em users/{uid} │
+// └─────────────────────────────────────────────────────────┘
+
 // Importa File para guardar temporariamente a imagem escolhida pelo usuário.
 import 'dart:io';
 
@@ -33,6 +58,11 @@ class CreateAccountScreen extends StatefulWidget {
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
+  // [MIGUEL - ESTUDE] TextEditingController é a ponte entre o TextField (UI)
+  // e o código Dart. Cada campo de texto tem seu próprio controller.
+  // → ESTUDE: o que é um controller em Flutter? Por que não usar uma variável String simples?
+  // → ESTUDE: por que precisamos chamar controller.dispose() no dispose()?
+  //
   // Guarda o nome completo digitado na etapa 1.
   final _nameController = TextEditingController();
   // Guarda o e-mail digitado na etapa 2.
@@ -82,6 +112,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   /// `false` = MFA por e-mail; `true` = MFA por SMS (Firebase Phone).
   bool _mfaSmsPreferred = false;
+
+  // [MIGUEL - ESTUDE] Getters em Dart: "get nomeDoGetter" cria uma propriedade
+  // calculada. Toda vez que o Flutter reconstrói (via setState), esses getters
+  // são reavaliados automaticamente com o texto atual do controller.
+  // → ESTUDE: diferença entre uma variável e um getter em Dart.
+  // → ESTUDE: RegExp (expressões regulares) — o que faz [A-Z] e [0-9]?
 
   // Verifica a regra visual de senha com no mínimo 8 caracteres.
   bool get _passwordHasMin8 {
@@ -457,6 +493,25 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
   }
 
+  // [MIGUEL - ESTUDE] _onCreateAccount() é o ponto mais importante deste arquivo.
+  // É aqui que o Flutter "conversa" com o Firebase pela primeira vez.
+  //
+  // O fluxo é:
+  //   1. Valida todos os passos (garante que nenhum dado ficou inválido)
+  //   2. Chama UserFirestoreService.createUserWithEmailAndPassword()
+  //      → Isso cria o usuário no Firebase Auth (e-mail/senha)
+  //      → E também salva o perfil no Firestore em users/{uid}
+  //   3. Faz upload da foto (se o usuário escolheu uma)
+  //   4. Navega para a tela de verificação de e-mail
+  //
+  // → ESTUDE: async/await — o que significa await aqui?
+  // → ESTUDE: try/catch/finally — como funciona o tratamento de erros?
+  // → ESTUDE: mounted — por que checamos isso depois de cada await?
+  //   R: a tela pode ter sido fechada enquanto esperávamos o Firebase responder.
+  //      Chamar setState() numa tela fechada causa erro.
+  // → ESTUDE: Navigator.pushAndRemoveUntil — o que faz o (route) => false?
+  //   R: remove TODAS as telas anteriores da pilha, impedindo o usuário
+  //      de apertar "voltar" e ir pro cadastro de novo.
   Future<void> _onCreateAccount() async {
     // Impede duplo clique no botão de criar conta.
     if (_isSubmitting) return;
@@ -488,7 +543,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     try {
       // Normaliza e-mail para navegação pós-cadastro e verificação.
       final normalizedEmail = email.trim().toLowerCase();
-      // Cria o usuário no Firebase Auth e o perfil no Firestore.
+      // [MIGUEL - ESTUDE] UserFirestoreService.createUserWithEmailAndPassword()
+      // é o serviço (feito pelo Pedro) que:
+      //   1. Chama _auth.createUserWithEmailAndPassword → cria no Firebase Auth
+      //   2. Chama _usersCollection.doc(uid).set({...}) → salva no Firestore
+      //
+      // Você passa os dados coletados nas 9 etapas como parâmetros.
+      // mfaDeliveryMethod define se o 2FA será por e-mail ou SMS.
+      // → ESTUDE: o que é Firebase Auth vs Firestore? Qual a diferença?
+      //   Firebase Auth → gerencia login/senha/sessão
+      //   Firestore → banco de dados com perfil, preferências, dados do usuário
       await UserFirestoreService.createUserWithEmailAndPassword(
         name: name,
         email: email,
@@ -1315,8 +1379,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             ),
                           ),
                           const SizedBox(height: 20),
-                          // Troca animada entre campos reduz sensação de tela estática.
-                          AnimatedSwitcher(
+      // [MIGUEL - ESTUDE] AnimatedSwitcher anima a troca entre widgets filhos.
+      // A "chave" (ValueKey) é essencial: quando a chave muda, o Flutter
+      // entende que é um Widget diferente e dispara a animação.
+      // → ESTUDE: o que é uma Key em Flutter? Por que usamos ValueKey aqui?
+      //   R: sem a key, o Flutter reutilizaria o widget antigo e não animaria.
+      // Troca animada entre campos reduz sensação de tela estática.
+      AnimatedSwitcher(
                             duration: const Duration(milliseconds: 220),
                             // Chave força o Flutter a animar quando a etapa muda.
                             child: KeyedSubtree(

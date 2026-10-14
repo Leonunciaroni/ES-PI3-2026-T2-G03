@@ -1,6 +1,23 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 // Contribuição: Miguel Fernandes Costacurta — RA: 25003110. Integração Firebase Auth e fluxo pós-login.
+//
+// ┌─────────────────────────────────────────────────────────┐
+// │ MIGUEL, O QUE VOCÊ CONTRIBUIU AQUI?                     │
+// │                                                         │
+// │ Você integrou o Firebase Auth no fluxo de login e       │
+// │ implementou a lógica pós-login: verificar primeiro       │
+// │ acesso, checar se o 2FA está ativo no Firestore e       │
+// │ redirecionar para a tela correta.                       │
+// │                                                         │
+// │ PARA ESTUDAR (foque no método _onLogin):                │
+// │   1. Firebase Auth: signInWithEmailAndPassword          │
+// │      → O que retorna? O que acontece se a senha errar?  │
+// │   2. Firestore: leitura de um campo (isTwoFactorEnabled)│
+// │   3. Flutter: navegação com pushAndRemoveUntil          │
+// │   4. Dart: try/catch para erros do Firebase             │
+// │   5. Flutter: mounted — checagem obrigatória após await │
+// └─────────────────────────────────────────────────────────┘
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -83,13 +100,26 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
-      // 1. Autenticação Firebase Auth.
+      // [MIGUEL - ESTUDE] PASSO 1: Autentica com Firebase Auth.
+      // signInWithEmailAndPassword verifica a senha no servidor do Firebase.
+      // Se a senha estiver errada → lança FirebaseAuthException (vai pro catch).
+      // Se estiver certa → o Firebase cria uma sessão e FirebaseAuth.currentUser
+      // passa a ter o usuário logado.
+      // → ESTUDE: o que é uma "sessão" no Firebase? Quanto tempo ela dura?
       await UserFirestoreService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
+      // [MIGUEL - ESTUDE] mounted é um bool do State do Flutter.
+      // Depois de qualquer await, a tela pode ter sido fechada pelo usuário.
+      // Se !mounted, não podemos mais chamar setState ou Navigator.
       if (!mounted) return;
 
+      // [MIGUEL - ESTUDE] PASSO 2: Verifica se é primeiro acesso.
+      // Lê o campo firstAccess do Firestore (users/{uid}.firstAccess).
+      // Se true → usuário nunca completou a verificação de e-mail/telefone.
+      // → ESTUDE: por que essa verificação fica no Firestore e não no Firebase Auth?
+      //   R: o Firebase Auth só sabe de autenticação. Dados extras ficam no Firestore.
       final firstAccessPending =
           await UserFirestoreService.isFirstAccessPending();
       if (!mounted) return;
@@ -103,12 +133,20 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // [MIGUEL - ESTUDE] PASSO 3: Verifica se o 2FA está ativo.
+      // Lê users/{uid}.twoFactorEnabled no Firestore.
+      // Se false → vai direto pro Dashboard (sem pedir código OTP).
+      // Se true → continua e envia o código OTP.
       // 2. Conforme preferência em `users/{uid}.twoFactorEnabled`, envia OTP ou entra direto.
       final twoFaOn = await UserFirestoreService.isTwoFactorLoginEnabled();
       if (!mounted) return;
 
       if (!twoFaOn) {
         StartupCatalogListCache.instance.clear();
+        // [MIGUEL - ESTUDE] recordSessionAfterLogin() salva no SharedPreferences
+        // a hora atual + 24h como prazo de validade da sessão.
+        // Isso é lido pelo AuthGateScreen (que você fez) para decidir
+        // se pode pular pro desbloqueio biométrico sem login.
         await SessionPersistenceService.recordSessionAfterLogin();
         if (!mounted) {
           return;
@@ -122,6 +160,12 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // [MIGUEL - ESTUDE] PASSO 4: Lê o método de entrega do código.
+      // mfaDeliveryMethod pode ser "email" ou "sms".
+      // Se "sms" → envia código por SMS (Firebase Phone Auth)
+      // Se "email" → envia código por e-mail (via Cloud Function "twoFactor")
+      // → ESTUDE: o que é Firebase Phone Auth?
+      // → ESTUDE: o que é uma Cloud Function callable? Como o Flutter chama?
       // 3. Canal MFA: SMS (Firebase Phone) ou e-mail (Cloud Function).
       final mfaMethod = await UserFirestoreService.fetchMfaDeliveryMethod();
       if (!mounted) {

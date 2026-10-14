@@ -1,6 +1,18 @@
 // Autor principal: Pedro Henrique Contardi Soler
 // RA: 25005592
 //
+// ┌──────────────────────────────────────────────────────────────────────────┐
+// │ MIGUEL — ESTUDE ESTE ARQUIVO (servidor; Pedro escreveu)                  │
+// │                                                                          │
+// │ Mesma ideia do twoFactor.ts, mas com 3 etapas:                           │
+// │   send → verify → confirm                                                  │
+// │                                                                          │
+// │ Diferença do 2FA de login:                                               │
+// │   • Não exige usuário logado (só e-mail)                                 │
+// │   • Após OTP correto, gera sessionToken para trocar senha                │
+// │   • confirm usa Admin SDK para updateUser({ password })                  │
+// └──────────────────────────────────────────────────────────────────────────┘
+//
 // Firebase Function (Callable) para **recuperação de senha** via OTP (6 dígitos),
 // no mesmo estilo do 2FA.
 //
